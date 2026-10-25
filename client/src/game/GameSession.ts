@@ -11,7 +11,7 @@
  * Latas: cada cierto tiempo (según la dificultad) cae una lata. La verde
  * cura y la de leopardo acelera al jugador durante unos segundos.
  *
- * Cómo se supera un nivel:
+ * Cómo se supera un nivel (además hay que recorrer el callejón que pida el nivel):
  *   - Sin jefe: eliminando las botellas que piden las reglas.
  *   - Con jefe: al eliminarlas dejan de salir botellas y entra el jefe; se
  *     gana al derrotarlo.
@@ -25,7 +25,7 @@ import {
   type DifficultyId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BACKGROUND_FOLLOW, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
+import { ARENA, BOSS_COMMON, CAMERA, ENEMY, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
@@ -85,7 +85,7 @@ export class GameSession {
   kills = 0;
   /** Pasos jugados (sin contar pausas). Marca el ritmo de aparición de botellas y latas. */
   steps = 0;
-  /** Píxeles que ha avanzado el fondo del callejón (sigue al jugador, ver BACKGROUND_FOLLOW). */
+  /** Píxeles que ha avanzado el callejón (ver CAMERA en config.ts). */
   backgroundDistance = 0;
 
   private currentStatus: GameStatus = 'running';
@@ -128,9 +128,10 @@ export class GameSession {
     return { level: this.level.id, kills: this.kills, points: this.points };
   }
 
-  /** true cuando ya se han eliminado las botellas que piden las reglas. */
+  /** true cuando ya se han eliminado las botellas Y recorrido el callejón que piden las reglas. */
   get waveCompleted(): boolean {
-    return this.kills >= this.rules.killsToComplete;
+    const { killsToComplete, distanceToComplete } = this.rules;
+    return this.kills >= killsToComplete && this.backgroundDistance >= distanceToComplete;
   }
 
   pause(): void {
@@ -168,9 +169,12 @@ export class GameSession {
   // ------------------------------------------------------------------
 
   private moveEverything(input: InputState): void {
-    const shot = this.player.update(input, this.rules.field);
+    // Contra el jefe no se avanza: el combate es en el sitio
+    const canAdvance = this.boss === null;
+    const shot = this.player.update(input, this.rules.field, this.rules.shootCooldown, canAdvance);
     if (shot) this.playerBullets.push(shot);
-    this.backgroundDistance += this.player.forwardMotion * BACKGROUND_FOLLOW;
+    if (this.player.isSprinting) this.backgroundDistance += CAMERA.sprintSpeed;
+    else if (this.player.isAdvancing) this.backgroundDistance += CAMERA.advanceSpeed;
 
     for (const enemy of this.enemies) {
       const enemyShot = enemy.update();

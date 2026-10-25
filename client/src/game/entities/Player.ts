@@ -20,6 +20,9 @@ import { Bullet } from './Bullet';
 /** Sin callejón (p. ej. en tests): todo el ancho del área de juego. */
 const FULL_WIDTH: Playfield = { left: 0, right: ARENA.width };
 
+/** La única dirección que cuenta como "mirar hacia delante" (hacia el fondo del callejón). */
+const FORWARD: Direction = 'arriba';
+
 export class Player implements Rect {
   readonly width = PLAYER.width;
   readonly height = PLAYER.height;
@@ -28,16 +31,20 @@ export class Player implements Rect {
   /** Dirección en la que mira. Empieza hacia arriba, que es hacia donde dispara. */
   facing: Direction = 'arriba';
 
-  /**
-   * Píxeles que ha intentado avanzar hacia arriba en el último paso (negativo
-   * = hacia abajo). Es la INTENCIÓN, no lo que se ha movido de verdad: pegado
-   * al borde de arriba y pulsando arriba, el personaje no se mueve pero sigue
-   * "andando" por el callejón, y el fondo debe seguir avanzando.
-   */
-  forwardMotion = 0;
-
   /** true si en el último paso se ha movido (decide si se anima o se queda en pose neutra). */
   isMoving = false;
+
+  /**
+   * true mientras avanza por el callejón: mira recto hacia delante (arriba;
+   * en diagonal no cuenta) y la partida lo permite (contra el jefe, no).
+   * No hace falta pulsar nada: como en una cinta de correr, el personaje
+   * corre en el sitio y es el callejón el que se mueve (ver CAMERA en config.ts).
+   * Mirando a un lado, en diagonal o hacia atrás, se para.
+   */
+  isAdvancing = false;
+
+  /** true si además mantiene pulsado "arriba": esprinta (el callejón va más rápido). */
+  isSprinting = false;
 
   /** Pasos acumulados andando. Se reinicia al pararse, para empezar siempre el ciclo desde el principio. */
   private walkSteps = 0;
@@ -45,7 +52,7 @@ export class Player implements Rect {
   /** Pasos que faltan para poder volver a disparar. */
   private shootCooldown = 0;
 
-  /** Pasos que le quedan al acelerón de la lata de velocidad (0 = sin acelerón). */
+  /** Pasos que le quedan al disparo rápido de la lata de velocidad (0 = sin él). */
   private boostSteps = 0;
 
   constructor(
@@ -67,18 +74,19 @@ export class Player implements Rect {
     return (this.health / PLAYER.maxHealth) * 100;
   }
 
-  /** Porcentaje que queda del acelerón (0 = sin acelerón). Lo usa el renderer para su barra. */
+  /** Porcentaje que queda del disparo rápido de la lata de velocidad (0 = sin él). Lo usa el renderer para su barra. */
   get boostPercent(): number {
     return (this.boostSteps / PICKUP_TYPES.speed.durationSteps) * 100;
   }
 
   /**
    * Columna de la hoja de sprites que toca dibujar ahora.
-   * Quieto: siempre la pose neutra. Andando: avanza un frame cada
-   * STEPS_PER_ANIMATION_FRAME pasos y vuelve a empezar al terminar el ciclo.
+   * Quieto: siempre la pose neutra. Andando o avanzando por el callejón
+   * (corriendo en el sitio): avanza un frame cada STEPS_PER_ANIMATION_FRAME
+   * pasos y vuelve a empezar al terminar el ciclo.
    */
   get animationFrame(): number {
-    if (!this.isMoving) return IDLE_FRAME;
+    if (!this.isMoving && !this.isAdvancing) return IDLE_FRAME;
     return Math.floor(this.walkSteps / STEPS_PER_ANIMATION_FRAME) % WALK_CYCLE_LENGTH;
   }
 
@@ -86,29 +94,38 @@ export class Player implements Rect {
    * Avanza un paso: mueve según las teclas pulsadas, actualiza la animación
    * y dispara si toca.
    * @param field - suelo del callejón: el jugador no puede meterse en las paredes
+   * @param shootCooldown - pasos entre disparos según la dificultad (ver rules.ts)
+   * @param canAdvance - si la partida deja avanzar por el callejón ahora (contra el jefe, no)
    * @returns la bala disparada en este paso, o null si no ha disparado
    */
-  update(input: InputState, field: Playfield = FULL_WIDTH): Bullet | null {
+  update(
+    input: InputState,
+    field: Playfield = FULL_WIDTH,
+    shootCooldown: number = PLAYER.shootCooldown,
+    canAdvance = false,
+  ): Bullet | null {
     // -1, 0 o 1 en cada eje. Si se pulsan dos teclas opuestas a la vez se anulan.
     const dx = Number(input.isDown('right')) - Number(input.isDown('left'));
     const dy = Number(input.isDown('down')) - Number(input.isDown('up'));
 
-    const speed = this.boostSteps > 0 ? PLAYER.speed * PICKUP_TYPES.speed.speedScale : PLAYER.speed;
-    if (this.boostSteps > 0) this.boostSteps--;
-    this.x += dx * speed;
-    this.y += dy * speed;
-    this.forwardMotion = -dy * speed;
+    this.x += dx * PLAYER.speed;
+    this.y += dy * PLAYER.speed;
 
     // A los lados, las paredes del callejón. Arriba, sitio para la cabeza y la barra de vida.
     this.x = clamp(this.x, field.left, field.right - this.width);
     this.y = clamp(this.y, PLAYER.topMargin, ARENA.height - this.height);
 
-    this.updateAnimation(dx, dy);
+    this.updateAnimation(dx, dy, canAdvance);
 
     if (this.shootCooldown > 0) this.shootCooldown--;
+    const boosted = this.boostSteps > 0;
+    if (boosted) this.boostSteps--;
 
     if (input.isDown('shoot') && this.shootCooldown === 0) {
-      this.shootCooldown = PLAYER.shootCooldown;
+      // Con la lata de velocidad, la espera entre disparos se divide
+      this.shootCooldown = boosted
+        ? Math.round(shootCooldown / PICKUP_TYPES.speed.fireRateScale)
+        : shootCooldown;
       // El abrechapas sale centrado sobre el jugador, hacia arriba (velocidad negativa)
       const bulletX = this.x + this.width / 2 - PLAYER_BULLET.width / 2;
       const bulletY = this.y - PLAYER_BULLET.height;
@@ -128,24 +145,26 @@ export class Player implements Rect {
     this.health = Math.min(PLAYER.maxHealth, this.health + amount);
   }
 
-  /** Empieza el acelerón. Otra lata durante el acelerón lo renueva, no lo acumula. */
+  /** Empieza el disparo rápido. Otra lata mientras dura lo renueva, no lo acumula. */
   boost(): void {
     this.boostSteps = PICKUP_TYPES.speed.durationSteps;
   }
 
-  private updateAnimation(dx: number, dy: number): void {
+  private updateAnimation(dx: number, dy: number, canAdvance: boolean): void {
     const direction = directionFromInput(dx, dy);
 
     // Al soltar las teclas NO se cambia "facing": el personaje se queda
-    // mirando hacia donde iba, que es lo natural.
-    if (direction === null) {
-      this.isMoving = false;
-      this.walkSteps = 0;
-      return;
-    }
+    // mirando hacia donde iba, que es lo natural. Por eso, si lo último fue
+    // ir hacia delante, sigue avanzando sin pulsar nada.
+    if (direction !== null) this.facing = direction;
+    this.isMoving = direction !== null;
+    this.isAdvancing = canAdvance && this.facing === FORWARD;
+    this.isSprinting = this.isAdvancing && direction === FORWARD;
 
-    this.facing = direction;
-    this.isMoving = true;
-    this.walkSteps++;
+    // Andando o corriendo en el sitio, el ciclo sigue (al esprintar, al doble de
+    // velocidad: las piernas van más rápido); parado, vuelve al principio
+    if (this.isSprinting) this.walkSteps += 2;
+    else if (this.isMoving || this.isAdvancing) this.walkSteps++;
+    else this.walkSteps = 0;
   }
 }

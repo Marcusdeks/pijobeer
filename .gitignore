@@ -10,8 +10,9 @@ peticiones futuras*
 *.jsonl
 privado/
 
-# Canciones comerciales para probar en local con "Subir tu canción" (Opciones):
-# tienen derechos de autor, así que no se pueden publicar
+# Música solo para este equipo: el juego la lee de sound/<estilo>/ (ver
+# client/src/assets/music/LEEME.md) y también sirve para probar "Subir tu canción".
+# Pueden tener derechos de autor, así que no se publican.
 sound/
 
 # Dependencias (se regeneran con "npm install")

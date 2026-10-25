@@ -105,6 +105,7 @@
   "credits": {
     "title": "Créditos",
     "design": "Diseño y programación: Karazjan",
+    "music": "Música: Hueste Negra",
     "stack": "Hecho con React, TypeScript, Node.js, Express y PostgreSQL",
     "translations": "Disponible en español, inglés y francés"
   },

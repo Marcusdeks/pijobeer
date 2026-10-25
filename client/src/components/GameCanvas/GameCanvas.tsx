@@ -6,7 +6,7 @@
  * segundo. Por eso el juego no usa estado de React: este componente crea
  * un <canvas>, arranca el motor (GameSession + GameLoop) y le cede el
  * control. React solo se entera de lo importante mediante los eventos
- * (cambios de estado, aparición del jefe, victoria, fin de partida).
+ * (cambios de estado, victoria, fin de partida).
  *
  * En sentido contrario, el padre puede dar órdenes al motor a través de
  * `ref` (pausar y reanudar), que es lo que usan los botones del menú de pausa.
@@ -54,7 +54,6 @@ interface GameCanvasProps {
   modifiers?: GameModifiers;
   difficulty: DifficultyId;
   onStatusChange: (status: GameStatus) => void;
-  onBossAppear?: () => void;
   onVictory: (result: GameResult) => void;
   onGameOver: (result: GameResult) => void;
   /** Contenido que se pinta ENCIMA del canvas (menús de pausa y victoria). */
@@ -83,7 +82,6 @@ export function GameCanvas({
   modifiers,
   difficulty,
   onStatusChange,
-  onBossAppear,
   onVictory,
   onGameOver,
   children,
@@ -101,8 +99,8 @@ export function GameCanvas({
   const labelsRef = useRef<RenderLabels | null>(null);
 
   useEffect(() => {
-    eventsRef.current = { onStatusChange, onBossAppear, onVictory, onGameOver };
-  }, [onStatusChange, onBossAppear, onVictory, onGameOver]);
+    eventsRef.current = { onStatusChange, onVictory, onGameOver };
+  }, [onStatusChange, onVictory, onGameOver]);
 
   useEffect(() => {
     labelsRef.current = {
@@ -112,14 +110,11 @@ export function GameCanvas({
     };
   }, [t]);
 
-  /* Al empezar la partida la pantalla se coloca sola: se desplaza para que
-     el juego quede centrado en la ventana, y el foco del teclado pasa al
-     canvas (si se quedara en un enlace de la cabecera, Espacio o Enter
-     podrían activarlo en mitad de la partida). */
+  /* Al empezar la partida el foco del teclado pasa al canvas (si se quedara
+     en un enlace de la cabecera, Espacio o Enter podrían activarlo en mitad
+     de la partida). Centrar la pantalla lo hace PlayPage. */
   useEffect(() => {
-    const canvas = canvasRef.current;
-    canvas?.scrollIntoView({ block: 'center', behavior: 'smooth' });
-    canvas?.focus({ preventScroll: true });
+    canvasRef.current?.focus({ preventScroll: true });
   }, [levelId]);
 
   useImperativeHandle(ref, () => ({
@@ -137,7 +132,6 @@ export function GameCanvas({
       difficulty,
       events: {
         onStatusChange: (status) => eventsRef.current.onStatusChange?.(status),
-        onBossAppear: () => eventsRef.current.onBossAppear?.(),
         onVictory: (result) => eventsRef.current.onVictory?.(result),
         onGameOver: (result) => eventsRef.current.onGameOver?.(result),
       },

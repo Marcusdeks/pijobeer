@@ -107,3 +107,33 @@
     animation: none;
   }
 }
+
+/* Móvil: el canvas mide poco más de 200 px de alto y el menú tiene que caber dentro */
+@media (max-width: 600px) {
+  .overlay {
+    gap: 0.4rem;
+    padding: 0.5rem;
+    overflow-y: auto;
+  }
+
+  .title {
+    font-size: 1.4rem;
+    letter-spacing: 2px;
+  }
+
+  .subtitle {
+    font-size: 0.8rem;
+  }
+
+  .actions {
+    gap: 0.4rem;
+    margin-top: 0.2rem;
+  }
+
+  .actions > * {
+    min-width: 8rem;
+    min-height: 2.2rem;
+    padding: 0.3rem 0.8rem;
+    font-size: 0.75rem;
+  }
+}

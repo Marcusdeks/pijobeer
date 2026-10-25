@@ -9,6 +9,7 @@ export function CreditsPage() {
     <Panel variant="accent">
       <h2>{t('credits.title')}</h2>
       <p>{t('credits.design')}</p>
+      <p>{t('credits.music')}</p>
       <p>{t('credits.stack')}</p>
       <p>{t('credits.translations')}</p>
     </Panel>

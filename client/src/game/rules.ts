@@ -18,7 +18,7 @@ import {
   type GameModifiers,
   type LevelDefinition,
 } from '@pijobeer/shared';
-import { PICKUP, PICKUP_TYPES } from './config';
+import { PICKUP, PICKUP_TYPES, PLAYER } from './config';
 import type { RandomFn } from './entities/Enemy';
 import { playfieldFor, type Playfield } from './playfield';
 
@@ -27,6 +27,10 @@ export interface GameRules {
   /** Suelo del callejón: nadie puede meterse en las paredes. */
   field: Playfield;
   killsToComplete: number;
+  /** Píxeles de callejón que hay que recorrer además (0 = no hace falta). */
+  distanceToComplete: number;
+  /** Pasos entre disparo y disparo del jugador. */
+  shootCooldown: number;
   spawnInterval: number;
   /** Multiplicador final de la velocidad de las botellas (nivel × truco). */
   enemySpeed: number;
@@ -59,6 +63,9 @@ export function resolveRules(
     level,
     field: playfieldFor(level),
     killsToComplete: modifiers.killsToComplete ?? level.killsToComplete,
+    // Si un admin fija las botellas, ese es el objetivo entero: así puede probar el jefe sin esperar
+    distanceToComplete: modifiers.killsToComplete === null ? level.distanceToComplete : 0,
+    shootCooldown: Math.round(PLAYER.shootCooldown / difficulty.fireRate),
     spawnInterval: Math.max(
       MIN_SPAWN_INTERVAL,
       Math.round(level.spawnInterval / (modifiers.spawnRate * difficulty.spawnRate)),

@@ -63,23 +63,6 @@
   outline-offset: 2px;
 }
 
-.volume {
-  display: flex;
-  align-items: center;
-  gap: 0.8rem;
-  font-weight: 700;
-}
-
-.volume input {
-  accent-color: var(--color-primary);
-  width: min(50vw, 220px);
-}
-
-.volume output {
-  min-width: 3.5rem;
-  font-weight: 400;
-}
-
 /* Fuera de la vista pero accesible: el foco del teclado llega al input y se ve en su <label> */
 .upload input {
   position: absolute;

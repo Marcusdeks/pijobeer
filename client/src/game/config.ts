@@ -57,8 +57,11 @@ export const PLAYER = {
   topMargin: 12,
   speed: 5,
   maxHealth: 100,
-  /** Pasos entre disparo y disparo (15 = 4 disparos por segundo). */
-  shootCooldown: 15,
+  /**
+   * Pasos entre disparo y disparo en dificultad normal (24 = 2,5 disparos por
+   * segundo). La dificultad lo multiplica (fireRate en difficulty.ts).
+   */
+  shootCooldown: 24,
   /** Distancia entre la parte de arriba del jugador y el borde inferior al empezar (deja 16 px bajo los pies). */
   spawnBottomOffset: 80,
 } as const;
@@ -223,19 +226,31 @@ export const PICKUP = {
 export const PICKUP_TYPES = {
   /** Verde: cura. Un cuarto de la vida: ayuda, pero no salva una partida mala. */
   health: { heal: 25 },
-  /** Leopardo: el jugador corre más durante un rato. */
-  speed: { speedScale: 1.5, durationSteps: 360 },
+  /** Leopardo: durante un rato el jugador dispara el doble de rápido. */
+  speed: { fireRateScale: 2, durationSteps: 360 },
 } as const;
 
 export type PickupTypeId = keyof typeof PICKUP_TYPES;
 
 /**
- * El fondo del callejón NO avanza solo: se mueve cuando el jugador anda hacia
- * arriba (avanza) o hacia abajo (retrocede), y quieto se queda quieto. Avanza
- * esta fracción de lo que anda el jugador; al ser menos de 1 da sensación de
- * profundidad (parallax) y deja ver que el personaje se desplaza por la pantalla.
+ * CÁMARA: cómo se avanza por el callejón. Funciona como una cinta de correr:
+ * mientras el personaje MIRA recto hacia delante (arriba; en diagonal no
+ * cuenta) el callejón avanza solo y él corre en el sitio, sin pulsar nada.
+ * Manteniendo W, esprinta: el callejón va más rápido. Si mira a un lado, en
+ * diagonal o hacia atrás, se para. Contra el jefe el callejón no avanza.
+ * El jugador sigue pudiendo moverse por toda la pantalla para esquivar.
+ *
+ * El suelo es solo decorado: no arrastra a botellas ni latas, que se mueven a
+ * su propia velocidad (la que marcan el nivel y la dificultad). Por eso el
+ * avance normal es más lento que la botella más lenta: así todo parece venir
+ * hacia el jugador y nunca alejarse con el suelo.
  */
-export const BACKGROUND_FOLLOW = 0.3;
+export const CAMERA = {
+  /** Píxeles por paso que avanza el callejón (1 = 60 píxeles por segundo). */
+  advanceSpeed: 1,
+  /** Píxeles por paso al esprintar con W (2,5 = 150 píxeles por segundo): se llega antes al jefe. */
+  sprintSpeed: 2.5,
+} as const;
 
 /**
  * Balas. El tamaño es el de la CAJA DE COLISIÓN, más pequeña que el dibujo:

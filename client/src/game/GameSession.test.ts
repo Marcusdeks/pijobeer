@@ -11,10 +11,11 @@ import {
 } from '@pijobeer/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
-  BACKGROUND_FOLLOW,
   BOSS,
   BOSS_COMMON,
+  CAMERA,
   ENEMY,
+  ENEMY_TYPES,
   PICKUP_TYPES,
   PLAYER,
   PLAYER_BULLET,
@@ -23,6 +24,7 @@ import { Bullet } from './entities/Bullet';
 import { Enemy } from './entities/Enemy';
 import { Pickup } from './entities/Pickup';
 import { GameSession, type GameSessionOptions } from './GameSession';
+import { IDLE_FRAME } from './sprites/playerSprite';
 import { fakeInput, fixedRandom, run } from './testing';
 
 function session(levelId: number, options: Partial<GameSessionOptions> = {}) {
@@ -80,16 +82,97 @@ describe('aparición de botellas y progresión', () => {
     expect(game.steps).toBe(10);
   });
 
-  it('el fondo solo se mueve cuando el jugador anda hacia arriba o hacia abajo', () => {
-    const game = session(1);
-    run(game, 10);
-    run(game, 10, fakeInput('left'));
-    expect(game.backgroundDistance).toBe(0);
+  it('mirando hacia delante, el callejón avanza solo y el personaje corre en el sitio', () => {
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    const { x, y } = game.player;
 
+    // Empieza mirando hacia delante: sin pulsar nada ya avanza
+    const frames = new Set<number>();
+    for (let i = 0; i < 60; i++) {
+      game.step(fakeInput());
+      frames.add(game.player.animationFrame);
+    }
+    expect(game.backgroundDistance).toBe(60 * CAMERA.advanceSpeed);
+    expect([game.player.x, game.player.y]).toEqual([x, y]); // no se mueve de la pantalla...
+    expect(frames.size).toBeGreaterThan(1); // ...pero la animación de correr sigue
+
+    // Manteniendo W esprinta: el callejón va más rápido
     run(game, 10, fakeInput('up'));
-    expect(game.backgroundDistance).toBeCloseTo(10 * PLAYER.speed * BACKGROUND_FOLLOW);
-    run(game, 10, fakeInput('down'));
-    expect(game.backgroundDistance).toBeCloseTo(0);
+    expect(game.player.isSprinting).toBe(true);
+    expect(game.backgroundDistance).toBe(60 * CAMERA.advanceSpeed + 10 * CAMERA.sprintSpeed);
+  });
+
+  it('en diagonal no avanza: solo cuenta mirar recto hacia delante', () => {
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    run(game, 10, fakeInput('up', 'left'));
+    expect(game.backgroundDistance).toBe(0);
+    run(game, 10); // y al soltar sigue mirando en diagonal: parado
+    expect(game.backgroundDistance).toBe(0);
+  });
+
+  it('mirando a un lado o hacia atrás se para, aunque suelte las teclas', () => {
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    for (const key of ['right', 'left', 'down'] as const) {
+      game.step(fakeInput(key)); // un toque basta para girarse
+      const reached = game.backgroundDistance;
+      run(game, 30);
+      expect(game.backgroundDistance).toBe(reached);
+      expect(game.player.animationFrame).toBe(IDLE_FRAME); // quieto, pose neutra
+    }
+
+    // Al volver a mirar hacia delante, sigue avanzando
+    game.step(fakeInput('up'));
+    const reached = game.backgroundDistance;
+    run(game, 10);
+    expect(game.backgroundDistance).toBe(reached + 10 * CAMERA.advanceSpeed);
+  });
+
+  it('el suelo no arrastra a las botellas: caen a su velocidad, se avance o no', () => {
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    game.enemies.push(new Enemy(300, 100, 'normal', fixedRandom));
+    const before = game.enemies[0]!.y;
+    game.step(fakeInput());
+    expect(game.player.isAdvancing).toBe(true);
+    expect(game.enemies[0]!.y - before).toBeCloseTo(
+      ENEMY_TYPES.normal.speed * getLevel(1).enemySpeed,
+    );
+  });
+
+  it('contra el jefe el callejón se para', () => {
+    const game = session(2, { modifiers: withModifiers({ invincible: true }) });
+    game.kills = getLevel(2).killsToComplete;
+    game.backgroundDistance = getLevel(2).distanceToComplete;
+    game.step(fakeInput());
+    expect(game.boss).not.toBeNull();
+
+    const reached = game.backgroundDistance;
+    run(game, 10, fakeInput('up'));
+    expect(game.backgroundDistance).toBe(reached);
+    expect(game.player.isAdvancing).toBe(false);
+  });
+
+  it('en los niveles 2 y 3 hay que recorrer el callejón además de eliminar las botellas', () => {
+    const game = session(2);
+    game.kills = getLevel(2).killsToComplete;
+    game.step(fakeInput());
+    expect(game.boss).toBeNull();
+
+    game.backgroundDistance = getLevel(2).distanceToComplete;
+    game.step(fakeInput());
+    expect(game.boss).not.toBeNull();
+  });
+
+  it('si un admin fija las botellas a eliminar, no hace falta recorrer el callejón', () => {
+    const rules = session(3, { modifiers: withModifiers({ killsToComplete: 5 }) }).rules;
+    expect(rules.distanceToComplete).toBe(0);
+  });
+
+  it('se dispara menos cuanto más difícil (3 / 2,5 / 2 disparos por segundo)', () => {
+    const shotsPerSecond = (difficulty: 'easy' | 'normal' | 'hard') =>
+      60 / session(1, { difficulty }).rules.shootCooldown;
+    expect(shotsPerSecond('easy')).toBe(3);
+    expect(shotsPerSecond('normal')).toBe(2.5);
+    expect(shotsPerSecond('hard')).toBe(2);
   });
 });
 
@@ -138,6 +221,7 @@ describe('jefes finales', () => {
     const onVictory = vi.fn();
     const game = session(2, { events: { onBossAppear, onVictory } });
     game.kills = getLevel(2).killsToComplete;
+    game.backgroundDistance = getLevel(2).distanceToComplete;
     run(game, BOSS_ENTRY_STEPS);
     return { game, boss: game.boss!, onBossAppear, onVictory };
   }
@@ -267,18 +351,30 @@ describe('latas', () => {
     expect(healOf('easy')).toBeGreaterThan(healOf('normal'));
   });
 
-  it('la de velocidad acelera al jugador durante un rato', () => {
-    const game = session(1);
+  it('la de velocidad hace disparar el doble de rápido durante un rato', () => {
+    /** Disparos en `steps` pasos: cada abrechapas nuevo cuenta (aunque luego salga de la pantalla). */
+    const shotsIn = (game: GameSession, steps: number) => {
+      const seen = new Set(game.playerBullets);
+      const before = seen.size;
+      for (let i = 0; i < steps; i++) {
+        game.enemies = []; // sin botellas: ninguna bala desaparece antes de contarla
+        game.step(fakeInput('shoot'));
+        game.playerBullets.forEach((bullet) => seen.add(bullet));
+      }
+      return seen.size - before;
+    };
+    // Inmortal: las balas enemigas no deben acabar la partida a mitad del test
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
     addPickupOnPlayer(game, 'speed');
     game.step(fakeInput());
     expect(game.player.boostPercent).toBeGreaterThan(0);
 
-    const x = game.player.x;
-    game.step(fakeInput('left'));
-    expect(x - game.player.x).toBe(PLAYER.speed * PICKUP_TYPES.speed.speedScale);
+    const cooldown = game.rules.shootCooldown;
+    expect(shotsIn(game, cooldown * 4)).toBe(4 * PICKUP_TYPES.speed.fireRateScale);
 
     run(game, PICKUP_TYPES.speed.durationSteps);
     expect(game.player.boostPercent).toBe(0);
+    expect(shotsIn(game, cooldown * 4)).toBe(4);
   });
 
   it('las balas del jugador las atraviesan', () => {

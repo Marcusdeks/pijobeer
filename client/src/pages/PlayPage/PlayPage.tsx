@@ -19,6 +19,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminApi, scoresApi } from '../../api/endpoints';
 import { music } from '../../audio/music';
+import { VolumeSlider } from '../../audio/VolumeSlider';
 import coverImage from '../../assets/images/cover.jpg';
 import { GameCanvas, type GameCanvasHandle } from '../../components/GameCanvas/GameCanvas';
 import { GameOverlay } from '../../components/GameOverlay/GameOverlay';
@@ -63,10 +64,10 @@ export function PlayPage() {
   const [difficulty, setDifficulty] = useDifficulty();
   const gameRef = useRef<GameCanvasHandle>(null);
   const runCounter = useRef(0);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
   const [gameStatus, setGameStatus] = useState<GameStatus>('running');
-  const [bossActive, setBossActive] = useState(false);
   const [victory, setVictory] = useState<Victory | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   /** Trucos de "juego admin" (solo para administradores; si no, undefined = partida normal). */
@@ -82,12 +83,22 @@ export function PlayPage() {
       .catch(() => setModifiers(undefined));
   }, [user?.isAdmin, screen.name]);
 
-  // Música según la pantalla: menú, nivel o jefe. Al salir de la página, silencio.
+  /* Al entrar en el menú o empezar una partida, la página se desplaza hasta el
+     escenario, que mide lo mismo que la ventana y centra lo que tiene dentro:
+     así el menú o el juego quedan en el centro de cualquier pantalla. La
+     clave cambia en cada partida para que también se recoloque al reintentar. */
+  const stageKey = screen.name === 'playing' ? `game-${screen.runId}` : screen.name;
   useEffect(() => {
-    if (screen.name === 'playing') music.play(bossActive ? 'boss' : `level-${screen.levelId}`);
-    else if (screen.name !== 'intro') music.play('menu');
-  }, [screen, bossActive]);
-  useEffect(() => () => music.stop(), []);
+    if (stageKey === 'menu' || stageKey.startsWith('game-')) {
+      stageRef.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+  }, [stageKey]);
+
+  // Música solo en esta página (menú y partida): empieza al entrar y se para al salir
+  useEffect(() => {
+    music.play();
+    return () => music.stop();
+  }, []);
 
   /** Empieza un nivel: pasa por la intro solo si aún no se ha visto. */
   function startLevel(levelId: number) {
@@ -99,7 +110,6 @@ export function PlayPage() {
   function play(levelId: number) {
     runCounter.current += 1;
     setGameStatus('running');
-    setBossActive(false);
     setVictory(null);
     setNotice(cheating ? { type: 'success', text: t('play.cheatsActive') } : null);
     setScreen({ name: 'playing', levelId, runId: runCounter.current });
@@ -168,102 +178,103 @@ export function PlayPage() {
         </div>
       )}
 
-      {/* Las ventanas de nivel y opciones se abren ENCIMA del menú, que sigue debajo */}
-      {(screen.name === 'menu' || screen.name === 'levelSelect' || screen.name === 'options') && (
-        <section className={styles.menu}>
-          <div className={styles.cover}>
-            <img src={coverImage} alt={t('play.coverAlt')} className={styles.coverImage} />
-            <div className={styles.actions}>
-              <Button onClick={() => startLevel(FIRST_LEVEL)}>{t('play.play')}</Button>
-              <Button onClick={() => setScreen({ name: 'levelSelect' })}>
-                {t('play.chooseLevel')}
-              </Button>
-              <Button onClick={() => setScreen({ name: 'options' })}>{t('play.options')}</Button>
+      <div ref={stageRef} className={styles.stage}>
+        {/* Las ventanas de nivel y opciones se abren ENCIMA del menú, que sigue debajo */}
+        {(screen.name === 'menu' || screen.name === 'levelSelect' || screen.name === 'options') && (
+          <section className={styles.menu}>
+            <div className={styles.cover}>
+              <img src={coverImage} alt={t('play.coverAlt')} className={styles.coverImage} />
+              <div className={styles.actions}>
+                <Button onClick={() => startLevel(FIRST_LEVEL)}>{t('play.play')}</Button>
+                <Button onClick={() => setScreen({ name: 'levelSelect' })}>
+                  {t('play.chooseLevel')}
+                </Button>
+                <Button onClick={() => setScreen({ name: 'options' })}>{t('play.options')}</Button>
+              </div>
             </div>
-          </div>
-        </section>
-      )}
+          </section>
+        )}
 
-      {screen.name === 'levelSelect' && (
-        <LevelSelectDialog
-          isLevelUnlocked={progress.isLevelUnlocked}
-          onSelect={startLevel}
-          onClose={backToMenu}
-        />
-      )}
+        {screen.name === 'levelSelect' && (
+          <LevelSelectDialog
+            isLevelUnlocked={progress.isLevelUnlocked}
+            onSelect={startLevel}
+            onClose={backToMenu}
+          />
+        )}
 
-      {screen.name === 'options' && (
-        <OptionsDialog
-          difficulty={difficulty}
-          onDifficultyChange={setDifficulty}
-          onClose={backToMenu}
-        />
-      )}
-
-      {screen.name === 'intro' && (
-        <StarWarsCrawl
-          playOnce
-          onFinished={() => finishIntro(screen.levelId)}
-          onSkip={() => finishIntro(screen.levelId)}
-        />
-      )}
-
-      {screen.name === 'playing' && (
-        <section className={styles.game}>
-          <GameCanvas
-            key={screen.runId}
-            ref={gameRef}
-            levelId={screen.levelId}
-            modifiers={modifiers}
+        {screen.name === 'options' && (
+          <OptionsDialog
             difficulty={difficulty}
-            onStatusChange={setGameStatus}
-            onBossAppear={() => setBossActive(true)}
-            onVictory={handleVictory}
-            onGameOver={handleGameOver}
-          >
-            {gameStatus === 'paused' && (
-              <GameOverlay variant="pause" title={t('play.paused')}>
-                <Button onClick={() => gameRef.current?.resume()}>{t('play.resume')}</Button>
-                {/* Salir desmonta la partida: el bucle y el teclado se paran solos */}
-                <Button variant="ghost" onClick={backToMenu}>
-                  {t('play.quitToMenu')}
-                </Button>
-              </GameOverlay>
-            )}
+            onDifficultyChange={setDifficulty}
+            onClose={backToMenu}
+          />
+        )}
 
-            {gameStatus === 'victory' && victory && (
-              <GameOverlay
-                variant="victory"
-                title={t('play.victoryTitle')}
-                subtitle={
-                  <>
-                    <p>
-                      {t('play.victorySummary', {
-                        level: victory.result.level,
-                        points: victory.result.points,
-                      })}
-                    </p>
-                    <p>
-                      {victory.nextLevel !== null
-                        ? t('play.levelUnlocked', { level: victory.nextLevel })
-                        : t('play.gameCompleted')}
-                    </p>
-                  </>
-                }
-              >
-                {victory.nextLevel !== null && (
-                  <Button variant="neon" onClick={() => play(victory.nextLevel!)}>
-                    {t('play.nextLevel')}
+        {screen.name === 'intro' && (
+          <StarWarsCrawl
+            playOnce
+            onFinished={() => finishIntro(screen.levelId)}
+            onSkip={() => finishIntro(screen.levelId)}
+          />
+        )}
+
+        {screen.name === 'playing' && (
+          <section className={styles.game}>
+            <GameCanvas
+              key={screen.runId}
+              ref={gameRef}
+              levelId={screen.levelId}
+              modifiers={modifiers}
+              difficulty={difficulty}
+              onStatusChange={setGameStatus}
+              onVictory={handleVictory}
+              onGameOver={handleGameOver}
+            >
+              {gameStatus === 'paused' && (
+                <GameOverlay variant="pause" title={t('play.paused')} subtitle={<VolumeSlider />}>
+                  <Button onClick={() => gameRef.current?.resume()}>{t('play.resume')}</Button>
+                  {/* Salir desmonta la partida: el bucle y el teclado se paran solos */}
+                  <Button variant="ghost" onClick={backToMenu}>
+                    {t('play.quitToMenu')}
                   </Button>
-                )}
-                <Button variant="neon" onClick={backToMenu}>
-                  {t('play.backToMenu')}
-                </Button>
-              </GameOverlay>
-            )}
-          </GameCanvas>
-        </section>
-      )}
+                </GameOverlay>
+              )}
+
+              {gameStatus === 'victory' && victory && (
+                <GameOverlay
+                  variant="victory"
+                  title={t('play.victoryTitle')}
+                  subtitle={
+                    <>
+                      <p>
+                        {t('play.victorySummary', {
+                          level: victory.result.level,
+                          points: victory.result.points,
+                        })}
+                      </p>
+                      <p>
+                        {victory.nextLevel !== null
+                          ? t('play.levelUnlocked', { level: victory.nextLevel })
+                          : t('play.gameCompleted')}
+                      </p>
+                    </>
+                  }
+                >
+                  {victory.nextLevel !== null && (
+                    <Button variant="neon" onClick={() => play(victory.nextLevel!)}>
+                      {t('play.nextLevel')}
+                    </Button>
+                  )}
+                  <Button variant="neon" onClick={backToMenu}>
+                    {t('play.backToMenu')}
+                  </Button>
+                </GameOverlay>
+              )}
+            </GameCanvas>
+          </section>
+        )}
+      </div>
     </>
   );
 }

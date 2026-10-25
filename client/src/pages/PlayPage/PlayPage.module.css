@@ -1,14 +1,30 @@
 /* ---------- Menú: imagen grande con los botones superpuestos ---------- */
 
+/* ---------- Escenario: ocupa la zona visible y centra el menú o el juego ----------
+   La zona visible es la ventana menos la cabecera, que se queda fija arriba
+   (--header-height la pone Header.tsx). scroll-margin-top hace que, al
+   desplazarse hasta el escenario, quede justo debajo de la cabecera. */
+
+.stage {
+  min-height: calc(100vh - var(--header-height, 0px));
+  /* dvh: en el móvil, sin contar la barra del navegador */
+  min-height: calc(100dvh - var(--header-height, 0px));
+  scroll-margin-top: var(--header-height, 0px);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding-block: 1.5rem;
+}
+
 .menu {
   display: flex;
   justify-content: center;
-  margin: 3rem auto;
 }
 
 .cover {
   position: relative; /* para colocar los botones encima con position: absolute */
-  width: min(85vh, 700px, 100%);
+  /* Cuadrada y que quepa entera en la zona visible (bajo la cabecera, con su margen) */
+  width: min(calc(100dvh - var(--header-height, 0px) - 4rem), 700px, 100%);
   aspect-ratio: 1 / 1;
 }
 

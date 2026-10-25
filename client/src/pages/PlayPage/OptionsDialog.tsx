@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { MP3_LIMITS, selectMp3Files } from '../../audio/mp3File';
 import { music, MUSIC_STYLES, type MusicStyle } from '../../audio/music';
 import { useMusicSettings } from '../../audio/useMusicSettings';
+import { VolumeSlider } from '../../audio/VolumeSlider';
 import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import styles from './OptionsDialog.module.css';
@@ -83,18 +84,7 @@ export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: Optio
       <section className={styles.section}>
         <h3>{t('options.music')}</h3>
 
-        <label className={styles.volume}>
-          <span>{t('options.volume')}</span>
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={5}
-            value={Math.round(settings.volume * 100)}
-            onChange={(event) => music.setVolume(Number(event.target.value) / 100)}
-          />
-          <output>{Math.round(settings.volume * 100)} %</output>
-        </label>
+        <VolumeSlider />
 
         <fieldset className={styles.choices}>
           <legend>{t('options.style')}</legend>
@@ -114,9 +104,7 @@ export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: Optio
           ))}
         </fieldset>
 
-        {!settings.available && settings.style !== 'custom' && (
-          <p className={styles.hint}>{t('options.noTracks')}</p>
-        )}
+        {!settings.trackCount && <p className={styles.hint}>{t('options.noTracks')}</p>}
 
         {/* El <input type="file"> nativo no se puede decorar: se oculta y su <label> hace de botón */}
         <div className={styles.uploads} aria-busy={uploading}>
@@ -144,12 +132,12 @@ export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: Optio
             {t('options.customTracks', { n: settings.customTrackCount })}
           </p>
         )}
-        {settings.currentCustomTrack && (
+        {settings.currentTrack && (
           <div className={styles.nowPlaying}>
             <p className={styles.hint}>
-              {t('options.nowPlaying', { name: settings.currentCustomTrack })}
+              {t('options.nowPlaying', { name: settings.currentTrack })}
             </p>
-            {settings.customTrackCount > 1 && (
+            {settings.trackCount > 1 && (
               <Button variant="ghost" onClick={() => music.nextTrack()}>
                 {t('options.nextTrack')}
               </Button>

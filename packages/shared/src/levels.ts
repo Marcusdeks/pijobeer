@@ -9,6 +9,9 @@
  *   - enemySpeed:    multiplicador de la velocidad de caída de todas las botellas.
  *   - enemyMix:      proporción de cada tipo de botella (ver ENEMY_TYPES en el cliente).
  *
+ * Para superarlo (o para que salga el jefe) hay que eliminar killsToComplete
+ * botellas Y recorrer distanceToComplete píxeles de callejón.
+ *
  * Para AÑADIR UN NIVEL: añade un objeto al final. MAX_LEVEL se calcula solo.
  */
 
@@ -27,6 +30,13 @@ export interface LevelDefinition {
    * Con jefe, al conseguirlo dejan de salir botellas y aparece el jefe.
    */
   readonly killsToComplete: number;
+  /**
+   * Píxeles de callejón que hay que recorrer ADEMÁS de las botellas (0 = no
+   * hace falta). El jugador no lo ve: el callejón solo avanza mientras él anda
+   * hacia delante (ver CAMERA en client/src/game/config.ts), así que quedarse
+   * quieto esquivando no basta para llegar al jefe.
+   */
+  readonly distanceToComplete: number;
   readonly boss: BossId | null;
   /** Pasos entre la aparición de una botella y la siguiente (60 pasos = 1 s). */
   readonly spawnInterval: number;
@@ -41,6 +51,7 @@ export const LEVELS: readonly LevelDefinition[] = [
     id: 1,
     alley: 1,
     killsToComplete: 36,
+    distanceToComplete: 0,
     boss: null,
     spawnInterval: 90,
     enemySpeed: 1,
@@ -50,6 +61,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     id: 2,
     alley: 2,
     killsToComplete: 50,
+    // 30 s avanzando por el callejón (60 px/s, ver CAMERA en el cliente)
+    distanceToComplete: 1800,
     boss: 'blonde',
     spawnInterval: 70,
     enemySpeed: 1.15,
@@ -59,6 +72,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     id: 3,
     alley: 3,
     killsToComplete: 60,
+    // 40 s avanzando por el callejón
+    distanceToComplete: 2400,
     boss: 'dark',
     spawnInterval: 55,
     enemySpeed: 1.3,

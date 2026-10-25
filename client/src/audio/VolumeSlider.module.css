@@ -1,0 +1,53 @@
+.volume,
+.slider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.8rem;
+  font-weight: 700;
+}
+
+.speaker {
+  font-size: 1.4rem;
+  line-height: 1;
+  padding: 0.3rem 0.5rem;
+  background: transparent;
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.speaker:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+
+.slider input {
+  accent-color: var(--color-primary);
+  width: min(50vw, 220px);
+}
+
+.slider output {
+  min-width: 3.5rem;
+  font-weight: 400;
+}
+
+@media (max-width: 600px) {
+  .volume,
+  .slider {
+    gap: 0.4rem;
+    font-size: 0.8rem;
+  }
+
+  .speaker {
+    font-size: 1.1rem;
+  }
+
+  .slider input {
+    width: 35vw;
+  }
+
+  .slider output {
+    min-width: 2.5rem;
+  }
+}
