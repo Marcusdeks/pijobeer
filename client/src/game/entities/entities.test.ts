@@ -8,6 +8,7 @@ import {
   ARENA,
   BOSS,
   BOSS_COMMON,
+  BOSS_ENRAGE,
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
@@ -165,12 +166,40 @@ describe('Boss (jefe final)', () => {
     expect(gaps[stats.burstSize - 1]).toBe(stats.burstPause);
   });
 
-  it('el jefe oscuro dispara dos chorros a la vez y tiene más vida', () => {
-    const boss = arrived('dark');
-    let fired: unknown[] = [];
-    while (!fired.length) fired = boss.update();
-    expect(fired).toHaveLength(2);
+  /** Avanza hasta el siguiente disparo y devuelve sus balas. */
+  function nextShot(boss: Boss, target?: { x: number; y: number }) {
+    let fired = boss.update(target);
+    while (!fired.length) fired = boss.update(target);
+    return fired;
+  }
+
+  it('el rubio apunta al jugador: si está a la derecha, la espuma va hacia la derecha', () => {
+    const boss = arrived('blonde');
+    const [bullet] = nextShot(boss, { x: field.right, y: 450 });
+    expect(bullet!.velocityX).toBeGreaterThan(0);
+    expect(bullet!.velocityY).toBeGreaterThan(0);
+  });
+
+  it('nunca dispara casi en horizontal, aunque el jugador esté pegado a un lado', () => {
+    const boss = arrived('blonde');
+    const [bullet] = nextShot(boss, { x: boss.x + 1000, y: boss.y + boss.height + 1 });
+    const degrees = (Math.atan2(bullet!.velocityX, bullet!.velocityY) * 180) / Math.PI;
+    expect(degrees).toBeCloseTo(BOSS_COMMON.maxAimDeg);
+  });
+
+  it('el oscuro dispara un abanico de chorros y tiene más vida', () => {
+    const fired = nextShot(arrived('dark'));
+    expect(fired).toHaveLength(BOSS.dark.streams);
+    // Sin objetivo, el abanico es simétrico alrededor de la vertical
+    const vx = fired.map((b) => b.velocityX);
+    expect(Math.min(...vx)).toBeCloseTo(-Math.max(...vx));
     expect(BOSS.dark.health).toBeGreaterThan(BOSS.blonde.health);
+  });
+
+  it('con media vida entra en furia: más chorros por disparo', () => {
+    const boss = arrived('dark');
+    while (!boss.isEnraged) boss.hit();
+    expect(nextShot(boss)).toHaveLength(BOSS.dark.streams + BOSS_ENRAGE.extraStreams);
   });
 
   it('el truco de vida de los jefes multiplica su vida', () => {

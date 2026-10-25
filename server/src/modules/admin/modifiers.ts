@@ -1,9 +1,8 @@
 /**
  * Validación de los trucos de "juego admin".
  *
- * Los mismos esquemas sirven para los dos caminos por los que se cambian:
- * el panel manual (PUT /api/admin/modifiers) y el agente (sus herramientas).
- * Así, ni a mano ni pidiéndoselo al agente se puede poner un valor absurdo.
+ * Se usan al recibir cambios (PUT /api/admin/modifiers) y al leer lo guardado
+ * en la BBDD: así nunca se aplica un valor absurdo, venga de donde venga.
  */
 import {
   DEFAULT_GAME_MODIFIERS,

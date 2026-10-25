@@ -1,9 +1,9 @@
 /**
- * Tests de "juego admin": permisos, trucos manuales y el agente.
+ * Tests de "juego admin": permisos y trucos.
  */
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { DEFAULT_GAME_MODIFIERS, MAX_LEVEL } from '@pijobeer/shared';
+import { DEFAULT_GAME_MODIFIERS } from '@pijobeer/shared';
 import { buildTestApp } from './helpers/test-app';
 
 describe('/api/admin', () => {
@@ -68,43 +68,5 @@ describe('/api/admin', () => {
     await browser.put('/api/admin/modifiers').send({ invincible: true }).expect(200);
     await browser.put('/api/admin/modifiers').send({ invincible: false }).expect(200);
     expect(user.gameModifiers).toBeNull();
-  });
-
-  it('el agente cambia los trucos del admin que le habla', async () => {
-    const { browser, user } = await loggedInAs('jefe', { admin: true });
-
-    const res = await browser
-      .post('/api/admin/agent')
-      .send({ messages: [{ role: 'user', content: 'hazme inmortal' }] })
-      .expect(200);
-
-    expect(res.body.reply).toBe('Listo, ahora eres inmortal.');
-    expect(res.body.modifiers.invincible).toBe(true);
-    expect(user.gameModifiers).toMatchObject({ invincible: true });
-  });
-
-  it('el último mensaje de la conversación ha de ser del admin', async () => {
-    const { browser } = await loggedInAs('jefe', { admin: true });
-    await browser
-      .post('/api/admin/agent')
-      .send({ messages: [{ role: 'assistant', content: 'hola' }] })
-      .expect(400);
-  });
-
-  it('sin clave de la API, el agente responde AGENT_UNAVAILABLE', async () => {
-    ctx = buildTestApp({ withAgent: false });
-    const { browser } = await loggedInAs('jefe', { admin: true });
-    const res = await browser
-      .post('/api/admin/agent')
-      .send({ messages: [{ role: 'user', content: 'hola' }] })
-      .expect(503);
-    expect(res.body.error.code).toBe('AGENT_UNAVAILABLE');
-  });
-
-  it('desbloquear todos los niveles sube el nivel máximo de la cuenta', async () => {
-    // Directamente a través del servicio que usa el agente, con un repositorio en memoria
-    const { user } = await loggedInAs('jefe', { admin: true });
-    await ctx.users.raiseMaxLevel(user.id, MAX_LEVEL);
-    expect(user.maxLevel).toBe(MAX_LEVEL);
   });
 });

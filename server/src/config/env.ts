@@ -32,11 +32,6 @@ const envSchema = z.object({
   // Entre 4 y 15: menos es inseguro y más hace cada login exageradamente lento
   BCRYPT_ROUNDS: z.coerce.number().int().min(4).max(15).default(12),
 
-  // Clave de la API de Claude para el agente de "juego admin". Opcional: sin
-  // ella el agente no responde, pero el panel manual de trucos sí funciona.
-  // (Una línea "ANTHROPIC_API_KEY=" vacía en el .env cuenta como no puesta.)
-  ANTHROPIC_API_KEY: z.preprocess((v) => (v === '' ? undefined : v), z.string().optional()),
-
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']).default('info'),
 });
 

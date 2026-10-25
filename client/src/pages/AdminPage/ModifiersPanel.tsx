@@ -1,11 +1,6 @@
 /**
  * Panel manual de trucos. Se edita una copia local ("borrador") y se guarda
  * con el botón: así mover un deslizador no lanza una petición por cada píxel.
- *
- * El padre lo monta con una `key` que cambia cuando el AGENTE cambia los
- * trucos: React crea entonces un panel nuevo y el borrador arranca con los
- * valores actualizados. (Al guardar desde el propio panel no hace falta: el
- * borrador ya tiene esos valores.)
  */
 import {
   DEFAULT_GAME_MODIFIERS,
@@ -51,7 +46,7 @@ export function ModifiersPanel({ modifiers, onChange }: ModifiersPanelProps) {
   }
 
   return (
-    <Panel variant="accent" className={styles.card}>
+    <Panel variant="accent" className={styles.panel}>
       <h3>{t('admin.panelTitle')}</h3>
       {message && (
         <Alert type={message.type} autoDismissMs={3000} onDismiss={() => setMessage(null)}>

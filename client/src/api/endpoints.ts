@@ -7,8 +7,6 @@
  * compilador avisa si la forma de una petición o respuesta deja de coincidir.
  */
 import type {
-  AgentRequest,
-  AgentResponse,
   GameModifiers,
   ModifiersResponse,
   LoginRequest,
@@ -47,7 +45,6 @@ export const adminApi = {
   getModifiers: () => request<ModifiersResponse>('GET', '/admin/modifiers'),
   updateModifiers: (changes: Partial<GameModifiers>) =>
     request<ModifiersResponse>('PUT', '/admin/modifiers', changes),
-  askAgent: (data: AgentRequest) => request<AgentResponse>('POST', '/admin/agent', data),
 };
 
 export const scoresApi = {

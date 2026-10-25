@@ -146,24 +146,6 @@ export interface ModifiersResponse {
   modifiers: GameModifiers;
 }
 
-/** Un mensaje de la conversación con el agente (solo texto). */
-export interface AgentMessage {
-  role: 'user' | 'assistant';
-  content: string;
-}
-
-/** POST /api/admin/agent: la conversación entera, terminando en el mensaje nuevo del admin. */
-export interface AgentRequest {
-  messages: AgentMessage[];
-}
-
-export interface AgentResponse {
-  /** Respuesta del agente para mostrar en el chat. */
-  reply: string;
-  /** Los trucos tal y como han quedado después de lo que haya hecho el agente. */
-  modifiers: GameModifiers;
-}
-
 // ============================================================
 //  Errores
 // ============================================================

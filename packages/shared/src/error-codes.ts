@@ -34,10 +34,6 @@ export const ERROR_CODES = [
   'USERNAME_TAKEN',
   'NOTHING_TO_UPDATE',
   'PASSWORDS_DO_NOT_MATCH',
-
-  // ---- Juego admin ----
-  'AGENT_UNAVAILABLE', // el servidor no tiene configurada la clave de la API de Claude
-  'AGENT_FAILED', // la llamada al agente ha fallado (red, límite de uso...)
 ] as const;
 
 /** Unión de todos los códigos: 'VALIDATION_ERROR' | 'NOT_FOUND' | ... */

@@ -5,10 +5,9 @@
  * (es instantáneo) y el mailer apunta los correos en una lista. El resto
  * (rutas, validación, servicios, JWT, cookies) es el código REAL.
  */
-import type { AgentMessage, GameModifiers } from '@pijobeer/shared';
+import type { GameModifiers } from '@pijobeer/shared';
 import { createApp } from '../../src/app';
 import type { Mailer, VerificationEmail } from '../../src/lib/mailer';
-import type { AgentOperations, GameAgent } from '../../src/modules/admin/game-agent';
 import type { PasswordHasher } from '../../src/modules/auth/password-hasher';
 import { JwtTokenService } from '../../src/modules/auth/token.service';
 import type {
@@ -151,30 +150,12 @@ export class RecordingMailer implements Mailer {
   }
 }
 
-/**
- * Agente falso: en vez de llamar a Claude (de pago, y con respuestas que
- * cambian), entiende una única orden fija. Sirve para probar que el
- * servidor conecta bien las herramientas con la cuenta del admin.
- */
-export class FakeGameAgent implements GameAgent {
-  readonly received: AgentMessage[][] = [];
-
-  async reply(messages: AgentMessage[], ops: AgentOperations) {
-    this.received.push(messages);
-    if (messages.at(-1)?.content === 'hazme inmortal') {
-      await ops.updateModifiers({ invincible: true });
-      return 'Listo, ahora eres inmortal.';
-    }
-    return 'No te he entendido.';
-  }
-}
-
 /** Crea una app nueva y vacía para cada test (sin estado compartido entre tests). */
-export function buildTestApp({ withAgent = true } = {}) {
+/** Crea una app nueva y vacía para cada test (sin estado compartido entre tests). */
+export function buildTestApp() {
   const users = new InMemoryUserRepository();
   const scores = new InMemoryScoreRepository(users);
   const mailer = new RecordingMailer();
-  const agent = new FakeGameAgent();
 
   const app = createApp({
     userRepository: users,
@@ -182,7 +163,6 @@ export function buildTestApp({ withAgent = true } = {}) {
     passwordHasher: fakeHasher,
     tokenService: new JwtTokenService('test-secret-de-al-menos-32-caracteres-de-largo', 3600),
     mailer,
-    gameAgent: withAgent ? agent : null,
     checkDatabase: async () => {},
     config: {
       clientUrl: 'http://localhost:5173',
@@ -193,5 +173,5 @@ export function buildTestApp({ withAgent = true } = {}) {
     },
   });
 
-  return { app, users, scores, mailer, agent };
+  return { app, users, scores, mailer };
 }

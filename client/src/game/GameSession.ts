@@ -148,25 +148,36 @@ export class GameSession {
       const enemyShot = enemy.update();
       if (enemyShot) this.enemyBullets.push(enemyShot);
     }
-    if (this.boss) this.enemyBullets.push(...this.boss.update());
+    // El jefe apunta al centro del jugador
+    if (this.boss) {
+      const { player } = this;
+      const target = { x: player.x + player.width / 2, y: player.y + player.height / 2 };
+      this.enemyBullets.push(...this.boss.update(target));
+    }
 
     for (const bullet of this.playerBullets) bullet.update();
     for (const bullet of this.enemyBullets) bullet.update();
   }
 
-  /** Botellas al ritmo del nivel o, cumplido el objetivo de un nivel con jefe, el jefe (una vez). */
+  /**
+   * Botellas al ritmo del nivel. Cumplido el objetivo de un nivel con jefe,
+   * aparece el jefe (una vez) y las botellas siguen cayendo, pero a menor
+   * ritmo (BOSS_COMMON.minionSpawnFactor), para que el combate no dé respiro.
+   */
   private spawn(): void {
     const { level, field, spawnInterval, enemySpeed, bossHealth } = this.rules;
+    let interval = spawnInterval;
 
     if (level.boss && this.waveCompleted) {
-      if (!this.boss && !this.bossDefeated) {
+      if (this.bossDefeated) return;
+      if (!this.boss) {
         this.boss = new Boss(level.boss, field, bossHealth);
         this.events.onBossAppear?.();
       }
-      return;
+      interval = spawnInterval * BOSS_COMMON.minionSpawnFactor;
     }
 
-    if (this.scroll % spawnInterval === 0) {
+    if (this.scroll % interval === 0) {
       const type = this.rules.pickEnemyType(this.random);
       this.enemies.push(Enemy.spawn(type, field, this.random, enemySpeed));
     }

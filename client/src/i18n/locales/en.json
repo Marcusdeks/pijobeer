@@ -161,9 +161,7 @@
     "USERNAME_TAKEN": "That username is already taken.",
     "NOTHING_TO_UPDATE": "You haven't changed anything.",
     "PASSWORDS_DO_NOT_MATCH": "The new passwords do not match.",
-    "FORBIDDEN": "This section is for administrators only.",
-    "AGENT_UNAVAILABLE": "The agent is not available: the Claude API key is not configured on the server (ANTHROPIC_API_KEY).",
-    "AGENT_FAILED": "The agent could not reply. Please try again in a moment."
+    "FORBIDDEN": "This section is for administrators only."
   },
   "music": {
     "mute": "Mute music",
@@ -181,11 +179,6 @@
     "bossHealth": "Boss health",
     "save": "Save changes",
     "reset": "Remove all cheats",
-    "saved": "Cheats saved.",
-    "agentTitle": "Agent",
-    "agentHello": "Hi! Tell me what you want to change in your test games. For example: \"lower the enemies to 2\" or \"make me invincible\".",
-    "agentPlaceholder": "Type your request…",
-    "send": "Send",
-    "thinking": "Thinking…"
+    "saved": "Cheats saved."
   }
 }

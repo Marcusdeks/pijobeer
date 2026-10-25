@@ -161,9 +161,7 @@
     "USERNAME_TAKEN": "Ese nombre de usuario ya está cogido.",
     "NOTHING_TO_UPDATE": "No has cambiado nada.",
     "PASSWORDS_DO_NOT_MATCH": "Las contraseñas nuevas no coinciden.",
-    "FORBIDDEN": "Esta sección es solo para administradores.",
-    "AGENT_UNAVAILABLE": "El agente no está disponible: falta configurar la clave de la API de Claude en el servidor (ANTHROPIC_API_KEY).",
-    "AGENT_FAILED": "El agente no ha podido responder. Inténtalo de nuevo en un momento."
+    "FORBIDDEN": "Esta sección es solo para administradores."
   },
   "music": {
     "mute": "Silenciar música",
@@ -181,11 +179,6 @@
     "bossHealth": "Vida de los jefes",
     "save": "Guardar cambios",
     "reset": "Quitar todos los trucos",
-    "saved": "Trucos guardados.",
-    "agentTitle": "Agente",
-    "agentHello": "¡Hola! Dime qué quieres cambiar de tus partidas de prueba. Por ejemplo: «baja los enemigos a 2» o «hazme inmortal».",
-    "agentPlaceholder": "Escribe tu petición…",
-    "send": "Enviar",
-    "thinking": "Pensando…"
+    "saved": "Trucos guardados."
   }
 }

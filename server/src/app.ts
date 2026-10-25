@@ -22,7 +22,6 @@ import { logger } from './lib/logger';
 import type { Mailer } from './lib/mailer';
 import { createAdminRouter } from './modules/admin/admin.routes';
 import { AdminService } from './modules/admin/admin.service';
-import type { GameAgent } from './modules/admin/game-agent';
 import { AuthController } from './modules/auth/auth.controller';
 import { createAuthRouter } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
@@ -43,8 +42,6 @@ export interface AppDependencies {
   passwordHasher: PasswordHasher;
   tokenService: TokenService;
   mailer: Mailer;
-  /** Agente de "juego admin"; null si no hay clave de la API de Claude configurada. */
-  gameAgent: GameAgent | null;
   /** Comprueba que la BBDD responde (para /api/health). */
   checkDatabase: () => Promise<void>;
   config: {
@@ -73,7 +70,7 @@ export function createApp(deps: AppDependencies): Express {
   );
   const usersService = new UsersService(deps.userRepository, deps.passwordHasher);
   const scoresService = new ScoresService(deps.scoreRepository);
-  const adminService = new AdminService(deps.userRepository, deps.gameAgent);
+  const adminService = new AdminService(deps.userRepository);
 
   const authController = new AuthController(authService);
   const usersController = new UsersController(usersService);
@@ -128,12 +125,7 @@ export function createApp(deps: AppDependencies): Express {
   );
   app.use('/api/users', createUsersRouter(usersController));
   app.use('/api/scores', createScoresRouter(scoresController));
-  app.use(
-    '/api/admin',
-    createAdminRouter(adminService, deps.userRepository, {
-      rateLimitEnabled: config.rateLimitEnabled,
-    }),
-  );
+  app.use('/api/admin', createAdminRouter(adminService, deps.userRepository));
 
   // Cualquier otra ruta bajo /api -> 404 en JSON
   app.use('/api', notFoundHandler);

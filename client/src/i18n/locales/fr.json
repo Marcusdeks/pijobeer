@@ -161,9 +161,7 @@
     "USERNAME_TAKEN": "Ce nom d'utilisateur est déjà pris.",
     "NOTHING_TO_UPDATE": "Tu n'as rien modifié.",
     "PASSWORDS_DO_NOT_MATCH": "Les nouveaux mots de passe ne correspondent pas.",
-    "FORBIDDEN": "Cette section est réservée aux administrateurs.",
-    "AGENT_UNAVAILABLE": "L'agent n'est pas disponible : la clé de l'API Claude n'est pas configurée sur le serveur (ANTHROPIC_API_KEY).",
-    "AGENT_FAILED": "L'agent n'a pas pu répondre. Réessaie dans un instant."
+    "FORBIDDEN": "Cette section est réservée aux administrateurs."
   },
   "music": {
     "mute": "Couper la musique",
@@ -181,11 +179,6 @@
     "bossHealth": "Vie des boss",
     "save": "Enregistrer",
     "reset": "Retirer toutes les triches",
-    "saved": "Triches enregistrées.",
-    "agentTitle": "Agent",
-    "agentHello": "Salut ! Dis-moi ce que tu veux changer dans tes parties de test. Par exemple : « baisse les ennemis à 2 » ou « rends-moi invincible ».",
-    "agentPlaceholder": "Écris ta demande…",
-    "send": "Envoyer",
-    "thinking": "Je réfléchis…"
+    "saved": "Triches enregistrées."
   }
 }

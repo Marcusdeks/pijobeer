@@ -2,19 +2,11 @@
   color: var(--color-text-muted);
 }
 
-/* Panel y chat lado a lado; en pantallas estrechas, uno debajo del otro */
-.columns {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 0 2rem;
-}
+/* ---------- Panel de trucos ---------- */
 
-.card {
-  display: flex;
-  flex-direction: column;
+.panel {
+  max-width: 560px;
 }
-
-/* ---------- Panel manual ---------- */
 
 .form {
   display: grid;
@@ -57,66 +49,4 @@
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
-}
-
-/* ---------- Chat ---------- */
-
-.chatLog {
-  flex: 1;
-  min-height: 260px;
-  max-height: 420px;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 0.6rem;
-  padding: 0.5rem 0;
-}
-
-.bubble {
-  max-width: 85%;
-  padding: 0.6rem 0.9rem;
-  border-radius: var(--radius-md);
-  font-size: 0.9rem;
-  line-height: 1.4;
-  white-space: pre-wrap;
-}
-
-.assistant {
-  align-self: flex-start;
-  background: var(--color-surface-raised);
-  border: 1px solid var(--color-primary-border);
-}
-
-.user {
-  align-self: flex-end;
-  background: var(--color-primary-dark);
-}
-
-.error {
-  align-self: stretch;
-  max-width: none;
-  background: rgba(255, 0, 0, 0.15);
-  border: 1px solid var(--color-primary);
-  color: #ff6666;
-}
-
-.chatForm {
-  display: flex;
-  gap: 0.6rem;
-  margin-top: 1rem;
-}
-
-.chatForm input {
-  flex: 1;
-  min-width: 0;
-  padding: 0.8rem 1rem;
-  background: var(--color-bg);
-  color: var(--color-text);
-  border: 1px solid var(--color-primary-border);
-  border-radius: var(--radius-sm);
-}
-
-.chatForm input:focus {
-  outline: none;
-  border-color: var(--color-primary);
 }

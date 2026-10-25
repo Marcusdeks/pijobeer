@@ -1,11 +1,6 @@
 /**
- * JUEGO ADMIN: sección solo para administradores.
- *
- * Dos formas de cambiar los trucos de las partidas de prueba, que comparten
- * el mismo estado (lo que hace una se ve al momento en la otra):
- *   - ModifiersPanel: el panel manual, con sus casillas y deslizadores.
- *   - AgentChat: un chat con el agente de IA, al que se le piden los cambios
- *     en lenguaje natural ("bájame los enemigos a 2").
+ * JUEGO ADMIN: sección solo para administradores, con el panel de trucos de
+ * sus partidas de prueba (ver ModifiersPanel).
  */
 import type { GameModifiers } from '@pijobeer/shared';
 import { useEffect, useState } from 'react';
@@ -16,7 +11,6 @@ import { Alert } from '../../components/ui/Alert';
 import { Panel } from '../../components/ui/Panel';
 import { RequireAuth } from '../../features/auth/RequireAuth';
 import { useAuth } from '../../features/auth/useAuth';
-import { AgentChat } from './AgentChat';
 import styles from './AdminPage.module.css';
 import { ModifiersPanel } from './ModifiersPanel';
 
@@ -40,8 +34,6 @@ function AdminContent() {
   const errorMessage = useErrorMessage();
   const [modifiers, setModifiers] = useState<GameModifiers | null>(null);
   const [error, setError] = useState<string | null>(null);
-  /** Sube cuando el agente cambia los trucos: el panel se vuelve a montar con los valores nuevos. */
-  const [agentVersion, setAgentVersion] = useState(0);
 
   useEffect(() => {
     adminApi
@@ -59,15 +51,7 @@ function AdminContent() {
         <h2>{t('admin.title')}</h2>
         <p className={styles.intro}>{t('admin.intro')}</p>
       </Panel>
-      <div className={styles.columns}>
-        <ModifiersPanel key={agentVersion} modifiers={modifiers} onChange={setModifiers} />
-        <AgentChat
-          onModifiersChange={(updated) => {
-            setModifiers(updated);
-            setAgentVersion((version) => version + 1);
-          }}
-        />
-      </div>
+      <ModifiersPanel modifiers={modifiers} onChange={setModifiers} />
     </>
   );
 }

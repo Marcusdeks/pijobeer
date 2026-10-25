@@ -125,34 +125,56 @@ export const ENEMY_TYPES = {
  * moviéndose de pared a pared, y disparan en RÁFAGAS: burstSize disparos
  * seguidos (separados burstGap pasos) y después una pausa de burstPause pasos.
  * Se les gana bajándoles la vida a 0 (cada abrechapas quita 1).
+ *
+ * Cada disparo puede ser de varios chorros a la vez, repartidos en abanico:
+ *   streams     cuántos chorros salen en cada disparo
+ *   spreadDeg   apertura total del abanico, en grados (0 = todos juntos)
+ *   aimed       true = el abanico apunta al jugador; false = hacia abajo
  */
 export const BOSS = {
+  /** Rubio: apunta al jugador. Quedarse quieto es recibir toda la ráfaga. */
   blonde: {
-    health: 30,
+    health: 80,
     /** Caja de colisión (el dibujo mide 80x104; se recortan los bordes redondeados). */
     width: 70,
     height: 96,
     /** Píxeles por paso de lado a lado. */
-    speed: 1.6,
-    burstSize: 3,
-    burstGap: 8,
-    burstPause: 70,
-    /** Chorros por disparo y separación horizontal entre ellos. */
-    streams: 1,
-    streamSpacing: 0,
-  },
-  dark: {
-    health: 50,
-    width: 70,
-    height: 96,
-    speed: 2.2,
+    speed: 2.4,
     burstSize: 5,
     burstGap: 6,
-    burstPause: 60,
-    streams: 2,
-    streamSpacing: 28,
+    burstPause: 45,
+    streams: 1,
+    spreadDeg: 0,
+    aimed: true,
+  },
+  /** Negro: abanico ancho que cubre media pantalla, y apunta al jugador. */
+  dark: {
+    health: 140,
+    width: 70,
+    height: 96,
+    speed: 3,
+    burstSize: 4,
+    burstGap: 8,
+    burstPause: 35,
+    streams: 5,
+    spreadDeg: 60,
+    aimed: true,
   },
 } as const satisfies Record<BossId, object>;
+
+/**
+ * FASE DE FURIA: al bajar de enrageAt de su vida (0,5 = la mitad), el jefe se
+ * enfada: se mueve más rápido, descansa menos entre ráfagas y añade chorros.
+ * Su barra de vida cambia de color para avisar al jugador.
+ */
+export const BOSS_ENRAGE = {
+  enrageAt: 0.5,
+  speedScale: 1.4,
+  pauseScale: 0.5,
+  extraStreams: 2,
+  /** Apertura que se suma al abanico (para repartir los chorros nuevos). */
+  extraSpreadDeg: 30,
+} as const;
 
 /** Lo común a todos los jefes. */
 export const BOSS_COMMON = {
@@ -160,8 +182,19 @@ export const BOSS_COMMON = {
   enterSpeed: 1.5,
   /** Hasta dónde baja antes de empezar a moverse (deja sitio a su barra de vida). */
   holdY: 70,
-  /** Velocidad de sus chorros de espuma. */
+  /** Velocidad de sus chorros de espuma (píxeles por paso, en la dirección del disparo). */
   bulletSpeed: 6,
+  /**
+   * Ángulo máximo respecto a la vertical al apuntar, en grados. Sin este tope,
+   * pegado a una pared el jugador recibiría disparos casi horizontales,
+   * imposibles de esquivar.
+   */
+  maxAimDeg: 55,
+  /**
+   * Durante el combate siguen cayendo botellas, pero más despacio: el ritmo
+   * del nivel multiplicado por este número (2 = la mitad de botellas).
+   */
+  minionSpawnFactor: 2,
   /** Vida que quita al jugador si se le acerca demasiado. */
   contactDamage: 20,
   /** Pasos sin volver a hacer daño por contacto (si no, quitaría 20 de vida en cada paso). */
@@ -208,6 +241,8 @@ export const COLORS = {
   overlay: 'rgba(0, 0, 0, 0.7)',
   gameOver: '#ff0000',
   bossHealth: '#ff3b3b',
+  /** Barra del jefe en fase de furia. */
+  bossEnraged: '#ff00c8',
   /** Fondo mientras se descarga la imagen del callejón. */
   background: '#1a1418',
 } as const;

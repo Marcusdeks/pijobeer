@@ -120,13 +120,26 @@ describe('jefes finales', () => {
     return { game, boss: game.boss!, onBossAppear, onVictory };
   }
 
-  it('al cumplir el objetivo dejan de salir botellas y entra el jefe (sin ganar aún)', () => {
-    const { game, boss, onBossAppear, onVictory } = bossFight();
+  it('al cumplir el objetivo entra el jefe (sin ganar aún)', () => {
+    const { boss, onBossAppear, onVictory } = bossFight();
     expect(boss.id).toBe('blonde');
     expect(onBossAppear).toHaveBeenCalledTimes(1);
     expect(onVictory).not.toHaveBeenCalled();
-    run(game, ENEMY.firstShotDelayMax);
-    expect(game.enemies).toHaveLength(0);
+  });
+
+  it('durante el combate siguen cayendo botellas, pero a menor ritmo', () => {
+    const { game } = bossFight();
+    const { spawnInterval } = getLevel(2);
+    game.enemies = [];
+    let spawned = 0;
+    for (let i = 0; i < spawnInterval * BOSS_COMMON.minionSpawnFactor; i++) {
+      // Sin balas del jefe: aquí solo se cuentan las botellas, no se busca morir
+      game.enemyBullets = [];
+      const before = game.enemies.length;
+      game.step(fakeInput());
+      if (game.enemies.length > before) spawned++;
+    }
+    expect(spawned).toBe(1);
   });
 
   it('su contacto quita vida una vez y espera antes de volver a hacerlo', () => {

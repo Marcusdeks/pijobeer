@@ -3,7 +3,7 @@
  *
  * Un administrador puede alterar SUS propias partidas para probar el juego:
  * hacerse inmortal, cambiar cuántas botellas hay que eliminar, etc. Los
- * cambia desde la sección "Juego admin", a mano o pidiéndoselo al agente.
+ * cambia desde la sección "Juego admin".
  *
  * Solo afectan a las partidas de ese administrador, y una partida con algún
  * truco activo NO se guarda en el ranking (sería hacer trampa).

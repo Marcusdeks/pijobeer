@@ -183,7 +183,8 @@ function drawBossBar(ctx: CanvasRenderingContext2D, boss: Boss, name: string): v
 
   ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
   ctx.fillRect(x - 2, y - 2, BOSS_BAR.width + 4, BOSS_BAR.height + 4);
-  ctx.fillStyle = COLORS.bossHealth;
+  // En fase de furia la barra cambia de color para avisar al jugador
+  ctx.fillStyle = boss.isEnraged ? COLORS.bossEnraged : COLORS.bossHealth;
   ctx.fillRect(x, y, Math.round((BOSS_BAR.width * boss.healthPercent) / 100), BOSS_BAR.height);
 }
 
@@ -222,11 +223,24 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, sheet: HTMLImage
   drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, enemy.x + enemy.width / 2, enemy.y);
 }
 
-/** Espuma: la cabeza del chorro (el ancla) va en el centro del borde inferior de la caja. */
+/**
+ * Espuma: la cabeza del chorro (el ancla) va en el centro del borde inferior de la caja.
+ * Los chorros diagonales de los jefes se giran para que la estela quede detrás
+ * de la cabeza, en la dirección del movimiento.
+ */
 function drawFoam(ctx: CanvasRenderingContext2D, bullet: Bullet, sheet: HTMLImageElement | null) {
   if (!sheet) return fillRect(ctx, bullet, COLORS.enemyBullet);
   const frame = foamFrame(bullet.age, ENEMY_BULLET.frameSteps);
-  drawFrame(ctx, sheet, frame, FOAM_ANCHOR, bullet.x + bullet.width / 2, bullet.y + bullet.height);
+  const headX = bullet.x + bullet.width / 2;
+  const headY = bullet.y + bullet.height;
+  if (bullet.velocityX === 0) return drawFrame(ctx, sheet, frame, FOAM_ANCHOR, headX, headY);
+
+  // El sprite apunta hacia abajo (0°); se gira alrededor de la cabeza hacia su velocidad
+  ctx.save();
+  ctx.translate(Math.round(headX), Math.round(headY));
+  ctx.rotate(-Math.atan2(bullet.velocityX, bullet.velocityY));
+  drawFrame(ctx, sheet, frame, FOAM_ANCHOR, 0, 0);
+  ctx.restore();
 }
 
 /** Abrechapas: el aro metálico (el ancla) va en el centro de la caja. */

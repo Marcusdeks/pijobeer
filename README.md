@@ -160,19 +160,20 @@ por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comu
 
 Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 
-| Nivel | Objetivo    | Botellas salen cada | Velocidad | Tipos de botella           | Jefe final                                         |
-| ----- | ----------- | ------------------- | --------- | -------------------------- | -------------------------------------------------- |
-| 1     | 36 botellas | 1,5 s               | ×1        | normales                   | —                                                  |
-| 2     | 50 botellas | 1,2 s               | ×1,15     | normales, rápidas, pesadas | Barril rubio (30 de vida, ráfagas de 3)            |
-| 3     | 60 botellas | 0,9 s               | ×1,3      | más rápidas y pesadas      | Barril negro (50 de vida, ráfagas de 5, 2 chorros) |
+| Nivel | Objetivo    | Botellas salen cada | Velocidad | Tipos de botella           | Jefe final                                                   |
+| ----- | ----------- | ------------------- | --------- | -------------------------- | ------------------------------------------------------------ |
+| 1     | 36 botellas | 1,5 s               | ×1        | normales                   | —                                                            |
+| 2     | 50 botellas | 1,2 s               | ×1,15     | normales, rápidas, pesadas | Barril rubio (80 de vida, ráfagas de 5 apuntadas)            |
+| 3     | 60 botellas | 0,9 s               | ×1,3      | más rápidas y pesadas      | Barril negro (140 de vida, ráfagas de abanicos de 5 chorros) |
 
 - **Tipos de botella** (`ENEMY_TYPES` en `game/config.ts`); el color indica el tipo:
   rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara el doble).
 - **Callejones**: uno por nivel, se desplazan en bucle. Las paredes son el límite de la zona jugable
   (`game/playfield.ts`; la medida sale del propio arte al generar los sprites).
-- **Jefes**: al cumplir el objetivo dejan de salir botellas y entra el jefe. Se queda arriba moviéndose de
-  pared a pared y dispara en ráfagas. Se gana al vaciarle la barra de vida. Sus valores: `BOSS` en
-  `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
+- **Jefes**: al cumplir el objetivo entra el jefe y las botellas siguen cayendo a la mitad de ritmo. Se
+  queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Con media vida entra
+  en **furia** (barra rosa): más rápido, menos pausa y 2 chorros más por disparo. Se gana al vaciarle la
+  barra de vida. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
 - Las reglas finales de una partida (nivel + trucos de admin) se calculan en un único sitio: `game/rules.ts`.
 - **Pausa** (tecla P): menú con _Continuar_ y _Salir al menú principal_.
 - **Victoria**: menú en verde neón con letras pixel art (fuente _Press Start 2P_) con _Siguiente nivel_
@@ -185,15 +186,8 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 
 Sección `/admin`, visible en el menú solo para cuentas con `isAdmin`. Permite cambiar los **trucos** de las
 partidas de prueba del propio admin: inmortal, botellas a eliminar, velocidad y cantidad de botellas, vida
-de los jefes. Las partidas con algún truco activo **no se guardan en el ranking**.
-
-Dos formas de cambiarlos:
-
-- **Panel manual**, con casillas y deslizadores.
-- **Agente de IA** (Claude, con _tool use_): se le pide en lenguaje natural ("baja los enemigos a 2",
-  "hazme inmortal") y él usa unas herramientas del servidor que validan cada valor con los mismos límites
-  que el panel (`server/src/modules/admin/game-agent.ts`). Necesita `ANTHROPIC_API_KEY` en `server/.env`;
-  sin ella el agente avisa de que no está disponible y el panel sigue funcionando.
+de los jefes. Las partidas con algún truco activo **no se guardan en el ranking**. El servidor valida cada
+valor con los límites de `GAME_MODIFIER_LIMITS` (`packages/shared/src/game-modifiers.ts`).
 
 ### Música
 
@@ -224,7 +218,6 @@ el cliente traduce `code` al idioma del jugador.
 | GET    | `/api/health`            |        | Estado del servidor y la BBDD      |
 | GET    | `/api/admin/modifiers`   | admin  | Trucos actuales                    |
 | PUT    | `/api/admin/modifiers`   | admin  | Cambiar trucos (campos parciales)  |
-| POST   | `/api/admin/agent`       | admin  | Conversación con el agente         |
 
 ---
 

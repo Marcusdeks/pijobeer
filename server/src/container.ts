@@ -17,7 +17,6 @@ import { env, isProduction } from './config/env';
 import { logger } from './lib/logger';
 import { ConsoleMailer } from './lib/mailer';
 import { prisma } from './lib/prisma';
-import { ClaudeGameAgent } from './modules/admin/game-agent';
 import { BcryptPasswordHasher } from './modules/auth/password-hasher';
 import { JwtTokenService } from './modules/auth/token.service';
 import { PrismaScoreRepository } from './modules/scores/score.repository';
@@ -32,8 +31,6 @@ export function buildDependencies(): AppDependencies {
     passwordHasher: new BcryptPasswordHasher(env.BCRYPT_ROUNDS),
     tokenService: new JwtTokenService(env.JWT_SECRET, env.SESSION_TTL_DAYS * 24 * 60 * 60),
     mailer: new ConsoleMailer(logger),
-    // El agente es opcional: sin clave, "juego admin" funciona solo con el panel manual
-    gameAgent: env.ANTHROPIC_API_KEY ? new ClaudeGameAgent(env.ANTHROPIC_API_KEY) : null,
     checkDatabase: async () => {
       await prisma.$queryRaw`SELECT 1`;
     },
