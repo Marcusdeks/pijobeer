@@ -1,0 +1,90 @@
+// ==============================================================
+//  ESQUEMA DE LA BASE DE DATOS (Prisma)
+//
+//  Sustituye a "instalar.php". Aquí se DESCRIBE cómo es la base de
+//  datos y Prisma se encarga de:
+//    1. Crear/alterar las tablas en PostgreSQL mediante MIGRACIONES
+//       (archivos SQL versionados en prisma/migrations, que van a Git).
+//    2. Generar un cliente TypeScript tipado: si escribes mal el nombre
+//       de una columna en el código, no compila.
+//
+//  Flujo al cambiar algo de este archivo:
+//    npm run db:migrate   -> pide un nombre, genera el SQL y lo aplica
+//
+//  Convención: en el código los campos van en camelCase (maxLevel) y en
+//  la BBDD en snake_case (max_level), que es lo habitual en SQL. "@map"
+//  y "@@map" hacen esa traducción.
+// ==============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Cuentas de jugador (el login).
+model User {
+  id            Int      @id @default(autoincrement())
+  username      String   @unique @db.VarChar(20)
+  email         String   @unique @db.VarChar(120)
+
+  /// Hash bcrypt de la contraseña. La contraseña real NUNCA se guarda:
+  /// aunque alguien robase la BBDD, no podría leerlas.
+  passwordHash  String   @map("password_hash") @db.VarChar(255)
+
+  /// false hasta que el jugador pulsa el enlace del correo. Sin verificar no puede entrar.
+  emailVerified Boolean  @default(false) @map("email_verified")
+
+  /// Código aleatorio del enlace de verificación. Se borra (null) al usarlo,
+  /// para que el enlace no se pueda reutilizar.
+  verificationToken String? @unique @map("verification_token") @db.VarChar(64)
+
+  /// PERMISOS de gestión (moderar el ranking, dar de baja cuentas...).
+  /// Independiente de isPremium: un usuario puede tener cualquier combinación.
+  isAdmin       Boolean  @default(false) @map("is_admin")
+
+  /// Lo que el jugador ha COMPRADO (skins, sin publicidad...). No da permisos.
+  isPremium     Boolean  @default(false) @map("is_premium")
+
+  /// Progreso: nivel más alto desbloqueado. En la cuenta (no en el navegador)
+  /// para que le siga aunque juegue desde otro ordenador.
+  maxLevel      Int      @default(1) @map("max_level") @db.SmallInt
+
+  /// Trucos de "juego admin" (inmortalidad, botellas a eliminar...). Solo los
+  /// usan los administradores, en sus propias partidas. null = sin trucos.
+  /// Forma: GameModifiers en packages/shared/src/game-modifiers.ts
+  gameModifiers Json?    @map("game_modifiers")
+
+  /// Progreso: ya ha visto la historia de la intro.
+  /// (En el proyecto PHP esta columna se usaba pero instalar.php no la creaba).
+  introSeen     Boolean  @default(false) @map("intro_seen")
+
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  /// Relación 1 a N: un usuario tiene muchas partidas.
+  scores        Score[]
+
+  @@map("users")
+}
+
+/// Resultado de cada partida terminada (alimenta el ranking).
+model Score {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  points    Int
+  level     Int      @db.SmallInt
+  playedAt  DateTime @default(now()) @map("played_at")
+
+  /// onDelete: Cascade -> si se borra un usuario, sus partidas se borran con él
+  /// (no quedan filas "huérfanas" apuntando a alguien que ya no existe).
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  /// Índice para que "mis mejores partidas" y el ranking no tengan que
+  /// recorrer la tabla entera cuando haya miles de partidas.
+  @@index([userId, points(sort: Desc)])
+  @@map("scores")
+}

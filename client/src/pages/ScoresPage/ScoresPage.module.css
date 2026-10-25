@@ -1,0 +1,82 @@
+/* Scroll propio: en móvil la tabla se desplaza sola sin mover la página entera */
+.tableScroll {
+  overflow-x: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 0.8rem 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.table th {
+  color: var(--color-primary);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.table tbody tr:hover {
+  background-color: rgba(255, 0, 0, 0.06);
+}
+
+/* Las tres primeras posiciones: oro, plata y bronce */
+.podium1 {
+  color: var(--color-gold);
+  font-weight: 900;
+}
+
+.podium2 {
+  color: var(--color-silver);
+  font-weight: 900;
+}
+
+.podium3 {
+  color: var(--color-bronze);
+  font-weight: 900;
+}
+
+/* Fila del jugador que está mirando la página */
+.table tr.me {
+  background-color: rgba(255, 0, 0, 0.12);
+}
+
+.summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2rem;
+  margin-bottom: 1.5rem;
+}
+
+.stat {
+  background-color: rgba(255, 0, 0, 0.08);
+  border: 1px solid rgba(255, 0, 0, 0.25);
+  border-radius: var(--radius-md);
+  padding: 1rem 1.5rem;
+  min-width: 140px;
+}
+
+.statValue {
+  display: block;
+  font-size: 1.8rem;
+  font-weight: 900;
+}
+
+.statLabel {
+  font-size: 0.8rem;
+  color: var(--color-text-subtle);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.empty {
+  color: var(--color-text-subtle);
+  font-style: italic;
+  padding: 1rem 0;
+}

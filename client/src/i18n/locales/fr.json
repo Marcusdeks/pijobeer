@@ -1,0 +1,191 @@
+{
+  "nav": {
+    "home": "Accueil",
+    "story": "Histoire",
+    "play": "Jouer",
+    "scores": "Scores",
+    "controls": "Commandes",
+    "credits": "Crédits",
+    "login": "Se connecter",
+    "profile": "Mon profil",
+    "logout": "Déconnexion",
+    "language": "Langue",
+    "mainMenu": "Menu principal",
+    "admin": "Admin du jeu"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "fr": "Français"
+  },
+  "footer": {
+    "copyright": "© {{year}} Pijo Beer. Réalisé avec React, Node.js et PostgreSQL."
+  },
+  "home": {
+    "title": "Bienvenue dans le jeu",
+    "description": "Retourne dans le monde des salles d'arcade et du heavy metal en détruisant ces maudits bourges qui veulent nous couler ! La vengeance est un plat qui se mange en enfer.",
+    "cta": "Lancer le jeu"
+  },
+  "story": {
+    "title": "Histoire :",
+    "p1": "Dans un quartier comme les autres, un jeune métalleux traîne les problèmes de toujours : le lycée, la maison, les gens qui ne le comprennent pas. Il n'y a qu'un seul endroit où tout cela disparaît.",
+    "p2": "Son bar de toujours. De la bière, du heavy metal et de vrais amis. Sa deuxième maison, un lieu sacré où rien ne fait mal et où les problèmes n'existent pas.",
+    "p3": "Mais un jour, quelque chose a changé. Ses potes ne sont plus les mêmes : ils sont devenus mous, bourges et snobs depuis qu'ils ont goûté une nouvelle bière, 50 centimes plus chère, quelque chose qu'il ne peut pas se permettre.",
+    "p4": "Quelques centimes de plus qui font toute la différence pour un gamin comme lui, quelques-uns qui lui font vraiment mal. Las de les voir devenir ce qu'il déteste, il décide de partir seul ce soir-là : il a besoin de prendre l'air, d'abriter sa rage dans l'obscurité et le froid de la nuit. Il a besoin de se calmer.",
+    "p5": "Dans la rue, un bourge décide que c'est une victime facile et solitaire, « ce n'est qu'un gamin »... Il le cherche et il le trouve. La bagarre est vite terminée : il l'a sous-estimé, ce gamin est un métalleux qui se bat chaque jour. Le bourge à terre et en sang, il voit quelque chose briller sur son t-shirt : un décapsuleur.",
+    "p6": "Le seul capable d'ouvrir ces bouteilles maudites qui transforment tes amis en bourges. Désormais, sa mission est unique : ouvrir toutes les bouteilles pour qu'elles perdent leurs bulles avant d'arriver dans les bars métal et de transformer ses amis métalleux en bourges de merde pour toujours.",
+    "imageAlt": "Heavyatilla, le héros"
+  },
+  "play": {
+    "coverAlt": "Couverture de Pijo Beer",
+    "play": "Jouer",
+    "chooseLevel": "Choisir le niveau",
+    "chooseLevelTitle": "Choisis ton niveau",
+    "level": "Niveau {{level}}",
+    "levelRequirement": "Détruis {{count}} bières de bourges au Niveau {{level}}",
+    "close": "Fermer",
+    "skipIntro": "Passer ➜",
+    "canvasLabel": "Zone de jeu",
+    "hud": "Niveau {{level}}  |  Vie : {{health}}  |  Bourges : {{kills}}/{{required}}  |  Points : {{points}}",
+    "paused": "PAUSE",
+    "gameOver": "GAME OVER, minable",
+    "levelUnlocked": "Niveau {{level}} débloqué !",
+    "scoreSaved": "Score enregistré : {{points}} points",
+    "scoreNotSaved": "Impossible d'enregistrer le score",
+    "resume": "Reprendre",
+    "quitToMenu": "Retour au menu principal",
+    "victoryTitle": "Victoire !",
+    "victorySummary": "Niveau {{level}} réussi · {{points}} points",
+    "gameCompleted": "Tu as terminé tous les niveaux !",
+    "nextLevel": "Niveau suivant",
+    "backToMenu": "Retour au menu",
+    "bosses": {
+      "blonde": "FÛT BLOND DE BOURGE",
+      "dark": "FÛT NOIR DE BOURGE"
+    },
+    "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
+  },
+  "controls": {
+    "title": "Commandes",
+    "move": "Déplacement",
+    "shoot": "Tirer",
+    "pause": "Pause"
+  },
+  "credits": {
+    "title": "Crédits",
+    "design": "Conception et programmation : Karazjan",
+    "stack": "Réalisé avec React, TypeScript, Node.js, Express et PostgreSQL",
+    "translations": "Disponible en espagnol, anglais et français"
+  },
+  "auth": {
+    "loginTitle": "Se connecter",
+    "identifier": "E-mail ou nom d'utilisateur",
+    "password": "Mot de passe",
+    "loginSubmit": "Entrer",
+    "noAccount": "Pas encore de compte ?",
+    "goRegister": "Inscris-toi",
+    "registerTitle": "Créer un compte",
+    "username": "Nom d'utilisateur",
+    "usernameHint": "Entre {{min}} et {{max}} caractères : lettres, chiffres ou « _ »",
+    "email": "E-mail",
+    "passwordRepeat": "Répète le mot de passe",
+    "passwordHint": "Au moins {{min}} caractères",
+    "registerSubmit": "Créer le compte",
+    "haveAccount": "Tu as déjà un compte ?",
+    "goLogin": "Connecte-toi",
+    "registered": "Compte créé. Vérifie ton e-mail pour pouvoir jouer.",
+    "devVerifyLink": "[Développement] Clique ici pour vérifier ton e-mail",
+    "passwordsMismatch": "Les mots de passe ne correspondent pas."
+  },
+  "verify": {
+    "verifying": "Vérification de ton e-mail...",
+    "success": "E-mail vérifié !",
+    "successText": "Tu peux te connecter maintenant, {{username}}.",
+    "missingToken": "Lien invalide : le code de vérification est manquant.",
+    "goLogin": "Aller à la connexion"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "username": "Nom d'utilisateur",
+    "email": "E-mail (non modifiable pour l'instant)",
+    "passwordNote": "Laisse les deux cases ci-dessous vides si tu veux seulement changer ton nom d'utilisateur.",
+    "newPassword": "Nouveau mot de passe",
+    "newPasswordRepeat": "Répète le nouveau mot de passe",
+    "currentPassword": "Ton mot de passe actuel (pour confirmer)",
+    "save": "Enregistrer",
+    "passwordsMismatch": "Les nouveaux mots de passe ne correspondent pas.",
+    "updated": {
+      "username": "Nom d'utilisateur modifié avec succès.",
+      "password": "Mot de passe modifié avec succès.",
+      "both": "Nom d'utilisateur et mot de passe modifiés avec succès."
+    }
+  },
+  "scores": {
+    "top": "Top 10 des joueurs",
+    "position": "#",
+    "player": "Joueur",
+    "bestScore": "Meilleur score",
+    "rankingEmpty": "Aucun score pour l'instant. Sois le premier !",
+    "myGames": "Mes parties",
+    "myBest": "Mon record",
+    "gamesPlayed": "Parties jouées",
+    "points": "Score",
+    "level": "Niveau",
+    "date": "Date",
+    "myGamesEmpty": "Tu n'as encore joué aucune partie.",
+    "hint": "Les scores appartiennent à chaque joueur."
+  },
+  "guard": {
+    "title": "Tu dois te connecter",
+    "link": "Connecte-toi ici"
+  },
+  "notFound": {
+    "title": "Cette page n'existe pas",
+    "back": "Retour à l'accueil"
+  },
+  "common": {
+    "loading": "Chargement..."
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Certaines données ne sont pas valides. Vérifie le formulaire.",
+    "NOT_FOUND": "Impossible de trouver ce que tu cherchais.",
+    "TOO_MANY_REQUESTS": "Trop de tentatives. Attends quelques minutes et réessaie.",
+    "INTERNAL_ERROR": "Une erreur est survenue sur le serveur. Réessaie plus tard.",
+    "NETWORK_ERROR": "Impossible de se connecter au serveur. Vérifie ta connexion.",
+    "UNAUTHENTICATED": "Ta session a expiré. Reconnecte-toi.",
+    "INVALID_CREDENTIALS": "Nom d'utilisateur ou mot de passe incorrect.",
+    "EMAIL_NOT_VERIFIED": "Tu dois vérifier ton e-mail avant de pouvoir jouer.",
+    "INVALID_VERIFICATION_TOKEN": "Ce lien n'est plus valide (l'e-mail était déjà confirmé ou le code est incorrect).",
+    "EMAIL_OR_USERNAME_TAKEN": "Cet e-mail ou ce nom d'utilisateur est déjà utilisé.",
+    "WRONG_CURRENT_PASSWORD": "Ton mot de passe actuel est incorrect.",
+    "USERNAME_TAKEN": "Ce nom d'utilisateur est déjà pris.",
+    "NOTHING_TO_UPDATE": "Tu n'as rien modifié.",
+    "PASSWORDS_DO_NOT_MATCH": "Les nouveaux mots de passe ne correspondent pas.",
+    "FORBIDDEN": "Cette section est réservée aux administrateurs.",
+    "AGENT_UNAVAILABLE": "L'agent n'est pas disponible : la clé de l'API Claude n'est pas configurée sur le serveur (ANTHROPIC_API_KEY).",
+    "AGENT_FAILED": "L'agent n'a pas pu répondre. Réessaie dans un instant."
+  },
+  "music": {
+    "mute": "Couper la musique",
+    "unmute": "Activer la musique"
+  },
+  "admin": {
+    "title": "Admin du jeu",
+    "intro": "Configure tes parties de test. Les changements n'affectent que ton compte, et les parties avec une triche active ne comptent pas pour le classement.",
+    "panelTitle": "Triches",
+    "invincible": "Invincible",
+    "killsToComplete": "Bouteilles à détruire (tous les niveaux)",
+    "killsHint": "Vide = celles de chaque niveau",
+    "enemySpeed": "Vitesse des bouteilles",
+    "spawnRate": "Nombre de bouteilles",
+    "bossHealth": "Vie des boss",
+    "save": "Enregistrer",
+    "reset": "Retirer toutes les triches",
+    "saved": "Triches enregistrées.",
+    "agentTitle": "Agent",
+    "agentHello": "Salut ! Dis-moi ce que tu veux changer dans tes parties de test. Par exemple : « baisse les ennemis à 2 » ou « rends-moi invincible ».",
+    "agentPlaceholder": "Écris ta demande…",
+    "send": "Envoyer",
+    "thinking": "Je réfléchis…"
+  }
+}

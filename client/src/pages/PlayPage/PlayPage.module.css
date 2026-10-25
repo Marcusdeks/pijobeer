@@ -1,0 +1,48 @@
+/* ---------- Menú: imagen grande con los botones superpuestos ---------- */
+
+.menu {
+  display: flex;
+  justify-content: center;
+  margin: 3rem auto;
+}
+
+.cover {
+  position: relative; /* para colocar los botones encima con position: absolute */
+  width: min(85vh, 700px, 100%);
+  aspect-ratio: 1 / 1;
+}
+
+.coverImage {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: var(--radius-lg);
+  border: 3px solid var(--color-primary);
+  box-shadow: 0 10px 40px rgba(255, 0, 0, 0.25);
+}
+
+/* Botones en la esquina inferior derecha de la imagen */
+.actions {
+  position: absolute;
+  bottom: 8%;
+  right: 5%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+/* ---------- Partida ---------- */
+
+.game {
+  padding: 2rem;
+  background: var(--gradient-surface);
+  border-radius: var(--radius-lg);
+  border: 2px solid var(--color-primary);
+}
+
+@media (max-width: 768px) {
+  .game {
+    padding: 0.5rem;
+  }
+}

@@ -1,0 +1,37 @@
+# ==============================================================
+#  ESTA CARPETA SE PUBLICA en el repositorio PÚBLICO (portfolio).
+#  Todo lo que no deba verse fuera tiene que estar aquí excluido.
+# ==============================================================
+
+# Notas de trabajo y conversaciones con la IA: solo van al repositorio privado
+PROMPS futuros*
+PROMPTS futuros*
+peticiones futuras*
+*.jsonl
+privado/
+
+# Dependencias (se regeneran con "npm install")
+node_modules/
+
+# Resultados de compilación
+dist/
+coverage/
+*.tsbuildinfo
+
+# SECRETOS: los .env llevan contraseñas y la clave de firma de los tokens.
+# Se sube solo el ".env.example" de cada paquete, sin valores reales.
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# Sistema operativo y editor
+Thumbs.db
+desktop.ini
+.DS_Store
+.vscode/*
+!.vscode/extensions.json
+.idea/

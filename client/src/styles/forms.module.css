@@ -1,0 +1,46 @@
+/* Estilos compartidos por las páginas de formulario (login, registro, perfil) */
+
+.title {
+  text-align: center;
+  margin-bottom: 1.8rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+/* Enlace secundario ("¿No tienes cuenta? Regístrate") */
+.secondary {
+  text-align: center;
+  margin-top: 1.5rem;
+  font-size: 0.9rem;
+  color: var(--color-text-subtle);
+}
+
+.linkButton {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--color-primary);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.linkButton:hover {
+  text-decoration: underline;
+}
+
+.submit {
+  margin-top: 0.5rem;
+}
+
+/* Separa los bloques del formulario de perfil */
+.separator {
+  border: none;
+  border-top: 1px solid rgba(255, 0, 0, 0.2);
+  margin: 1.8rem 0;
+}
+
+.note {
+  font-size: 0.85rem;
+  color: var(--color-text-subtle);
+  margin-bottom: 1.2rem;
+}

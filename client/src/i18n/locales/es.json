@@ -1,0 +1,191 @@
+{
+  "nav": {
+    "home": "Inicio",
+    "story": "Historia",
+    "play": "Jugar",
+    "scores": "Puntuación",
+    "controls": "Controles",
+    "credits": "Créditos",
+    "login": "Iniciar Sesión",
+    "profile": "Mi Perfil",
+    "logout": "Salir",
+    "language": "Idioma",
+    "mainMenu": "Menú principal",
+    "admin": "Juego admin"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "fr": "Français"
+  },
+  "footer": {
+    "copyright": "© {{year}} Pijo Beer. Hecho con React, Node.js y PostgreSQL."
+  },
+  "home": {
+    "title": "Bienvenido al juego",
+    "description": "¡Vuelve al mundo de las recreativas y el heavy metal destruyendo a esos malvados pijos que nos intentan hundir! La venganza es un plato que se sirve en el infierno.",
+    "cta": "Iniciar Juego"
+  },
+  "story": {
+    "title": "Historia:",
+    "p1": "En un barrio cualquiera, un chaval heavy carga con los problemas de siempre: el instituto, la casa, la gente que no le entiende. Solo hay un sitio donde todo eso desaparece.",
+    "p2": "Su bar de siempre. Cerveza, heavy metal y amigos de verdad. Su segundo hogar, un lugar sagrado donde nada duele y los problemas no existen.",
+    "p3": "Pero un día algo cambió. Sus colegas ya no son los mismos: se han vuelto blandengues, pijos y finolis desde que probaron una cerveza nueva, 50 céntimos más cara, algo que él no se puede permitir.",
+    "p4": "Unos céntimos de más que marcan la diferencia para un chavalín como él, unos pocos que a él le duelen de verdad. Harto de verlos convertirse en algo que odia, decide marcharse solo esa noche: necesita airearse, resguardarse de su rabia en la oscuridad y el frío de la noche. Necesita enfriarse.",
+    "p5": "En la calle, un pijo decide que es una víctima sencilla y solitaria, «es solo un chavalín»... Le busca las cosquillas y las encuentra. La pelea termina rápido: le ha infravalorado, ese chavalín es un heavy que lucha en su día a día. Con el pijo en el suelo y sangrando, ve algo brillando en su camiseta: un abrechapas.",
+    "p6": "El único capaz de abrir esas botellas malditas que convierten a tus amigos en pijos. A partir de ahora, su misión es una sola: abrir todas las botellas para que pierdan el gas antes de que lleguen a los bares heavys y conviertan a sus amigos heavys en pijos de mierda para siempre.",
+    "imageAlt": "Heavyatilla, el protagonista"
+  },
+  "play": {
+    "coverAlt": "Portada de Pijo Beer",
+    "play": "Jugar",
+    "chooseLevel": "Elegir Nivel",
+    "chooseLevelTitle": "Elige tu nivel",
+    "level": "Nivel {{level}}",
+    "levelRequirement": "Mata {{count}} cervezas pijas en el Nivel {{level}}",
+    "close": "Cerrar",
+    "skipIntro": "Saltar ➜",
+    "canvasLabel": "Área de juego",
+    "hud": "Nivel {{level}}  |  Vida: {{health}}  |  Pijos: {{kills}}/{{required}}  |  Puntos: {{points}}",
+    "paused": "PAUSA",
+    "gameOver": "GAME OVER pringao",
+    "levelUnlocked": "¡Nivel {{level}} desbloqueado!",
+    "scoreSaved": "Puntuación guardada: {{points}} puntos",
+    "scoreNotSaved": "No se ha podido guardar la puntuación",
+    "resume": "Continuar",
+    "quitToMenu": "Salir al menú principal",
+    "victoryTitle": "¡Victoria!",
+    "victorySummary": "Nivel {{level}} superado · {{points}} puntos",
+    "gameCompleted": "¡Has superado todos los niveles!",
+    "nextLevel": "Siguiente nivel",
+    "backToMenu": "Volver al menú",
+    "bosses": {
+      "blonde": "BARRIL RUBIO PIJO",
+      "dark": "BARRIL NEGRO PIJO"
+    },
+    "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
+  },
+  "controls": {
+    "title": "Controles",
+    "move": "Movimiento",
+    "shoot": "Disparar",
+    "pause": "Pausa"
+  },
+  "credits": {
+    "title": "Créditos",
+    "design": "Diseño y programación: Karazjan",
+    "stack": "Hecho con React, TypeScript, Node.js, Express y PostgreSQL",
+    "translations": "Disponible en español, inglés y francés"
+  },
+  "auth": {
+    "loginTitle": "Iniciar Sesión",
+    "identifier": "Email o nombre de usuario",
+    "password": "Contraseña",
+    "loginSubmit": "Entrar",
+    "noAccount": "¿No tienes cuenta?",
+    "goRegister": "Regístrate",
+    "registerTitle": "Crear Cuenta",
+    "username": "Nombre de usuario",
+    "usernameHint": "Entre {{min}} y {{max}} caracteres: letras, números o «_»",
+    "email": "Email",
+    "passwordRepeat": "Repite la contraseña",
+    "passwordHint": "Al menos {{min}} caracteres",
+    "registerSubmit": "Crear Cuenta",
+    "haveAccount": "¿Ya tienes cuenta?",
+    "goLogin": "Inicia sesión",
+    "registered": "Cuenta creada. Verifica tu email para poder jugar.",
+    "devVerifyLink": "[Desarrollo] Pulsa aquí para verificar tu email",
+    "passwordsMismatch": "Las contraseñas no coinciden."
+  },
+  "verify": {
+    "verifying": "Verificando tu email...",
+    "success": "¡Email verificado!",
+    "successText": "Ya puedes iniciar sesión, {{username}}.",
+    "missingToken": "Enlace no válido: falta el código de verificación.",
+    "goLogin": "Ir a iniciar sesión"
+  },
+  "profile": {
+    "title": "Mi Perfil",
+    "username": "Nombre de usuario",
+    "email": "Email (no se puede cambiar todavía)",
+    "passwordNote": "Deja las dos casillas de abajo vacías si solo quieres cambiarte el nombre de usuario.",
+    "newPassword": "Contraseña nueva",
+    "newPasswordRepeat": "Repite la contraseña nueva",
+    "currentPassword": "Tu contraseña actual (para confirmar)",
+    "save": "Guardar cambios",
+    "passwordsMismatch": "Las contraseñas nuevas no coinciden.",
+    "updated": {
+      "username": "Nombre de usuario cambiado correctamente.",
+      "password": "Contraseña cambiada correctamente.",
+      "both": "Nombre de usuario y contraseña cambiados correctamente."
+    }
+  },
+  "scores": {
+    "top": "Top 10 Jugadores",
+    "position": "#",
+    "player": "Jugador",
+    "bestScore": "Mejor puntuación",
+    "rankingEmpty": "Todavía no hay ninguna puntuación registrada. ¡Sé el primero!",
+    "myGames": "Mis Partidas",
+    "myBest": "Mi récord",
+    "gamesPlayed": "Partidas jugadas",
+    "points": "Puntuación",
+    "level": "Nivel",
+    "date": "Fecha",
+    "myGamesEmpty": "Aún no has jugado ninguna partida.",
+    "hint": "Las puntuaciones son de cada jugador."
+  },
+  "guard": {
+    "title": "Necesitas iniciar sesión",
+    "link": "Inicia sesión aquí"
+  },
+  "notFound": {
+    "title": "Esta página no existe",
+    "back": "Volver al inicio"
+  },
+  "common": {
+    "loading": "Cargando..."
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Hay datos que no son válidos. Revisa el formulario.",
+    "NOT_FOUND": "No se ha encontrado lo que buscabas.",
+    "TOO_MANY_REQUESTS": "Demasiados intentos. Espera unos minutos y vuelve a probar.",
+    "INTERNAL_ERROR": "Ha fallado algo en el servidor. Inténtalo más tarde.",
+    "NETWORK_ERROR": "No se puede conectar con el servidor. Comprueba tu conexión.",
+    "UNAUTHENTICATED": "Tu sesión ha caducado. Vuelve a iniciar sesión.",
+    "INVALID_CREDENTIALS": "El usuario o la contraseña no son correctos.",
+    "EMAIL_NOT_VERIFIED": "Tienes que verificar tu email antes de poder jugar.",
+    "INVALID_VERIFICATION_TOKEN": "Ese enlace ya no es válido (el email ya estaba confirmado o el código es incorrecto).",
+    "EMAIL_OR_USERNAME_TAKEN": "Ese email o nombre de usuario ya está en uso.",
+    "WRONG_CURRENT_PASSWORD": "Tu contraseña actual no es correcta.",
+    "USERNAME_TAKEN": "Ese nombre de usuario ya está cogido.",
+    "NOTHING_TO_UPDATE": "No has cambiado nada.",
+    "PASSWORDS_DO_NOT_MATCH": "Las contraseñas nuevas no coinciden.",
+    "FORBIDDEN": "Esta sección es solo para administradores.",
+    "AGENT_UNAVAILABLE": "El agente no está disponible: falta configurar la clave de la API de Claude en el servidor (ANTHROPIC_API_KEY).",
+    "AGENT_FAILED": "El agente no ha podido responder. Inténtalo de nuevo en un momento."
+  },
+  "music": {
+    "mute": "Silenciar música",
+    "unmute": "Activar música"
+  },
+  "admin": {
+    "title": "Juego admin",
+    "intro": "Configura tus partidas de prueba. Los cambios solo afectan a tu cuenta, y las partidas con algún truco activo no cuentan para el ranking.",
+    "panelTitle": "Trucos",
+    "invincible": "Inmortal",
+    "killsToComplete": "Botellas a eliminar (todos los niveles)",
+    "killsHint": "Vacío = las de cada nivel",
+    "enemySpeed": "Velocidad de las botellas",
+    "spawnRate": "Cantidad de botellas",
+    "bossHealth": "Vida de los jefes",
+    "save": "Guardar cambios",
+    "reset": "Quitar todos los trucos",
+    "saved": "Trucos guardados.",
+    "agentTitle": "Agente",
+    "agentHello": "¡Hola! Dime qué quieres cambiar de tus partidas de prueba. Por ejemplo: «baja los enemigos a 2» o «hazme inmortal».",
+    "agentPlaceholder": "Escribe tu petición…",
+    "send": "Enviar",
+    "thinking": "Pensando…"
+  }
+}

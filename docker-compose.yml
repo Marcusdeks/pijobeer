@@ -1,0 +1,40 @@
+# ==============================================================
+#  Infraestructura local de desarrollo
+#
+#  Levanta PostgreSQL en un contenedor para no tener que instalarlo
+#  en Windows. Sustituye al MySQL de XAMPP del proyecto original.
+#
+#    npm run db:up     -> arranca la base de datos (en segundo plano)
+#    npm run db:down   -> la para (los datos NO se borran)
+#
+#  Los datos viven en el volumen "pijobeer-pgdata", así sobreviven
+#  aunque se borre el contenedor. Para empezar de cero de verdad:
+#    docker compose down -v
+# ==============================================================
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: pijobeer-db
+    restart: unless-stopped
+    environment:
+      # Solo para DESARROLLO local. En producción las credenciales llegan
+      # por variables de entorno del proveedor, nunca escritas en un archivo.
+      POSTGRES_USER: pijobeer
+      POSTGRES_PASSWORD: pijobeer_dev
+      POSTGRES_DB: pijobeer
+    ports:
+      # "host:contenedor". Por fuera usamos el 5433 (y no el 5432 estándar)
+      # para no chocar con otro PostgreSQL que ya esté instalado en el equipo.
+      # Si cambias este número, cámbialo también en DATABASE_URL (server/.env).
+      - '5433:5432'
+    volumes:
+      - pijobeer-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      # Docker considera la BBDD "lista" solo cuando acepta conexiones.
+      test: ['CMD-SHELL', 'pg_isready -U pijobeer -d pijobeer']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  pijobeer-pgdata:

@@ -1,0 +1,23 @@
+/* Mismo ancho que el canvas, para que los menús (position: absolute) lo cubran exacto */
+.wrapper {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.canvas {
+  width: 100%;
+  height: auto;
+  border: 3px solid var(--color-primary);
+  border-radius: var(--radius-md);
+  background-color: #87ceeb;
+  /* El canvas se estira con CSS en pantallas de otro tamaño. "pixelated" hace
+     que al escalarlo se vean bloques nítidos en vez de un sprite borroso. */
+  image-rendering: pixelated;
+}
+
+/* El foco del canvas es interno (para el teclado del juego): no hace falta el contorno */
+.canvas:focus {
+  outline: none;
+}

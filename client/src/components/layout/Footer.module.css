@@ -1,0 +1,9 @@
+.footer {
+  text-align: center;
+  padding: 2rem;
+  margin-top: 4rem;
+  background: linear-gradient(135deg, var(--color-bg) 0%, var(--color-surface) 100%);
+  border-top: 2px solid var(--color-primary);
+  color: var(--color-text-subtle);
+  font-weight: 300;
+}

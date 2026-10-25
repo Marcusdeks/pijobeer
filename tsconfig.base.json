@@ -1,0 +1,29 @@
+{
+  // Configuración de TypeScript COMÚN a todos los paquetes del monorepo.
+  // Cada paquete (client, server, shared) la extiende con "extends" y solo
+  // añade lo que le es propio (DOM para el cliente, tipos de Node para el servidor...).
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    // "Bundler": permite importar sin extensión (import x from './x'), igual
+    // que hacen Vite y tsup, que son quienes empaquetan el código de verdad.
+    "moduleResolution": "Bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+
+    // Modo estricto completo: es lo que convierte a TypeScript en una red de
+    // seguridad real (null/undefined comprobados, nada de "any" implícito...).
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+
+    // Solo comprobamos tipos: la compilación real la hacen Vite (cliente) y tsup (servidor).
+    "noEmit": true
+  }
+}

@@ -1,0 +1,111 @@
+/* ==============================================================
+   ESTILOS GLOBALES
+   Solo tres cosas viven aquí:
+     1. Los "design tokens": colores, espaciados y radios como variables.
+     2. Un reset mínimo para que todos los navegadores partan igual.
+     3. Estilos de etiquetas HTML sueltas (body, a, h1...).
+
+   El resto de estilos van en un archivo .module.css junto a cada
+   componente (CSS Modules): sus clases solo afectan a ese componente,
+   así que es imposible que un cambio en el perfil rompa el menú.
+   ============================================================== */
+
+:root {
+  /* ---- Paleta: negro, rojo y blanco ---- */
+  --color-bg: #000000;
+  --color-surface: #0a0a0a;
+  --color-surface-raised: #1a1a1a;
+  --color-primary: #ff0000;
+  --color-primary-dark: #cc0000;
+  --color-primary-light: #ff3333;
+  --color-primary-soft: rgba(255, 0, 0, 0.1);
+  --color-primary-border: rgba(255, 0, 0, 0.3);
+  --color-text: #ffffff;
+  --color-text-muted: #cccccc;
+  --color-text-subtle: #888888;
+  --color-success: #00cc00;
+  --color-gold: #ffd700;
+  --color-silver: #c0c0c0;
+  --color-bronze: #cd7f32;
+  --color-crawl: #ffdd00;
+  /* Verde neón del menú de victoria */
+  --color-neon: #39ff14;
+  --color-neon-glow: rgba(57, 255, 20, 0.6);
+  --color-neon-dark: #0b5d00;
+
+  /* ---- Degradados reutilizados en paneles y cabecera ---- */
+  --gradient-surface: linear-gradient(
+    135deg,
+    var(--color-surface) 0%,
+    var(--color-surface-raised) 100%
+  );
+  --gradient-primary: linear-gradient(
+    135deg,
+    var(--color-primary) 0%,
+    var(--color-primary-dark) 100%
+  );
+
+  /* ---- Medidas ---- */
+  --radius-sm: 5px;
+  --radius-md: 10px;
+  --radius-lg: 15px;
+  --radius-pill: 50px;
+  --content-max-width: 1200px;
+  --transition: 0.3s ease;
+
+  --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+
+  color-scheme: dark;
+}
+
+/* ---- Reset ---- */
+*,
+*::before,
+*::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+img,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+a {
+  color: var(--color-primary);
+}
+
+/* Contorno visible al navegar con teclado (Tab), pero no al hacer clic con el ratón */
+:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Quien tenga activado "reducir movimiento" en su sistema no recibe animaciones bruscas */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+  }
+}

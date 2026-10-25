@@ -1,0 +1,114 @@
+.button {
+  display: inline-block;
+  border: none;
+  cursor: pointer;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+  transition: all var(--transition);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+}
+
+/* ---- Principal: rojo y redondeado (el .btn-start del original) ---- */
+.primary {
+  background: var(--gradient-primary);
+  color: var(--color-text);
+  padding: 1rem 2.5rem;
+  font-size: 1rem;
+  border-radius: var(--radius-pill);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
+  transform: translateY(-3px);
+}
+
+.primary:active:not(:disabled) {
+  transform: translateY(-1px);
+}
+
+.primary:disabled {
+  opacity: 0.7;
+}
+
+/* ---- Secundario: transparente con borde ---- */
+.ghost {
+  background: transparent;
+  color: var(--color-text);
+  border: 1px solid var(--color-primary-border);
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: var(--radius-sm);
+}
+
+.ghost:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+}
+
+/* ---- Tarjeta de nivel del popup ---- */
+.level {
+  background: var(--gradient-primary);
+  color: var(--color-text);
+  padding: 1.5rem 2.5rem;
+  font-size: 1.1rem;
+  border-radius: var(--radius-lg);
+}
+
+.level:hover:not(:disabled) {
+  transform: translateY(-3px);
+}
+
+/* Nivel bloqueado: gris y sin poder pulsarlo */
+.level:disabled {
+  background: #333333;
+  color: var(--color-text-subtle);
+}
+
+/* ---- Neón: menú de victoria (letras y borde verde brillante) ---- */
+.neon {
+  background: rgba(0, 0, 0, 0.55);
+  color: var(--color-neon);
+  border: 2px solid var(--color-neon);
+  padding: 0.9rem 2rem;
+  font-size: 1rem;
+  border-radius: var(--radius-pill);
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  text-shadow: 0 0 8px var(--color-neon-glow);
+  box-shadow:
+    0 0 10px var(--color-neon-glow),
+    inset 0 0 10px rgba(57, 255, 20, 0.25);
+}
+
+.neon:hover,
+.neon:focus-visible {
+  background: var(--color-neon);
+  color: #000;
+  text-shadow: none;
+  box-shadow: 0 0 24px var(--color-neon);
+  transform: translateY(-3px);
+}
+
+/* El contorno de foco global es rojo; en el menú de victoria desentona, así que va en verde */
+.neon:focus-visible {
+  outline-color: var(--color-neon);
+}
+
+.fullWidth {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .primary {
+    padding: 0.8rem 2rem;
+    font-size: 0.9rem;
+  }
+}

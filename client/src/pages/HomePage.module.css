@@ -1,0 +1,33 @@
+.intro {
+  text-align: center;
+  padding: 3rem;
+  transition: transform var(--transition);
+}
+
+.intro:hover {
+  transform: translateY(-5px);
+}
+
+.title {
+  font-size: 2.5rem;
+  margin-bottom: 1rem;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.description {
+  font-size: 1.1rem;
+  margin-bottom: 2rem;
+  color: var(--color-text-muted);
+  font-weight: 300;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 1.8rem;
+  }
+
+  .description {
+    font-size: 1rem;
+  }
+}

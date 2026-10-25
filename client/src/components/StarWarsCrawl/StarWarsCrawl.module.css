@@ -1,0 +1,105 @@
+/* ==============================================================
+   CRAWL estilo Star Wars (evolución de estilos/crawl.css)
+
+   Dos capas a propósito:
+     .perspective -> aplica la inclinación 3D (rotateX). Tamaño fijo.
+     .text        -> se desplaza hacia arriba. Su recorrido se mide en %
+                     de su propia altura, así se adapta solo a textos
+                     más largos o más cortos (cada idioma mide distinto).
+   ============================================================== */
+
+.container {
+  position: relative;
+  height: 70vh;
+  overflow: hidden;
+  background: #000 url('../../assets/images/starfield.jpg') center / cover no-repeat;
+  border-radius: var(--radius-lg);
+  margin-bottom: 4rem;
+  /* PERSPECTIVA: más bajo = el texto se hace pequeño más rápido al alejarse */
+  perspective: 900px;
+}
+
+.perspective {
+  position: absolute;
+  inset: 0;
+  transform: rotateX(25deg);
+  transform-origin: 50% 100%;
+}
+
+.text {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 70%;
+  color: var(--color-crawl);
+  text-align: center;
+}
+
+/* VELOCIDAD: segundos que tarda en cruzar la pantalla. Más alto = más lento */
+.loop {
+  animation: crawl 60s linear infinite;
+}
+
+.once {
+  animation: crawl 55s linear 1 forwards;
+}
+
+.text h2 {
+  font-size: 3rem;
+  margin-bottom: 2rem;
+  text-transform: uppercase;
+  letter-spacing: 3px;
+}
+
+.text p {
+  font-size: 2.1rem;
+  line-height: 2;
+  margin-bottom: 1.5rem;
+}
+
+.image {
+  width: 40%;
+  margin: 2rem auto;
+  border-radius: var(--radius-md);
+}
+
+.skip {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.6);
+  color: var(--color-text);
+  border: 1px solid var(--color-primary);
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+
+.skip:hover {
+  background: var(--color-primary);
+}
+
+@keyframes crawl {
+  /* Empieza justo por debajo de la vista y termina habiendo subido toda su altura */
+  from {
+    transform: translate(-50%, 75vh);
+  }
+  to {
+    transform: translate(-50%, -150%);
+  }
+}
+
+@media (max-width: 768px) {
+  .text {
+    width: 90%;
+  }
+
+  .text h2 {
+    font-size: 2rem;
+  }
+
+  .text p {
+    font-size: 1.4rem;
+  }
+}

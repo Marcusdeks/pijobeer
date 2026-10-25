@@ -1,0 +1,191 @@
+{
+  "nav": {
+    "home": "Home",
+    "story": "Story",
+    "play": "Play",
+    "scores": "Scores",
+    "controls": "Controls",
+    "credits": "Credits",
+    "login": "Log In",
+    "profile": "My Profile",
+    "logout": "Log out",
+    "language": "Language",
+    "mainMenu": "Main menu",
+    "admin": "Game admin"
+  },
+  "languages": {
+    "es": "Español",
+    "en": "English",
+    "fr": "Français"
+  },
+  "footer": {
+    "copyright": "© {{year}} Pijo Beer. Made with React, Node.js and PostgreSQL."
+  },
+  "home": {
+    "title": "Welcome to the game",
+    "description": "Head back to the world of arcades and heavy metal and wipe out those evil posh kids trying to bring us down! Revenge is a dish best served in hell.",
+    "cta": "Start Game"
+  },
+  "story": {
+    "title": "Story:",
+    "p1": "In an ordinary neighbourhood, a young metalhead carries the usual baggage: school, home, people who just don't get him. There's only one place where all of that disappears.",
+    "p2": "His usual bar. Beer, heavy metal and real friends. His second home, a sacred place where nothing hurts and problems don't exist.",
+    "p3": "But one day something changed. His mates aren't the same anymore: they've gone soft, posh and fancy ever since they tried a new beer, 50 cents more expensive, something he just can't afford.",
+    "p4": "A few extra cents that make all the difference to a kid like him, a few that really hurt. Sick of watching them turn into something he hates, he decides to leave alone that night: he needs some air, to shelter his rage in the darkness and the cold of the night. He needs to cool down.",
+    "p5": "Out on the street, a posh guy decides he's an easy, lonely target, \"he's just a kid\"... He goes looking for trouble and finds it. The fight is over fast: he underestimated him, that kid is a metalhead who fights every single day. With the posh guy on the ground and bleeding, he sees something shining on his shirt: a bottle opener.",
+    "p6": "The only thing able to open those cursed bottles that turn your friends posh. From now on, his mission is just one: open every bottle so they go flat before they reach the metal bars and turn his metalhead friends into posh pricks forever.",
+    "imageAlt": "Heavyatilla, the main character"
+  },
+  "play": {
+    "coverAlt": "Pijo Beer cover art",
+    "play": "Play",
+    "chooseLevel": "Choose Level",
+    "chooseLevelTitle": "Choose your level",
+    "level": "Level {{level}}",
+    "levelRequirement": "Destroy {{count}} posh beers in Level {{level}}",
+    "close": "Close",
+    "skipIntro": "Skip ➜",
+    "canvasLabel": "Game area",
+    "hud": "Level {{level}}  |  Health: {{health}}  |  Posh: {{kills}}/{{required}}  |  Points: {{points}}",
+    "paused": "PAUSED",
+    "gameOver": "GAME OVER, loser",
+    "levelUnlocked": "Level {{level}} unlocked!",
+    "scoreSaved": "Score saved: {{points}} points",
+    "scoreNotSaved": "Your score could not be saved",
+    "resume": "Resume",
+    "quitToMenu": "Quit to main menu",
+    "victoryTitle": "Victory!",
+    "victorySummary": "Level {{level}} cleared · {{points}} points",
+    "gameCompleted": "You've beaten every level!",
+    "nextLevel": "Next level",
+    "backToMenu": "Back to menu",
+    "bosses": {
+      "blonde": "POSH BLONDE KEG",
+      "dark": "POSH DARK KEG"
+    },
+    "cheatsActive": "Admin cheats active: this game does not count for the ranking."
+  },
+  "controls": {
+    "title": "Controls",
+    "move": "Movement",
+    "shoot": "Shoot",
+    "pause": "Pause"
+  },
+  "credits": {
+    "title": "Credits",
+    "design": "Design and programming: Karazjan",
+    "stack": "Made with React, TypeScript, Node.js, Express and PostgreSQL",
+    "translations": "Available in Spanish, English and French"
+  },
+  "auth": {
+    "loginTitle": "Log In",
+    "identifier": "Email or username",
+    "password": "Password",
+    "loginSubmit": "Log in",
+    "noAccount": "Don't have an account?",
+    "goRegister": "Sign up",
+    "registerTitle": "Create Account",
+    "username": "Username",
+    "usernameHint": "Between {{min}} and {{max}} characters: letters, numbers or \"_\"",
+    "email": "Email",
+    "passwordRepeat": "Repeat password",
+    "passwordHint": "At least {{min}} characters",
+    "registerSubmit": "Create Account",
+    "haveAccount": "Already have an account?",
+    "goLogin": "Log in",
+    "registered": "Account created. Verify your email to start playing.",
+    "devVerifyLink": "[Development] Click here to verify your email",
+    "passwordsMismatch": "Passwords do not match."
+  },
+  "verify": {
+    "verifying": "Verifying your email...",
+    "success": "Email verified!",
+    "successText": "You can log in now, {{username}}.",
+    "missingToken": "Invalid link: the verification code is missing.",
+    "goLogin": "Go to log in"
+  },
+  "profile": {
+    "title": "My Profile",
+    "username": "Username",
+    "email": "Email (can't be changed yet)",
+    "passwordNote": "Leave the two boxes below empty if you only want to change your username.",
+    "newPassword": "New password",
+    "newPasswordRepeat": "Repeat new password",
+    "currentPassword": "Your current password (to confirm)",
+    "save": "Save changes",
+    "passwordsMismatch": "The new passwords do not match.",
+    "updated": {
+      "username": "Username changed successfully.",
+      "password": "Password changed successfully.",
+      "both": "Username and password changed successfully."
+    }
+  },
+  "scores": {
+    "top": "Top 10 Players",
+    "position": "#",
+    "player": "Player",
+    "bestScore": "Best score",
+    "rankingEmpty": "No scores yet. Be the first!",
+    "myGames": "My Games",
+    "myBest": "My best",
+    "gamesPlayed": "Games played",
+    "points": "Score",
+    "level": "Level",
+    "date": "Date",
+    "myGamesEmpty": "You haven't played any games yet.",
+    "hint": "Scores belong to each player."
+  },
+  "guard": {
+    "title": "You need to log in",
+    "link": "Log in here"
+  },
+  "notFound": {
+    "title": "This page doesn't exist",
+    "back": "Back to home"
+  },
+  "common": {
+    "loading": "Loading..."
+  },
+  "errors": {
+    "VALIDATION_ERROR": "Some data is not valid. Please check the form.",
+    "NOT_FOUND": "We couldn't find what you were looking for.",
+    "TOO_MANY_REQUESTS": "Too many attempts. Wait a few minutes and try again.",
+    "INTERNAL_ERROR": "Something went wrong on the server. Please try again later.",
+    "NETWORK_ERROR": "Can't connect to the server. Check your connection.",
+    "UNAUTHENTICATED": "Your session has expired. Please log in again.",
+    "INVALID_CREDENTIALS": "Incorrect username or password.",
+    "EMAIL_NOT_VERIFIED": "You need to verify your email before you can play.",
+    "INVALID_VERIFICATION_TOKEN": "This link is no longer valid (the email was already confirmed or the code is wrong).",
+    "EMAIL_OR_USERNAME_TAKEN": "That email or username is already in use.",
+    "WRONG_CURRENT_PASSWORD": "Your current password is incorrect.",
+    "USERNAME_TAKEN": "That username is already taken.",
+    "NOTHING_TO_UPDATE": "You haven't changed anything.",
+    "PASSWORDS_DO_NOT_MATCH": "The new passwords do not match.",
+    "FORBIDDEN": "This section is for administrators only.",
+    "AGENT_UNAVAILABLE": "The agent is not available: the Claude API key is not configured on the server (ANTHROPIC_API_KEY).",
+    "AGENT_FAILED": "The agent could not reply. Please try again in a moment."
+  },
+  "music": {
+    "mute": "Mute music",
+    "unmute": "Unmute music"
+  },
+  "admin": {
+    "title": "Game admin",
+    "intro": "Set up your test games. Changes only affect your account, and games with any cheat active do not count for the ranking.",
+    "panelTitle": "Cheats",
+    "invincible": "Invincible",
+    "killsToComplete": "Bottles to destroy (every level)",
+    "killsHint": "Empty = each level's own",
+    "enemySpeed": "Bottle speed",
+    "spawnRate": "Number of bottles",
+    "bossHealth": "Boss health",
+    "save": "Save changes",
+    "reset": "Remove all cheats",
+    "saved": "Cheats saved.",
+    "agentTitle": "Agent",
+    "agentHello": "Hi! Tell me what you want to change in your test games. For example: \"lower the enemies to 2\" or \"make me invincible\".",
+    "agentPlaceholder": "Type your request…",
+    "send": "Send",
+    "thinking": "Thinking…"
+  }
+}

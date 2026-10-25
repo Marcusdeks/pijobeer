@@ -1,0 +1,11 @@
+{
+  "extends": "../tsconfig.base.json",
+  "compilerOptions": {
+    // DOM: el código del cliente corre en el navegador (document, window, canvas...)
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    // JSX automático: no hace falta "import React" en cada componente
+    "jsx": "react-jsx",
+    "types": ["vite/client"]
+  },
+  "include": ["src", "vite.config.ts"]
+}

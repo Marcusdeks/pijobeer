@@ -1,0 +1,49 @@
+{
+  "name": "pijobeer",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Pijo Beer: shoot'em up arcade con React + Node + PostgreSQL",
+  "author": "Karazjan",
+  "license": "UNLICENSED",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "server",
+    "client"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "db:up": "docker compose up -d",
+    "db:down": "docker compose down",
+    "db:migrate": "npm run db:migrate --workspace server",
+    "db:studio": "npm run db:studio --workspace server",
+    "db:seed": "npm run db:seed --workspace server",
+    "dev": "concurrently -n server,client -c blue,magenta \"npm run dev -w server\" \"npm run dev -w client\"",
+    "build": "npm run build -w server && npm run build -w client",
+    "sprites": "npm run sprites -w client",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "format": "prettier --write ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "concurrently": "^9.2.5",
+    "eslint": "^10.13.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.7",
+    "globals": "^16.5.0",
+    "prettier": "^3.9.10",
+    "typescript-eslint": "^8.72.0"
+  },
+  "allowScripts": {
+    "prisma@6.19.3": true,
+    "esbuild@0.27.7": true,
+    "esbuild@0.28.2": true,
+    "@prisma/engines@6.19.3": true,
+    "esbuild@0.25.12": true,
+    "@prisma/client@6.19.3": true
+  }
+}

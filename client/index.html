@@ -1,0 +1,26 @@
+<!doctype html>
+<!--
+  Única página HTML de toda la aplicación (SPA, "Single Page Application").
+
+  En el proyecto original había 8 archivos .htm, cada uno con su propia copia
+  de la cabecera y el menú. Ahora React pinta dentro de <div id="root"> la
+  pantalla que toque según la URL, y la cabecera es UN componente que se
+  reutiliza en todas.
+-->
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="Pijo Beer: shoot'em up arcade de heavy metal contra cervezas pijas."
+    />
+    <meta name="theme-color" content="#000000" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Pijo Beer</title>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

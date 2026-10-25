@@ -1,0 +1,122 @@
+.intro {
+  color: var(--color-text-muted);
+}
+
+/* Panel y chat lado a lado; en pantallas estrechas, uno debajo del otro */
+.columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 0 2rem;
+}
+
+.card {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- Panel manual ---------- */
+
+.form {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.field {
+  display: grid;
+  gap: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--color-text-muted);
+}
+
+.field input[type='number'] {
+  padding: 0.6rem 0.8rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+}
+
+.field input[type='range'] {
+  accent-color: var(--color-primary);
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-weight: 600;
+}
+
+.checkbox input {
+  width: 1.2rem;
+  height: 1.2rem;
+  accent-color: var(--color-primary);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+/* ---------- Chat ---------- */
+
+.chatLog {
+  flex: 1;
+  min-height: 260px;
+  max-height: 420px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.5rem 0;
+}
+
+.bubble {
+  max-width: 85%;
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius-md);
+  font-size: 0.9rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+}
+
+.assistant {
+  align-self: flex-start;
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-primary-border);
+}
+
+.user {
+  align-self: flex-end;
+  background: var(--color-primary-dark);
+}
+
+.error {
+  align-self: stretch;
+  max-width: none;
+  background: rgba(255, 0, 0, 0.15);
+  border: 1px solid var(--color-primary);
+  color: #ff6666;
+}
+
+.chatForm {
+  display: flex;
+  gap: 0.6rem;
+  margin-top: 1rem;
+}
+
+.chatForm input {
+  flex: 1;
+  min-width: 0;
+  padding: 0.8rem 1rem;
+  background: var(--color-bg);
+  color: var(--color-text);
+  border: 1px solid var(--color-primary-border);
+  border-radius: var(--radius-sm);
+}
+
+.chatForm input:focus {
+  outline: none;
+  border-color: var(--color-primary);
+}

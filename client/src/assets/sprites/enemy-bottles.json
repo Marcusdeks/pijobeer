@@ -1,0 +1,15 @@
+{
+  "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
+  "frameWidth": 56,
+  "frameHeight": 80,
+  "frames": 5,
+  "variants": ["pink", "gold", "dark"],
+  "anchor": {
+    "x": 28,
+    "y": 2
+  },
+  "bottle": {
+    "width": 18,
+    "height": 46
+  }
+}

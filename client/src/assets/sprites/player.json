@@ -1,0 +1,23 @@
+{
+  "frame_width": 64,
+  "frame_height": 80,
+  "columns": 4,
+  "rows": 8,
+  "frame_order": ["neutro", "paso_1", "neutro", "paso_2"],
+  "frame_duration_ms": 160,
+  "fps": 6,
+  "pivot_pies": {
+    "x": 32,
+    "y": 69
+  },
+  "filas": {
+    "arriba": 0,
+    "arriba_derecha": 1,
+    "derecha": 2,
+    "abajo_derecha": 3,
+    "abajo": 4,
+    "abajo_izquierda": 5,
+    "izquierda": 6,
+    "arriba_izquierda": 7
+  }
+}

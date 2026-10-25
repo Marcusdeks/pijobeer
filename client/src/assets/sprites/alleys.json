@@ -1,0 +1,21 @@
+{
+  "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
+  "drawScale": 2,
+  "alleys": {
+    "1": {
+      "height": 2423,
+      "floorLeft": 116,
+      "floorRight": 696
+    },
+    "2": {
+      "height": 2464,
+      "floorLeft": 128,
+      "floorRight": 684
+    },
+    "3": {
+      "height": 2416,
+      "floorLeft": 120,
+      "floorRight": 704
+    }
+  }
+}
