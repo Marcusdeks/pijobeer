@@ -1,20 +1,17 @@
 /**
  * Botón de la cabecera para silenciar o activar la música.
- * Solo aparece si hay canciones (ver audio/music.ts).
- *
- * useSyncExternalStore es la forma estándar de React de leer un estado que
- * vive fuera de React (aquí, el reproductor) y repintarse cuando cambia.
+ * Solo aparece si el estilo elegido tiene canciones (ver audio/music.ts).
  */
-import { useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { music } from './music';
 import styles from './MusicToggle.module.css';
+import { useMusicSettings } from './useMusicSettings';
 
 export function MusicToggle() {
   const { t } = useTranslation();
-  const muted = useSyncExternalStore(music.subscribe, () => music.isMuted);
+  const { muted, available } = useMusicSettings();
 
-  if (!music.available) return null;
+  if (!available) return null;
 
   const label = muted ? t('music.unmute') : t('music.mute');
   return (

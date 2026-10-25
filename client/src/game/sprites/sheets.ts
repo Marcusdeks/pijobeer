@@ -9,9 +9,10 @@
  * imágenes las carga GameCanvas. Así la lógica se testea sin navegador.
  */
 import type { BossId, EnemyTypeId } from '@pijobeer/shared';
-import { ENEMY_TYPES } from '../config';
+import { ENEMY_TYPES, type PickupTypeId } from '../config';
 import alleysMeta from '../../assets/sprites/alleys.json';
 import bossMeta from '../../assets/sprites/bosses.json';
+import pickupMeta from '../../assets/sprites/pickups.json';
 import enemyMeta from '../../assets/sprites/enemy-bottles.json';
 import foamMeta from '../../assets/sprites/bullet-foam.json';
 import openerMeta from '../../assets/sprites/bullet-opener.json';
@@ -99,6 +100,22 @@ export function bossFrame(id: BossId, flashing: boolean): SpriteFrame {
     sy: flashing ? bossMeta.frameHeight : 0,
     width: bossMeta.frameWidth,
     height: bossMeta.frameHeight,
+  };
+}
+
+// ------------------------------------------------------------------
+//  Latas (una fila, una columna por tipo)
+// ------------------------------------------------------------------
+
+/** Centro de la lata dentro del frame. */
+export const PICKUP_ANCHOR: Anchor = pickupMeta.anchor;
+
+export function pickupFrame(type: PickupTypeId): SpriteFrame {
+  return {
+    sx: pickupMeta.pickups.indexOf(type) * pickupMeta.frameWidth,
+    sy: 0,
+    width: pickupMeta.frameWidth,
+    height: pickupMeta.frameHeight,
   };
 }
 

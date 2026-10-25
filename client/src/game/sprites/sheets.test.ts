@@ -1,11 +1,12 @@
 /**
- * Tests del recorte de las hojas de enemigos y balas.
+ * Tests del recorte de las hojas de enemigos, balas y latas.
  */
 import { describe, expect, it } from 'vitest';
 import enemyMeta from '../../assets/sprites/enemy-bottles.json';
 import foamMeta from '../../assets/sprites/bullet-foam.json';
 import openerMeta from '../../assets/sprites/bullet-opener.json';
-import { enemyFrame, foamFrame, openerFrame } from './sheets';
+import pickupMeta from '../../assets/sprites/pickups.json';
+import { enemyFrame, foamFrame, openerFrame, pickupFrame } from './sheets';
 
 /** Columna de la hoja a la que corresponde un recorte. */
 const column = (sx: number, frameWidth: number) => sx / frameWidth;
@@ -38,5 +39,16 @@ describe('openerFrame', () => {
       column(openerFrame(i * steps, steps).sx, openerMeta.frameWidth),
     );
     expect(columns).toEqual([0, 1, 2, 3, 0, 1]);
+  });
+});
+
+describe('pickupFrame', () => {
+  it('cada lata es una columna de la única fila', () => {
+    expect(pickupFrame('speed')).toEqual({
+      sx: pickupMeta.pickups.indexOf('speed') * pickupMeta.frameWidth,
+      sy: 0,
+      width: pickupMeta.frameWidth,
+      height: pickupMeta.frameHeight,
+    });
   });
 });

@@ -203,6 +203,32 @@ export const BOSS_COMMON = {
   hitFlashSteps: 4,
 } as const;
 
+/**
+ * LATAS que se recogen al tocarlas. Caen cada cierto tiempo, se alternan al
+ * azar y las balas las atraviesan (no se pueden romper sin querer).
+ *
+ * Cada cuántas salen y cuánto cura la verde dependen además de la dificultad
+ * (pickupRate y pickupHeal en packages/shared/src/difficulty.ts).
+ */
+export const PICKUP = {
+  /** Caja de colisión: el dibujo entero (pickups.json), con 1 px más a lo ancho para que cueste menos cogerla. */
+  width: 20,
+  height: 34,
+  /** Más lentas que cualquier botella: hay que poder llegar a ellas. */
+  fallSpeed: 1.2,
+  /** Pasos entre lata y lata en dificultad normal (900 = 15 s). */
+  spawnInterval: 900,
+} as const;
+
+export const PICKUP_TYPES = {
+  /** Verde: cura. Un cuarto de la vida: ayuda, pero no salva una partida mala. */
+  health: { heal: 25 },
+  /** Leopardo: el jugador corre más durante un rato. */
+  speed: { speedScale: 1.5, durationSteps: 360 },
+} as const;
+
+export type PickupTypeId = keyof typeof PICKUP_TYPES;
+
 /** Píxeles por paso que se desplaza el fondo del callejón. */
 export const SCROLL_SPEED = 0.9;
 
@@ -234,6 +260,10 @@ export const COLORS = {
   playerHealthy: '#00ff00', // vida >= 75 %
   playerHurt: '#ffff00', // vida >= 25 %
   playerCritical: '#ff0000', // vida < 25 %
+  /** Barra del acelerón de la lata de velocidad. */
+  playerBoost: '#ffc400',
+  /** Lata mientras se descarga su imagen. */
+  pickup: '#3fbf3f',
   playerBullet: '#ffffff',
   enemy: '#aa00ff',
   enemyBullet: '#ff0000',

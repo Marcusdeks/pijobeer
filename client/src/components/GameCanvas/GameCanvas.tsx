@@ -27,6 +27,7 @@ import bossSheetUrl from '../../assets/sprites/bosses.png';
 import foamSheetUrl from '../../assets/sprites/bullet-foam.png';
 import openerSheetUrl from '../../assets/sprites/bullet-opener.png';
 import enemySheetUrl from '../../assets/sprites/enemy-bottles.png';
+import pickupSheetUrl from '../../assets/sprites/pickups.png';
 import playerSheetUrl from '../../assets/sprites/player.png';
 import { ARENA } from '../../game/config';
 import { GameLoop } from '../../game/GameLoop';
@@ -72,6 +73,7 @@ function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
     foamSheet: foamSheetUrl,
     openerSheet: openerSheetUrl,
     bossSheet: bossSheetUrl,
+    pickupSheet: pickupSheetUrl,
     alley: ALLEY_URLS[getLevel(levelId).alley],
   };
 }
@@ -155,6 +157,7 @@ export function GameCanvas({
       foamSheet: null,
       openerSheet: null,
       bossSheet: null,
+      pickupSheet: null,
       alley: null,
     };
     let disposed = false;

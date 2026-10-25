@@ -40,12 +40,10 @@
     "coverAlt": "Pijo Beer cover art",
     "play": "Play",
     "chooseLevel": "Choose Level",
-    "difficulty": "Difficulty",
-    "difficulties": { "easy": "Easy", "normal": "Normal", "hard": "Hard" },
+    "options": "Options",
     "chooseLevelTitle": "Choose your level",
     "level": "Level {{level}}",
     "levelRequirement": "Destroy {{count}} posh beers in Level {{level}}",
-    "close": "Close",
     "skipIntro": "Skip ➜",
     "canvasLabel": "Game area",
     "hud": "Level {{level}}  |  Health: {{health}}  |  Posh: {{kills}}/{{required}}  |  Points: {{points}}",
@@ -66,6 +64,31 @@
       "dark": "POSH DARK KEG"
     },
     "cheatsActive": "Admin cheats active: this game does not count for the ranking."
+  },
+  "options": {
+    "title": "Options",
+    "difficulty": "Difficulty",
+    "difficulties": {
+      "easy": "Easy",
+      "normal": "Normal",
+      "hard": "Hard"
+    },
+    "music": "Music",
+    "volume": "Volume",
+    "style": "Style",
+    "styles": {
+      "heavy-metal": "Heavy metal",
+      "hard-rock": "Hard rock",
+      "black-metal": "Black metal",
+      "custom": "Your song"
+    },
+    "upload": "Upload your song (.mp3)",
+    "customTrack": "Your song: {{name}}",
+    "noTracks": "There are no songs in this style yet.",
+    "errors": {
+      "notMp3": "Only .mp3 files are allowed.",
+      "tooBig": "The file is too big (maximum {{max}} MB)."
+    }
   },
   "controls": {
     "title": "Controls",
@@ -146,7 +169,8 @@
     "back": "Back to home"
   },
   "common": {
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "close": "Close"
   },
   "errors": {
     "VALIDATION_ERROR": "Some data is not valid. Please check the form.",

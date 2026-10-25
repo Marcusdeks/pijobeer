@@ -1,0 +1,25 @@
+.dialog {
+  margin: auto;
+  padding: 3rem;
+  max-width: min(90vw, 600px);
+  background: var(--gradient-surface);
+  color: var(--color-text);
+  border: 2px solid var(--color-primary);
+  border-radius: var(--radius-lg);
+  text-align: center;
+}
+
+/* El fondo oscuro que pone el navegador detrás del <dialog> */
+.dialog::backdrop {
+  background: rgba(0, 0, 0, 0.8);
+}
+
+.close {
+  margin-top: 2rem;
+}
+
+@media (max-width: 600px) {
+  .dialog {
+    padding: 1.5rem;
+  }
+}

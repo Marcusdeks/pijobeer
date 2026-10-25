@@ -9,7 +9,7 @@
  * renderer: el renderer solo pregunta "¿qué frame dibujo?" (animationFrame).
  * Así la animación también se puede probar en tests sin dibujar nada.
  */
-import { ARENA, PLAYER, PLAYER_BULLET } from '../config';
+import { ARENA, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from '../config';
 import { directionFromInput, type Direction } from '../direction';
 import { clamp, type Rect } from '../geometry';
 import type { InputState } from '../input/InputState';
@@ -37,6 +37,9 @@ export class Player implements Rect {
   /** Pasos que faltan para poder volver a disparar. */
   private shootCooldown = 0;
 
+  /** Pasos que le quedan al acelerón de la lata de velocidad (0 = sin acelerón). */
+  private boostSteps = 0;
+
   constructor(
     public x: number,
     public y: number,
@@ -54,6 +57,11 @@ export class Player implements Rect {
   /** Porcentaje de vida restante (0-100). Lo usa el renderer para la barra de vida. */
   get healthPercent(): number {
     return (this.health / PLAYER.maxHealth) * 100;
+  }
+
+  /** Porcentaje que queda del acelerón (0 = sin acelerón). Lo usa el renderer para su barra. */
+  get boostPercent(): number {
+    return (this.boostSteps / PICKUP_TYPES.speed.durationSteps) * 100;
   }
 
   /**
@@ -77,8 +85,10 @@ export class Player implements Rect {
     const dx = Number(input.isDown('right')) - Number(input.isDown('left'));
     const dy = Number(input.isDown('down')) - Number(input.isDown('up'));
 
-    this.x += dx * PLAYER.speed;
-    this.y += dy * PLAYER.speed;
+    const speed = this.boostSteps > 0 ? PLAYER.speed * PICKUP_TYPES.speed.speedScale : PLAYER.speed;
+    if (this.boostSteps > 0) this.boostSteps--;
+    this.x += dx * speed;
+    this.y += dy * speed;
 
     // A los lados, las paredes del callejón. Arriba, sitio para la cabeza y la barra de vida.
     this.x = clamp(this.x, field.left, field.right - this.width);
@@ -102,6 +112,16 @@ export class Player implements Rect {
   /** Resta vida, sin bajar de 0. */
   takeDamage(amount: number): void {
     this.health = Math.max(0, this.health - amount);
+  }
+
+  /** Suma vida, sin pasar del máximo. */
+  heal(amount: number): void {
+    this.health = Math.min(PLAYER.maxHealth, this.health + amount);
+  }
+
+  /** Empieza el acelerón. Otra lata durante el acelerón lo renueva, no lo acumula. */
+  boost(): void {
+    this.boostSteps = PICKUP_TYPES.speed.durationSteps;
   }
 
   private updateAnimation(dx: number, dy: number): void {

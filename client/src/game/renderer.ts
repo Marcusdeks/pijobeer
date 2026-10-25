@@ -18,6 +18,7 @@ import { ARENA, COLORS, ENEMY_BULLET, PLAYER_BULLET, SCROLL_SPEED } from './conf
 import type { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import type { Enemy } from './entities/Enemy';
+import type { Pickup } from './entities/Pickup';
 import type { Player } from './entities/Player';
 import type { GameSession } from './GameSession';
 import type { Rect } from './geometry';
@@ -33,6 +34,8 @@ import {
   foamFrame,
   OPENER_ANCHOR,
   openerFrame,
+  PICKUP_ANCHOR,
+  pickupFrame,
   type Anchor,
 } from './sprites/sheets';
 
@@ -47,11 +50,12 @@ export interface RenderAssets {
   foamSheet: HTMLImageElement | null;
   openerSheet: HTMLImageElement | null;
   bossSheet: HTMLImageElement | null;
+  pickupSheet: HTMLImageElement | null;
   /** Callejón del nivel en curso. */
   alley: HTMLImageElement | null;
 }
 
-/** Barra de vida sobre la cabeza del jugador. */
+/** Barras sobre la cabeza del jugador: la de vida y, encima, la del acelerón. */
 const HEALTH_BAR = { width: 36, height: 4, gap: 6 } as const;
 
 /** Barra de vida del jefe, arriba en el centro. */
@@ -89,6 +93,7 @@ export function renderGame(
   // queda encima. La espuma va ANTES que las botellas y el jefe para que su
   // estela quede detrás de ellos y no los tape al salir.
   for (const bullet of session.enemyBullets) drawFoam(ctx, bullet, assets.foamSheet);
+  for (const pickup of session.pickups) drawPickup(ctx, pickup, assets.pickupSheet);
   for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets.enemySheet);
   if (session.boss) drawBoss(ctx, session.boss, assets.bossSheet);
   drawPlayer(ctx, session.player, assets.playerSheet);
@@ -223,6 +228,20 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, sheet: HTMLImage
   drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, enemy.x + enemy.width / 2, enemy.y);
 }
 
+/** Lata: centrada en su caja de colisión. */
+function drawPickup(ctx: CanvasRenderingContext2D, pickup: Pickup, sheet: HTMLImageElement | null) {
+  if (!sheet) return fillRect(ctx, pickup, COLORS.pickup);
+  const centerX = pickup.x + pickup.width / 2;
+  drawFrame(
+    ctx,
+    sheet,
+    pickupFrame(pickup.type),
+    PICKUP_ANCHOR,
+    centerX,
+    pickup.y + pickup.height / 2,
+  );
+}
+
 /**
  * Espuma: la cabeza del chorro (el ancla) va en el centro del borde inferior de la caja.
  * Los chorros diagonales de los jefes se giran para que la estela quede detrás
@@ -280,15 +299,21 @@ function drawPlayer(
   const feetY = player.y + player.height;
   drawFrame(ctx, sheet, frame, PLAYER_PIVOT, feetX, feetY);
 
-  drawHealthBar(ctx, player, feetX, player.y - HEALTH_BAR.gap);
+  const barBottom = player.y - HEALTH_BAR.gap;
+  drawBar(ctx, feetX, barBottom, player.healthPercent, healthColor(player));
+  // Mientras dura el acelerón, una segunda barra encima que se va vaciando
+  if (player.boostPercent > 0) {
+    drawBar(ctx, feetX, barBottom - HEALTH_BAR.height - 2, player.boostPercent, COLORS.playerBoost);
+  }
 }
 
-/** Barra de vida centrada en `centerX`, con su base en `bottomY`. */
-function drawHealthBar(
+/** Barra pequeña sobre el jugador, centrada en `centerX` y con su base en `bottomY`. */
+function drawBar(
   ctx: CanvasRenderingContext2D,
-  player: Player,
   centerX: number,
   bottomY: number,
+  percent: number,
+  color: string,
 ): void {
   const x = Math.round(centerX - HEALTH_BAR.width / 2);
   const y = Math.round(bottomY - HEALTH_BAR.height);
@@ -296,13 +321,8 @@ function drawHealthBar(
   ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
   ctx.fillRect(x - 1, y - 1, HEALTH_BAR.width + 2, HEALTH_BAR.height + 2);
 
-  ctx.fillStyle = healthColor(player);
-  ctx.fillRect(
-    x,
-    y,
-    Math.round((HEALTH_BAR.width * player.healthPercent) / 100),
-    HEALTH_BAR.height,
-  );
+  ctx.fillStyle = color;
+  ctx.fillRect(x, y, Math.round((HEALTH_BAR.width * percent) / 100), HEALTH_BAR.height);
 }
 
 /** Verde / amarillo / rojo según el % de vida restante. */

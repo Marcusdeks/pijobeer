@@ -40,12 +40,10 @@
     "coverAlt": "Portada de Pijo Beer",
     "play": "Jugar",
     "chooseLevel": "Elegir Nivel",
-    "difficulty": "Dificultad",
-    "difficulties": { "easy": "Fácil", "normal": "Normal", "hard": "Difícil" },
+    "options": "Opciones",
     "chooseLevelTitle": "Elige tu nivel",
     "level": "Nivel {{level}}",
     "levelRequirement": "Mata {{count}} cervezas pijas en el Nivel {{level}}",
-    "close": "Cerrar",
     "skipIntro": "Saltar ➜",
     "canvasLabel": "Área de juego",
     "hud": "Nivel {{level}}  |  Vida: {{health}}  |  Pijos: {{kills}}/{{required}}  |  Puntos: {{points}}",
@@ -66,6 +64,31 @@
       "dark": "BARRIL NEGRO PIJO"
     },
     "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
+  },
+  "options": {
+    "title": "Opciones",
+    "difficulty": "Dificultad",
+    "difficulties": {
+      "easy": "Fácil",
+      "normal": "Normal",
+      "hard": "Difícil"
+    },
+    "music": "Música",
+    "volume": "Volumen",
+    "style": "Estilo",
+    "styles": {
+      "heavy-metal": "Heavy metal",
+      "hard-rock": "Hard rock",
+      "black-metal": "Black metal",
+      "custom": "Tu canción"
+    },
+    "upload": "Subir tu canción (.mp3)",
+    "customTrack": "Tu canción: {{name}}",
+    "noTracks": "Todavía no hay canciones de este estilo.",
+    "errors": {
+      "notMp3": "Solo se admiten archivos .mp3.",
+      "tooBig": "El archivo pesa demasiado (máximo {{max}} MB)."
+    }
   },
   "controls": {
     "title": "Controles",
@@ -146,7 +169,8 @@
     "back": "Volver al inicio"
   },
   "common": {
-    "loading": "Cargando..."
+    "loading": "Cargando...",
+    "close": "Cerrar"
   },
   "errors": {
     "VALIDATION_ERROR": "Hay datos que no son válidos. Revisa el formulario.",

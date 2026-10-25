@@ -18,6 +18,7 @@ import {
   type GameModifiers,
   type LevelDefinition,
 } from '@pijobeer/shared';
+import { PICKUP, PICKUP_TYPES } from './config';
 import type { RandomFn } from './entities/Enemy';
 import { playfieldFor, type Playfield } from './playfield';
 
@@ -33,6 +34,10 @@ export interface GameRules {
   invincible: boolean;
   /** Multiplicador de la vida que pierde el jugador en cada golpe. */
   damageTaken: number;
+  /** Pasos entre lata y lata. */
+  pickupInterval: number;
+  /** Vida que recupera la lata verde. */
+  healAmount: number;
   /** Multiplicador de los puntos de la partida. */
   pointsScale: number;
   /** Elige al azar el tipo de la siguiente botella, según la mezcla del nivel. */
@@ -62,6 +67,8 @@ export function resolveRules(
     bossHealth: modifiers.bossHealth * difficulty.bossHealth,
     invincible: modifiers.invincible,
     damageTaken: difficulty.damageTaken,
+    pickupInterval: Math.round(PICKUP.spawnInterval / difficulty.pickupRate),
+    healAmount: Math.round(PICKUP_TYPES.health.heal * difficulty.pickupHeal),
     pointsScale: difficulty.points,
     pickEnemyType: weightedPicker(level.enemyMix),
   };

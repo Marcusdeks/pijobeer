@@ -10,6 +10,10 @@ peticiones futuras*
 *.jsonl
 privado/
 
+# Canciones comerciales para probar en local con "Subir tu canción" (Opciones):
+# tienen derechos de autor, así que no se pueden publicar
+sound/
+
 # Dependencias (se regeneran con "npm install")
 node_modules/
 

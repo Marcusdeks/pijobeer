@@ -1,5 +1,5 @@
 /**
- * Tests de la partida: aparición de enemigos, victoria, jefes, pausa y trucos.
+ * Tests de la partida: aparición de enemigos, victoria, jefes, latas, pausa y trucos.
  */
 import {
   BOSS_POINTS,
@@ -10,9 +10,10 @@ import {
   type GameModifiers,
 } from '@pijobeer/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { BOSS, BOSS_COMMON, ENEMY, PLAYER, PLAYER_BULLET } from './config';
+import { BOSS, BOSS_COMMON, ENEMY, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from './config';
 import { Bullet } from './entities/Bullet';
 import { Enemy } from './entities/Enemy';
+import { Pickup } from './entities/Pickup';
 import { GameSession, type GameSessionOptions } from './GameSession';
 import { fakeInput, fixedRandom, run } from './testing';
 
@@ -202,6 +203,70 @@ describe('dificultad', () => {
     for (const game of [normal, hard, easy]) game.kills = 3;
     expect(hard.points).toBe(normal.points * DIFFICULTIES.hard.points);
     expect(easy.points % POINTS_PER_KILL).toBe(0);
+  });
+});
+
+describe('latas', () => {
+  /** Pone una lata justo encima del jugador: la recoge en el siguiente paso. */
+  function addPickupOnPlayer(game: GameSession, type: Pickup['type']) {
+    game.pickups.push(new Pickup(game.player.x, game.player.y, type));
+  }
+
+  it('salen cada cierto tiempo, más a menudo en fácil y menos en difícil', () => {
+    const [easy, normal, hard] = (['easy', 'normal', 'hard'] as const).map(
+      (difficulty) => session(1, { difficulty }).rules.pickupInterval,
+    );
+    expect(easy).toBeLessThan(normal!);
+    expect(hard).toBeGreaterThan(normal!);
+
+    // Inmortal: en 15 s las botellas acabarían con el jugador y la partida se pararía
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    run(game, game.rules.pickupInterval - 1);
+    expect(game.pickups).toHaveLength(0);
+    game.step(fakeInput());
+    expect(game.pickups).toHaveLength(1);
+  });
+
+  it('la verde cura sin pasar del máximo; en difícil cura lo mismo que en normal', () => {
+    const game = session(1);
+    game.player.health = 50;
+    addPickupOnPlayer(game, 'health');
+    game.step(fakeInput());
+    expect(game.player.health).toBe(50 + PICKUP_TYPES.health.heal);
+    expect(game.pickups).toHaveLength(0);
+
+    addPickupOnPlayer(game, 'health');
+    game.step(fakeInput());
+    addPickupOnPlayer(game, 'health');
+    game.step(fakeInput());
+    expect(game.player.health).toBe(PLAYER.maxHealth);
+
+    const healOf = (difficulty: 'easy' | 'normal' | 'hard') =>
+      session(1, { difficulty }).rules.healAmount;
+    expect(healOf('hard')).toBe(healOf('normal'));
+    expect(healOf('easy')).toBeGreaterThan(healOf('normal'));
+  });
+
+  it('la de velocidad acelera al jugador durante un rato', () => {
+    const game = session(1);
+    addPickupOnPlayer(game, 'speed');
+    game.step(fakeInput());
+    expect(game.player.boostPercent).toBeGreaterThan(0);
+
+    const x = game.player.x;
+    game.step(fakeInput('left'));
+    expect(x - game.player.x).toBe(PLAYER.speed * PICKUP_TYPES.speed.speedScale);
+
+    run(game, PICKUP_TYPES.speed.durationSteps);
+    expect(game.player.boostPercent).toBe(0);
+  });
+
+  it('las balas del jugador las atraviesan', () => {
+    const game = session(1);
+    game.pickups.push(new Pickup(300, 100, 'health'));
+    game.playerBullets.push(new Bullet(305, 120, -PLAYER_BULLET.speed, PLAYER_BULLET));
+    game.step(fakeInput());
+    expect(game.pickups).toHaveLength(1);
   });
 });
 

@@ -32,51 +32,6 @@
   gap: 1rem;
 }
 
-/* Selector de dificultad: tres "pastillas"; el radio real queda oculto pero accesible */
-.difficulty {
-  display: flex;
-  gap: 0.4rem;
-  margin: 0;
-  padding: 0;
-  border: 0;
-}
-
-.difficulty legend {
-  width: 100%;
-  margin-bottom: 0.4rem;
-  text-align: center;
-  font-weight: 700;
-  color: var(--color-text);
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8);
-}
-
-.difficulty input {
-  position: absolute;
-  opacity: 0;
-  pointer-events: none;
-}
-
-.difficulty span {
-  display: block;
-  padding: 0.35rem 0.8rem;
-  border: 2px solid var(--color-primary);
-  border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.7);
-  color: var(--color-text);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.difficulty input:checked + span {
-  background: var(--color-primary);
-  font-weight: 700;
-}
-
-.difficulty input:focus-visible + span {
-  outline: 2px solid var(--color-text);
-  outline-offset: 2px;
-}
-
 /* ---------- Partida ---------- */
 
 .game {

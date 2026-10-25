@@ -40,12 +40,10 @@
     "coverAlt": "Couverture de Pijo Beer",
     "play": "Jouer",
     "chooseLevel": "Choisir le niveau",
-    "difficulty": "Difficulté",
-    "difficulties": { "easy": "Facile", "normal": "Normale", "hard": "Difficile" },
+    "options": "Options",
     "chooseLevelTitle": "Choisis ton niveau",
     "level": "Niveau {{level}}",
     "levelRequirement": "Détruis {{count}} bières de bourges au Niveau {{level}}",
-    "close": "Fermer",
     "skipIntro": "Passer ➜",
     "canvasLabel": "Zone de jeu",
     "hud": "Niveau {{level}}  |  Vie : {{health}}  |  Bourges : {{kills}}/{{required}}  |  Points : {{points}}",
@@ -66,6 +64,31 @@
       "dark": "FÛT NOIR DE BOURGE"
     },
     "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
+  },
+  "options": {
+    "title": "Options",
+    "difficulty": "Difficulté",
+    "difficulties": {
+      "easy": "Facile",
+      "normal": "Normale",
+      "hard": "Difficile"
+    },
+    "music": "Musique",
+    "volume": "Volume",
+    "style": "Style",
+    "styles": {
+      "heavy-metal": "Heavy metal",
+      "hard-rock": "Hard rock",
+      "black-metal": "Black metal",
+      "custom": "Ta chanson"
+    },
+    "upload": "Importer ta chanson (.mp3)",
+    "customTrack": "Ta chanson : {{name}}",
+    "noTracks": "Il n’y a pas encore de chansons de ce style.",
+    "errors": {
+      "notMp3": "Seuls les fichiers .mp3 sont acceptés.",
+      "tooBig": "Le fichier est trop lourd (maximum {{max}} Mo)."
+    }
   },
   "controls": {
     "title": "Commandes",
@@ -146,7 +169,8 @@
     "back": "Retour à l'accueil"
   },
   "common": {
-    "loading": "Chargement..."
+    "loading": "Chargement...",
+    "close": "Fermer"
   },
   "errors": {
     "VALIDATION_ERROR": "Certaines données ne sont pas valides. Vérifie le formulaire.",

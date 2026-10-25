@@ -83,7 +83,7 @@ pijobeer/
 │   └── tests/                tests de integración HTTP (sin BBDD, repositorios en memoria)
 │
 ├── client/                 SPA en React
-│   ├── art/                  ARTE FUENTE: player/, enemies/, projectiles/ (no se publica: solo lo lee el script)
+│   ├── art/                  ARTE FUENTE: player/, enemies/, projectiles/, bosses/, pickups/, alleys/ (no se publica: solo lo lee el script)
 │   ├── scripts/              herramientas (generar las hojas de sprites)
 │   └── src/
 │       ├── assets/sprites/   hojas de sprites generadas (PNG) + sus metadatos (JSON)
@@ -147,6 +147,7 @@ por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comu
 | `bullet-foam.png`   | `art/projectiles/` | 2 cortos (salida) + 3 largos (en bucle)        | cabeza del chorro  |
 | `bullet-opener.png` | `art/projectiles/` | 4 (llamas en bucle)                            | aro del abrechapas |
 | `bosses.png`        | `art/bosses/`      | 2 jefes × (normal, destello blanco al recibir) | centro del barril  |
+| `pickups.png`       | `art/pickups/`     | 2 latas (vida, velocidad), sin animación       | centro de la lata  |
 | `alley-N-*.webp`    | `art/alleys/`      | suelo + paredes de cada callejón (parallax)    | —                  |
 
 - **`player.json`** lo escribes tú y es la fuente de verdad del jugador (tamaño de frame, filas, pivote,
@@ -174,11 +175,26 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
   queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Con media vida entra
   en **furia** (barra rosa): más rápido, menos pausa y 2 chorros más por disparo. Se gana al vaciarle la
   barra de vida. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
-- **Dificultad** (en el menú; se recuerda en el navegador): _Fácil_, _Normal_ (el juego tal cual) y
-  _Difícil_. Multiplica velocidad y ritmo de botellas, vida de los jefes, daño recibido y puntos
-  (×0,5 / ×1 / ×2). Valores: `packages/shared/src/difficulty.ts`.
+- **Latas** (`PICKUP` y `PICKUP_TYPES` en `game/config.ts`): cada cierto tiempo cae una, también contra el
+  jefe. La **verde** cura y la de **leopardo** hace correr ×1,5 durante 6 s (una barra amarilla sobre la
+  vida marca lo que queda). Se recogen al tocarlas y las balas las atraviesan.
+
+  | Dificultad | Sale una lata cada | La verde cura |
+  | ---------- | ------------------ | ------------- |
+  | Fácil      | 12 s               | 30            |
+  | Normal     | 15 s               | 25            |
+  | Difícil    | ~21 s              | 25            |
+
+  En difícil salen menos, así que cada una cura lo mismo que en normal.
+
+- **Dificultad** (en _Opciones_; se recuerda en el navegador): _Fácil_, _Normal_ (el juego tal cual) y
+  _Difícil_. Multiplica velocidad y ritmo de botellas, vida de los jefes, daño recibido, puntos
+  (×0,5 / ×1 / ×2) y latas. Valores: `packages/shared/src/difficulty.ts`.
 - Las reglas finales de una partida (nivel + dificultad + trucos de admin) se calculan en un único sitio:
   `game/rules.ts`.
+- **Menú de Jugar**: _Jugar_, _Elegir nivel_ y _Opciones_. Las dos últimas abren una ventana modal
+  (`components/ui/Dialog`, sobre el `<dialog>` nativo). _Opciones_ (`pages/PlayPage/OptionsDialog.tsx`)
+  tiene la dificultad y la música, y está pensada para ir sumando apartados (p. ej. la skin del personaje).
 - **Pausa** (tecla P): menú con _Continuar_ y _Salir al menú principal_.
 - **Victoria**: menú en verde neón con letras pixel art (fuente _Press Start 2P_) con _Siguiente nivel_
   (si existe) y _Volver al menú_. Se desbloquea el siguiente nivel y se guarda la partida.
@@ -195,9 +211,17 @@ valor con los límites de `GAME_MODIFIER_LIMITS` (`packages/shared/src/game-modi
 
 ### Música
 
-Se dejan los archivos (`.ogg` o `.mp3`) en `client/src/assets/music/` con los nombres de su `LEEME.md`
-(`menu`, `level-1`, `boss`...). No hay que tocar código: el juego los detecta al compilar. Si no hay
-ninguno, no suena nada y el botón de silenciar no aparece.
+En _Opciones_ se elige el **volumen** y el **estilo**: _Heavy metal_, _Hard rock_, _Black metal_ o
+**_Tu canción_**. Los ajustes se recuerdan en el navegador.
+
+- Las canciones de cada estilo van en `client/src/assets/music/<estilo>/` (`heavy-metal`, `hard-rock`,
+  `black-metal`) con los nombres de su `LEEME.md` (`menu`, `level-1`, `boss`...). No hay que tocar
+  código: el juego las detecta al compilar. Si el estilo no tiene ninguna, no suena nada y el botón de
+  silenciar no aparece. Solo música propia o con licencia libre: el repositorio es público.
+- **Tu canción**: el jugador sube un **.mp3** y suena en todas las pantallas. Se comprueba la extensión,
+  el tipo y los primeros bytes del archivo (`audio/mp3File.ts`), con un máximo de 20 MB. El archivo
+  **no sale nunca del navegador**: se guarda en IndexedDB (`audio/customTrackStore.ts`) para la próxima
+  visita y se reproduce con `<audio>`, que no ejecuta nada. Así no hay forma de colar código al servidor.
 
 ---
 

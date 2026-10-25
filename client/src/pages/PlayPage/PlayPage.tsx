@@ -4,6 +4,7 @@
  *   menú ──► (elegir nivel) ──► intro* ──► partida ─┬─► victoria ──► siguiente nivel / menú
  *                                                   ├─► game over ──► menú (automático)
  *                                                   └─► pausa ──► continuar / salir al menú
+ *    └──► (opciones: dificultad y música; se aplican al momento)
  *                                 * solo la primera vez (o si no se ha visto)
  *
  * Son dos MÁQUINAS DE ESTADOS encajadas:
@@ -13,13 +14,7 @@
  * En juego.js esto se hacía mostrando y ocultando secciones con style.display,
  * y era fácil dejar dos pantallas visibles a la vez por error; aquí es imposible.
  */
-import {
-  DIFFICULTY_IDS,
-  FIRST_LEVEL,
-  hasActiveModifiers,
-  nextLevelId,
-  type GameModifiers,
-} from '@pijobeer/shared';
+import { FIRST_LEVEL, hasActiveModifiers, nextLevelId, type GameModifiers } from '@pijobeer/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminApi, scoresApi } from '../../api/endpoints';
@@ -36,11 +31,13 @@ import { useProgress } from '../../features/progress/useProgress';
 import { GAME_OVER_DELAY_MS } from '../../game/config';
 import type { GameResult, GameStatus } from '../../game/GameSession';
 import { LevelSelectDialog } from './LevelSelectDialog';
+import { OptionsDialog } from './OptionsDialog';
 import styles from './PlayPage.module.css';
 
 type Screen =
   | { name: 'menu' }
   | { name: 'levelSelect' }
+  | { name: 'options' }
   | { name: 'intro'; levelId: number }
   /** runId cambia en cada partida: hace que React cree un GameCanvas nuevo desde cero. */
   | { name: 'playing'; levelId: number; runId: number };
@@ -167,31 +164,17 @@ export function PlayPage() {
         </Alert>
       )}
 
-      {(screen.name === 'menu' || screen.name === 'levelSelect') && (
+      {/* Las ventanas de nivel y opciones se abren ENCIMA del menú, que sigue debajo */}
+      {(screen.name === 'menu' || screen.name === 'levelSelect' || screen.name === 'options') && (
         <section className={styles.menu}>
           <div className={styles.cover}>
             <img src={coverImage} alt={t('play.coverAlt')} className={styles.coverImage} />
             <div className={styles.actions}>
-              {/* Radios nativos: se eligen con flechas del teclado y los lectores de pantalla los anuncian */}
-              <fieldset className={styles.difficulty}>
-                <legend>{t('play.difficulty')}</legend>
-                {DIFFICULTY_IDS.map((id) => (
-                  <label key={id}>
-                    <input
-                      type="radio"
-                      name="difficulty"
-                      value={id}
-                      checked={difficulty === id}
-                      onChange={() => setDifficulty(id)}
-                    />
-                    <span>{t(`play.difficulties.${id}`)}</span>
-                  </label>
-                ))}
-              </fieldset>
               <Button onClick={() => startLevel(FIRST_LEVEL)}>{t('play.play')}</Button>
               <Button onClick={() => setScreen({ name: 'levelSelect' })}>
                 {t('play.chooseLevel')}
               </Button>
+              <Button onClick={() => setScreen({ name: 'options' })}>{t('play.options')}</Button>
             </div>
           </div>
         </section>
@@ -201,6 +184,14 @@ export function PlayPage() {
         <LevelSelectDialog
           isLevelUnlocked={progress.isLevelUnlocked}
           onSelect={startLevel}
+          onClose={backToMenu}
+        />
+      )}
+
+      {screen.name === 'options' && (
+        <OptionsDialog
+          difficulty={difficulty}
+          onDifficultyChange={setDifficulty}
           onClose={backToMenu}
         />
       )}

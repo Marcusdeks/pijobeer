@@ -18,6 +18,7 @@
 import { buildAlleySheets } from './sprites/alleys.mjs';
 import { buildBossSheet } from './sprites/bosses.mjs';
 import { buildEnemySheet } from './sprites/enemies.mjs';
+import { buildPickupSheet } from './sprites/pickups.mjs';
 import { buildPlayerSheet } from './sprites/player.mjs';
 import { buildProjectileSheets } from './sprites/projectiles.mjs';
 
@@ -26,6 +27,7 @@ const builders = [
   ['Enemigos', buildEnemySheet],
   ['Jefes finales', buildBossSheet],
   ['Proyectiles', buildProjectileSheets],
+  ['Latas', buildPickupSheet],
   ['Callejones', buildAlleySheets],
 ];
 

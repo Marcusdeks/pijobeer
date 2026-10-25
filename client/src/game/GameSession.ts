@@ -8,6 +8,9 @@
  * Estados:   running ⇄ paused     running ─► victory     running ─► over
  * ("victory" y "over" son finales: la partida ya no avanza.)
  *
+ * Latas: cada cierto tiempo (según la dificultad) cae una lata. La verde
+ * cura y la de leopardo acelera al jugador durante unos segundos.
+ *
  * Cómo se supera un nivel:
  *   - Sin jefe: eliminando las botellas que piden las reglas.
  *   - Con jefe: al eliminarlas dejan de salir botellas y entra el jefe; se
@@ -22,10 +25,11 @@ import {
   type DifficultyId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, ENEMY } from './config';
+import { ARENA, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
+import { Pickup } from './entities/Pickup';
 import { Player } from './entities/Player';
 import { intersects } from './geometry';
 import type { InputState } from './input/InputState';
@@ -61,7 +65,7 @@ export interface GameSessionOptions {
   random?: RandomFn;
 }
 
-/** Lo que tienen en común botellas y balas para poder retirarlas al final del paso. */
+/** Lo que tienen en común botellas, latas y balas para poder retirarlas al final del paso. */
 interface Removable {
   alive: boolean;
   isOutOfBounds(arenaHeight: number): boolean;
@@ -75,6 +79,7 @@ export class GameSession {
   playerBullets: Bullet[] = [];
   /** Viven aquí y no en cada enemigo: siguen volando aunque su enemigo muera. */
   enemyBullets: Bullet[] = [];
+  pickups: Pickup[] = [];
   /** Jefe en pantalla, o null si aún no ha aparecido (o el nivel no tiene). */
   boss: Boss | null = null;
   kills = 0;
@@ -146,10 +151,12 @@ export class GameSession {
 
     this.moveEverything(input);
     this.spawn();
+    this.spawnPickup();
     this.resolveCollisions();
 
     // Limpieza: sin ella las listas crecerían sin parar y el juego iría cada vez más lento
     this.enemies = this.enemies.filter(isStillInPlay);
+    this.pickups = this.pickups.filter(isStillInPlay);
     this.playerBullets = this.playerBullets.filter(isStillInPlay);
     this.enemyBullets = this.enemyBullets.filter(isStillInPlay);
 
@@ -173,6 +180,7 @@ export class GameSession {
       this.enemyBullets.push(...this.boss.update(target));
     }
 
+    for (const pickup of this.pickups) pickup.update();
     for (const bullet of this.playerBullets) bullet.update();
     for (const bullet of this.enemyBullets) bullet.update();
   }
@@ -199,6 +207,13 @@ export class GameSession {
       const type = this.rules.pickEnemyType(this.random);
       this.enemies.push(Enemy.spawn(type, field, this.random, enemySpeed));
     }
+  }
+
+  /** Una lata cada pickupInterval pasos, también durante el combate con el jefe (ahí es cuando más falta hace). */
+  private spawnPickup(): void {
+    if (this.scroll % this.rules.pickupInterval !== 0) return;
+    const type: PickupTypeId = this.random() < 0.5 ? 'health' : 'speed';
+    this.pickups.push(Pickup.spawn(type, this.rules.field, this.random));
   }
 
   private resolveCollisions(): void {
@@ -234,6 +249,14 @@ export class GameSession {
       }
     }
 
+    // Las latas se recogen al tocarlas (las balas las atraviesan: ver config.ts)
+    for (const pickup of this.pickups) {
+      if (pickup.alive && intersects(pickup, player)) {
+        pickup.alive = false;
+        this.collect(pickup.type);
+      }
+    }
+
     // Choque con el jefe: quita vida, con un tiempo de espera entre golpe y golpe
     if (boss && intersects(boss, player) && boss.tryContactDamage()) {
       this.damagePlayer(BOSS_COMMON.contactDamage);
@@ -243,6 +266,11 @@ export class GameSession {
       this.bossDefeated = true;
       this.boss = null;
     }
+  }
+
+  private collect(type: PickupTypeId): void {
+    if (type === 'health') this.player.heal(this.rules.healAmount);
+    else this.player.boost();
   }
 
   /** El truco de inmortalidad y el daño de la dificultad se aplican aquí, en un único sitio. */
