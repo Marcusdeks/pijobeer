@@ -10,7 +10,15 @@ import {
   type GameModifiers,
 } from '@pijobeer/shared';
 import { describe, expect, it, vi } from 'vitest';
-import { BOSS, BOSS_COMMON, ENEMY, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from './config';
+import {
+  BACKGROUND_FOLLOW,
+  BOSS,
+  BOSS_COMMON,
+  ENEMY,
+  PICKUP_TYPES,
+  PLAYER,
+  PLAYER_BULLET,
+} from './config';
 import { Bullet } from './entities/Bullet';
 import { Enemy } from './entities/Enemy';
 import { Pickup } from './entities/Pickup';
@@ -64,12 +72,24 @@ describe('aparición de botellas y progresión', () => {
     expect(types(2)).toEqual(new Set(['normal', 'fast', 'heavy']));
   });
 
-  it('el fondo avanza con la partida y se para en la pausa', () => {
+  it('el tiempo de partida se para en la pausa', () => {
     const game = session(1);
     run(game, 10);
     game.pause();
     run(game, 10);
-    expect(game.scroll).toBe(10);
+    expect(game.steps).toBe(10);
+  });
+
+  it('el fondo solo se mueve cuando el jugador anda hacia arriba o hacia abajo', () => {
+    const game = session(1);
+    run(game, 10);
+    run(game, 10, fakeInput('left'));
+    expect(game.backgroundDistance).toBe(0);
+
+    run(game, 10, fakeInput('up'));
+    expect(game.backgroundDistance).toBeCloseTo(10 * PLAYER.speed * BACKGROUND_FOLLOW);
+    run(game, 10, fakeInput('down'));
+    expect(game.backgroundDistance).toBeCloseTo(0);
   });
 });
 

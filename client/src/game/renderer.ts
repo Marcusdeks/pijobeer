@@ -14,7 +14,7 @@
  * teclado y con lectores de pantalla, algo que un canvas no permite.
  */
 import type { BossId } from '@pijobeer/shared';
-import { ARENA, COLORS, ENEMY_BULLET, PLAYER_BULLET, SCROLL_SPEED } from './config';
+import { ARENA, COLORS, ENEMY_BULLET, PLAYER_BULLET } from './config';
 import type { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import type { Enemy } from './entities/Enemy';
@@ -87,7 +87,7 @@ export function renderGame(
   // 1. Fondo: color de reserva (también "borra" el fotograma anterior) y el callejón
   ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, ARENA.width, ARENA.height);
-  drawScrollingLayer(ctx, assets.alley, session.level.alley, session.scroll * SCROLL_SPEED);
+  drawScrollingLayer(ctx, assets.alley, session.level.alley, session.backgroundDistance);
 
   // 2. Entidades. Orden de dibujo = orden de capas: lo que se dibuja después
   // queda encima. La espuma va ANTES que las botellas y el jefe para que su
@@ -142,8 +142,9 @@ function drawScrollingLayer(
 
   const scale = ALLEY_DRAW_SCALE;
   const loop = alleyHeight(alley) * scale; // alto de una repetición, en píxeles de pantalla
-  // Entero: un desplazamiento con decimales emborrona el pixel art
-  const offset = Math.floor(distance) % loop;
+  // Entero: un desplazamiento con decimales emborrona el pixel art. Con el doble
+  // módulo, al retroceder (distancia negativa) también queda entre 0 y loop.
+  const offset = ((Math.floor(distance) % loop) + loop) % loop;
 
   // Dos copias seguidas (la actual y la de encima) cubren siempre la pantalla
   for (const copyTop of [offset - loop, offset]) {

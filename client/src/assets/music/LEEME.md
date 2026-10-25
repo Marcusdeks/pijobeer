@@ -26,5 +26,5 @@ Las canciones se repiten en bucle, así que conviene que el final empalme con el
 
 **Ojo con los derechos de autor**: este repositorio es público. Aquí solo puede ir música propia o con
 licencia libre (p. ej. CC0 o CC-BY, citando al autor en Créditos). Para escuchar canciones comerciales
-está la opción **"Subir tu canción"**: el MP3 se queda en el navegador del jugador y nunca se sube a
+está la opción **"Tu música"** (canciones sueltas o una carpeta): los MP3 se quedan en el navegador del jugador y nunca se suben a
 ningún servidor ni al repositorio.

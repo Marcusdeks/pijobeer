@@ -2,7 +2,7 @@
  * MÚSICA DEL JUEGO.
  *
  * Hay un ESTILO de música elegido en Opciones (heavy metal, hard rock, black
- * metal o "tu canción"). Las canciones de cada estilo se dejan en su carpeta,
+ * metal o "tu música"). Las canciones de cada estilo se dejan en su carpeta,
  * client/src/assets/music/<estilo>/, con estos nombres (.ogg o .mp3):
  *
  *   menu      portada y menú de "Jugar"
@@ -14,18 +14,21 @@
  *
  * No hay que tocar código: Vite detecta al compilar qué archivos existen
  * (import.meta.glob). Si a un estilo le falta una canción, no suena nada.
- * Con "tu canción", la que ha subido el jugador suena en todas las pantallas.
+ *
+ * Con "tu música" suenan las canciones que ha subido el jugador, una detrás
+ * de otra y en bucle (un álbum se oye entero), sin cortarse al cambiar de
+ * pantalla: no hay una canción para el menú y otra para los niveles.
  *
  * Los navegadores no dejan reproducir sonido hasta que el usuario interactúa
  * con la página (un clic, una tecla). Por eso la música empieza al pulsar
  * "Jugar" y no al entrar en la web.
  */
-import { loadCustomTrack, saveCustomTrack, type CustomTrack } from './customTrackStore';
+import { loadCustomTracks, saveCustomTracks, type CustomTrack } from './customTrackStore';
 
 /** Estilos con canciones propias del juego, en el orden del menú (= nombre de su carpeta). */
 export const MUSIC_STYLES = ['heavy-metal', 'hard-rock', 'black-metal'] as const;
 
-/** 'custom' = la canción que ha subido el jugador. */
+/** 'custom' = la música que ha subido el jugador. */
 export type MusicStyle = (typeof MUSIC_STYLES)[number] | 'custom';
 
 export type TrackName = 'menu' | 'boss' | `level-${number}`;
@@ -50,13 +53,15 @@ export interface MusicSettings {
   /** Volumen de 0 a 1. */
   volume: number;
   style: MusicStyle;
-  /** Nombre del archivo subido por el jugador, o null si no ha subido ninguno. */
-  customTrackName: string | null;
+  /** Canciones que ha subido el jugador (0 = ninguna). */
+  customTrackCount: number;
+  /** Nombre de la canción del jugador que toca ahora, o null. */
+  currentCustomTrack: string | null;
   /** true si el estilo elegido tiene alguna canción (si no, sobra el botón de silenciar). */
   available: boolean;
 }
 
-/** Lo que se recuerda en localStorage (la canción va aparte, en IndexedDB). */
+/** Lo que se recuerda en localStorage (las canciones van aparte, en IndexedDB). */
 type StoredSettings = Pick<MusicSettings, 'muted' | 'volume' | 'style'>;
 
 const STORAGE_KEY = 'pijobeer.music';
@@ -68,35 +73,33 @@ class MusicPlayer {
   /** Última canción pedida: al cambiar de estilo se busca la equivalente del nuevo. */
   private requested: TrackName | null = null;
   private stored = readStored();
-  private custom: { name: string; url: string } | null = null;
+  /** Lista del jugador (con su URL blob: ya creada) y la que toca ahora. */
+  private playlist: Array<{ name: string; url: string }> = [];
+  private playlistIndex = 0;
+  /** Canciones seguidas que no se han podido reproducir: si fallan todas, se para. */
+  private failures = 0;
   private snapshot = this.buildSnapshot();
   private readonly listeners = new Set<() => void>();
 
   constructor() {
-    // La canción del jugador se recupera en segundo plano; si no hay, se vuelve al estilo por defecto
-    loadCustomTrack()
-      .then((track) => track && this.useCustomTrack(track))
+    // La música del jugador se recupera en segundo plano; si no hay, se vuelve al estilo por defecto
+    loadCustomTracks()
+      .then((tracks) => this.usePlaylist(tracks))
       .catch(() => {})
       .finally(() => {
-        if (this.stored.style === 'custom' && !this.custom) this.update({ style: DEFAULTS.style });
+        if (this.stored.style === 'custom' && !this.playlist.length) {
+          this.update({ style: DEFAULTS.style });
+        }
       });
   }
 
-  /** Pone una canción en bucle. Si ya sonaba esa misma, no la reinicia. */
+  /** Pone la música de una pantalla. Si ya sonaba esa misma, no la reinicia. */
   play(name: TrackName): void {
     this.requested = name;
-    const url = this.resolve(name);
-    if (!url) return this.stopAudio();
-    if (url === this.currentUrl) return;
-
-    this.stopAudio();
-    this.audio = new Audio(url);
-    this.audio.loop = true;
-    this.audio.volume = this.stored.volume;
-    this.audio.muted = this.stored.muted;
-    this.currentUrl = url;
-    // Si el navegador aún no permite sonido, falla en silencio; sonará en la siguiente
-    this.audio.play().catch(() => {});
+    if (this.stored.style === 'custom') return this.playCurrentCustom();
+    const tracks = TRACKS.get(this.stored.style);
+    const url = tracks?.get(name) ?? (name.startsWith('level-') ? tracks?.get('level') : undefined);
+    this.start(url, true);
   }
 
   stop(): void {
@@ -114,20 +117,33 @@ class MusicPlayer {
 
   /** Cambia de estilo y, si estaba sonando algo, salta a la canción equivalente. */
   setStyle(style: MusicStyle): void {
-    if (style === 'custom' && !this.custom) return;
+    if (style === 'custom' && !this.playlist.length) return;
     this.update({ style });
   }
 
+  /** Salta a la siguiente canción del jugador (al acabar la última, vuelve a la primera). */
+  nextTrack(): void {
+    if (!this.playlist.length) return;
+    this.playlistIndex = (this.playlistIndex + 1) % this.playlist.length;
+    this.changed();
+  }
+
   /**
-   * Usa una canción del jugador (ya validada con checkMp3File) y la elige como estilo.
-   * Se guarda en el navegador para la próxima visita; si no se puede, vale para esta.
+   * Usa las canciones del jugador (ya filtradas con selectMp3Files) y las elige como estilo.
+   * @returns false si no se han podido guardar para la próxima visita (sí suenan en esta)
    */
-  async setCustomTrack(file: File): Promise<void> {
-    // Se vuelve a envolver como audio/mpeg: el navegador lo tratará siempre como sonido
-    const track = { name: file.name, file: new Blob([file], { type: 'audio/mpeg' }) };
-    this.useCustomTrack(track);
+  async setCustomTracks(files: File[]): Promise<boolean> {
+    // Se vuelven a envolver como audio/mpeg: el navegador las tratará siempre como sonido
+    const tracks = files.map((file) => ({
+      name: file.name,
+      file: new Blob([file], { type: 'audio/mpeg' }),
+    }));
+    this.usePlaylist(tracks);
     this.update({ style: 'custom' });
-    await saveCustomTrack(track).catch(() => {});
+    return saveCustomTracks(tracks).then(
+      () => true,
+      () => false,
+    );
   }
 
   getSnapshot = (): MusicSettings => this.snapshot;
@@ -140,16 +156,47 @@ class MusicPlayer {
 
   // ------------------------------------------------------------------
 
-  private resolve(name: TrackName): string | undefined {
-    if (this.stored.style === 'custom') return this.custom?.url;
-    const tracks = TRACKS.get(this.stored.style);
-    return tracks?.get(name) ?? (name.startsWith('level-') ? tracks?.get('level') : undefined);
+  private playCurrentCustom(): void {
+    // Con una sola canción basta con repetirla; con varias, al acabar pasa a la siguiente
+    this.start(this.playlist[this.playlistIndex]?.url, this.playlist.length === 1);
   }
 
-  private useCustomTrack(track: CustomTrack): void {
-    // La URL anterior ocupa memoria mientras exista: se libera al sustituirla
-    if (this.custom) URL.revokeObjectURL(this.custom.url);
-    this.custom = { name: track.name, url: URL.createObjectURL(track.file) };
+  private start(url: string | undefined, loop: boolean): void {
+    if (!url) return this.stopAudio();
+    if (url === this.currentUrl) return;
+
+    this.stopAudio();
+    const audio = new Audio(url);
+    audio.loop = loop;
+    audio.volume = this.stored.volume;
+    audio.muted = this.stored.muted;
+    if (this.stored.style === 'custom') {
+      audio.onended = () => this.nextTrack();
+      audio.onplaying = () => {
+        this.failures = 0;
+      };
+      // Un archivo que el navegador no sabe decodificar se salta, salvo que fallen todos
+      audio.onerror = () => {
+        if (++this.failures < this.playlist.length) this.nextTrack();
+        else this.stopAudio();
+      };
+    }
+    this.audio = audio;
+    this.currentUrl = url;
+    // Si el navegador aún no permite sonido, falla en silencio; sonará en la siguiente
+    audio.play().catch(() => {});
+  }
+
+  private usePlaylist(tracks: CustomTrack[]): void {
+    if (!tracks.length) return;
+    // Cada URL blob: ocupa memoria mientras exista: se liberan las de la lista anterior
+    this.playlist.forEach((track) => URL.revokeObjectURL(track.url));
+    this.playlist = tracks.map((track) => ({
+      name: track.name,
+      url: URL.createObjectURL(track.file),
+    }));
+    this.playlistIndex = 0;
+    this.failures = 0;
     this.changed();
   }
 
@@ -168,7 +215,7 @@ class MusicPlayer {
     this.changed();
   }
 
-  /** Vuelve a elegir canción (por si ha cambiado el estilo) y avisa a React. */
+  /** Vuelve a elegir canción (por si ha cambiado el estilo o la lista) y avisa a React. */
   private changed(): void {
     if (this.requested) this.play(this.requested);
     // Objeto nuevo solo cuando algo cambia: useSyncExternalStore compara por referencia
@@ -178,15 +225,21 @@ class MusicPlayer {
 
   private buildSnapshot(): MusicSettings {
     const { style } = this.stored;
+    const custom = style === 'custom';
     return {
       ...this.stored,
-      customTrackName: this.custom?.name ?? null,
-      available: style === 'custom' ? !!this.custom : TRACKS.has(style),
+      customTrackCount: this.playlist.length,
+      currentCustomTrack: custom ? (this.playlist[this.playlistIndex]?.name ?? null) : null,
+      available: custom ? this.playlist.length > 0 : TRACKS.has(style),
     };
   }
 
   private stopAudio(): void {
-    this.audio?.pause();
+    if (this.audio) {
+      // Sin quitar los avisos, al parar podría saltar onerror y pasar de canción solo
+      this.audio.onended = this.audio.onerror = this.audio.onplaying = null;
+      this.audio.pause();
+    }
     this.audio = null;
     this.currentUrl = null;
   }

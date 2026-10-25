@@ -86,8 +86,16 @@ export function createApp(deps: AppDependencies): Express {
   // No anunciar "X-Powered-By: Express": es información gratis para un atacante
   app.disable('x-powered-by');
 
-  // 1. Cabeceras de seguridad HTTP (anti-clickjacking, anti-sniffing, CSP...)
-  app.use(helmet());
+  // 1. Cabeceras de seguridad HTTP (anti-clickjacking, anti-sniffing, CSP...).
+  //    La CSP de helmet solo deja cargar audio de nuestro dominio; se añade
+  //    "blob:" SOLO para audio (media-src) porque la canción que sube el
+  //    jugador se reproduce desde una URL blob: creada en su propio navegador.
+  //    Scripts, estilos e imágenes siguen sin admitir blob:.
+  app.use(
+    helmet({
+      contentSecurityPolicy: { directives: { mediaSrc: ["'self'", 'blob:'] } },
+    }),
+  );
 
   // 2. Log de cada petición: método, URL, código de respuesta y tiempo.
   //    Los "serializers" recortan lo que se escribe: sin ellos se volcarían

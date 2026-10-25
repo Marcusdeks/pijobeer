@@ -28,6 +28,14 @@ export class Player implements Rect {
   /** Dirección en la que mira. Empieza hacia arriba, que es hacia donde dispara. */
   facing: Direction = 'arriba';
 
+  /**
+   * Píxeles que ha intentado avanzar hacia arriba en el último paso (negativo
+   * = hacia abajo). Es la INTENCIÓN, no lo que se ha movido de verdad: pegado
+   * al borde de arriba y pulsando arriba, el personaje no se mueve pero sigue
+   * "andando" por el callejón, y el fondo debe seguir avanzando.
+   */
+  forwardMotion = 0;
+
   /** true si en el último paso se ha movido (decide si se anima o se queda en pose neutra). */
   isMoving = false;
 
@@ -89,6 +97,7 @@ export class Player implements Rect {
     if (this.boostSteps > 0) this.boostSteps--;
     this.x += dx * speed;
     this.y += dy * speed;
+    this.forwardMotion = -dy * speed;
 
     // A los lados, las paredes del callejón. Arriba, sitio para la cabeza y la barra de vida.
     this.x = clamp(this.x, field.left, field.right - this.width);

@@ -25,7 +25,7 @@ import {
   type DifficultyId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
+import { ARENA, BACKGROUND_FOLLOW, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
@@ -83,8 +83,10 @@ export class GameSession {
   /** Jefe en pantalla, o null si aún no ha aparecido (o el nivel no tiene). */
   boss: Boss | null = null;
   kills = 0;
-  /** Pasos jugados (sin contar pausas). Marca el ritmo de aparición y el desplazamiento del fondo. */
-  scroll = 0;
+  /** Pasos jugados (sin contar pausas). Marca el ritmo de aparición de botellas y latas. */
+  steps = 0;
+  /** Píxeles que ha avanzado el fondo del callejón (sigue al jugador, ver BACKGROUND_FOLLOW). */
+  backgroundDistance = 0;
 
   private currentStatus: GameStatus = 'running';
   private bossDefeated = false;
@@ -147,7 +149,7 @@ export class GameSession {
   /** Avanza la simulación un paso. En pausa o terminada, no cambia nada. */
   step(input: InputState): void {
     if (this.currentStatus !== 'running') return;
-    this.scroll++;
+    this.steps++;
 
     this.moveEverything(input);
     this.spawn();
@@ -168,6 +170,7 @@ export class GameSession {
   private moveEverything(input: InputState): void {
     const shot = this.player.update(input, this.rules.field);
     if (shot) this.playerBullets.push(shot);
+    this.backgroundDistance += this.player.forwardMotion * BACKGROUND_FOLLOW;
 
     for (const enemy of this.enemies) {
       const enemyShot = enemy.update();
@@ -203,7 +206,7 @@ export class GameSession {
       interval = spawnInterval * BOSS_COMMON.minionSpawnFactor;
     }
 
-    if (this.scroll % interval === 0) {
+    if (this.steps % interval === 0) {
       const type = this.rules.pickEnemyType(this.random);
       this.enemies.push(Enemy.spawn(type, field, this.random, enemySpeed));
     }
@@ -211,7 +214,7 @@ export class GameSession {
 
   /** Una lata cada pickupInterval pasos, también durante el combate con el jefe (ahí es cuando más falta hace). */
   private spawnPickup(): void {
-    if (this.scroll % this.rules.pickupInterval !== 0) return;
+    if (this.steps % this.rules.pickupInterval !== 0) return;
     const type: PickupTypeId = this.random() < 0.5 ? 'health' : 'speed';
     this.pickups.push(Pickup.spawn(type, this.rules.field, this.random));
   }

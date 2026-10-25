@@ -153,15 +153,19 @@ export function PlayPage() {
 
   return (
     <>
+      {/* Flotando encima de todo: si ocupara sitio en la página, empujaría el juego
+          hacia abajo al aparecer y lo haría saltar al irse, descentrándolo */}
       {notice && (
-        <Alert
-          type={notice.type}
-          autoDismissMs={NOTICE_DURATION_MS}
-          onDismiss={() => setNotice(null)}
-          focusOnMount={false}
-        >
-          {notice.text}
-        </Alert>
+        <div className={styles.toast}>
+          <Alert
+            type={notice.type}
+            autoDismissMs={NOTICE_DURATION_MS}
+            onDismiss={() => setNotice(null)}
+            focusOnMount={false}
+          >
+            {notice.text}
+          </Alert>
+        </div>
       )}
 
       {/* Las ventanas de nivel y opciones se abren ENCIMA del menú, que sigue debajo */}

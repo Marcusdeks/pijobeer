@@ -229,8 +229,13 @@ export const PICKUP_TYPES = {
 
 export type PickupTypeId = keyof typeof PICKUP_TYPES;
 
-/** Píxeles por paso que se desplaza el fondo del callejón. */
-export const SCROLL_SPEED = 0.9;
+/**
+ * El fondo del callejón NO avanza solo: se mueve cuando el jugador anda hacia
+ * arriba (avanza) o hacia abajo (retrocede), y quieto se queda quieto. Avanza
+ * esta fracción de lo que anda el jugador; al ser menos de 1 da sensación de
+ * profundidad (parallax) y deja ver que el personaje se desplaza por la pantalla.
+ */
+export const BACKGROUND_FOLLOW = 0.3;
 
 /**
  * Balas. El tamaño es el de la CAJA DE COLISIÓN, más pequeña que el dibujo:

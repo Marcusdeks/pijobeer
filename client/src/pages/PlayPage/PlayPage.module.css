@@ -32,6 +32,25 @@
   gap: 1rem;
 }
 
+/* ---------- Avisos (puntuación guardada, trucos activos) ---------- */
+
+.toast {
+  position: fixed;
+  top: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 10;
+  width: min(90vw, 480px);
+  /* El fondo de los avisos es semitransparente: sin esto no se leerían sobre el juego */
+  background: var(--color-bg);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.6);
+}
+
+.toast > * {
+  margin-bottom: 0;
+}
+
 /* ---------- Partida ---------- */
 
 .game {

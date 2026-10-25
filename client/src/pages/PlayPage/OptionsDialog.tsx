@@ -11,9 +11,10 @@
 import { DIFFICULTY_IDS, type DifficultyId } from '@pijobeer/shared';
 import { useState, type ChangeEvent } from 'react';
 import { useTranslation } from 'react-i18next';
-import { checkMp3File, MAX_MP3_MB } from '../../audio/mp3File';
+import { MP3_LIMITS, selectMp3Files } from '../../audio/mp3File';
 import { music, MUSIC_STYLES, type MusicStyle } from '../../audio/music';
 import { useMusicSettings } from '../../audio/useMusicSettings';
+import { Button } from '../../components/ui/Button';
 import { Dialog } from '../../components/ui/Dialog';
 import styles from './OptionsDialog.module.css';
 
@@ -25,20 +26,37 @@ interface OptionsDialogProps {
 
 const STYLE_OPTIONS: MusicStyle[] = [...MUSIC_STYLES, 'custom'];
 
+/**
+ * "webkitdirectory" hace que el selector de archivos elija una CARPETA entera.
+ * Lo admiten todos los navegadores actuales, pero React no lo conoce como
+ * propiedad, así que se pone directamente en el elemento.
+ */
+const asFolderPicker = (input: HTMLInputElement | null) =>
+  input?.setAttribute('webkitdirectory', '');
+
 export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: OptionsDialogProps) {
   const { t } = useTranslation();
   const settings = useMusicSettings();
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadMessages, setUploadMessages] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   async function handleUpload(event: ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    // Se vacía el campo para que volver a elegir el mismo archivo también dispare el evento
+    const files = [...(event.target.files ?? [])];
+    // Se vacía el campo para que volver a elegir lo mismo también dispare el evento
     event.target.value = '';
-    if (!file) return;
+    if (!files.length) return;
 
-    const problem = await checkMp3File(file);
-    setUploadError(problem && t(`options.errors.${problem}`, { max: MAX_MP3_MB }));
-    if (!problem) await music.setCustomTrack(file);
+    setUploading(true);
+    const { tracks, skipped, limitReached } = await selectMp3Files(files);
+    const messages = [];
+    if (skipped) messages.push(t('options.errors.skipped', { n: skipped }));
+    if (limitReached) {
+      messages.push(t('options.errors.limit', { files: MP3_LIMITS.files, mb: MP3_LIMITS.totalMB }));
+    }
+    if (!tracks.length) messages.push(t('options.errors.noTracks'));
+    else if (!(await music.setCustomTracks(tracks))) messages.push(t('options.errors.notSaved'));
+    setUploadMessages(messages);
+    setUploading(false);
   }
 
   return (
@@ -87,8 +105,8 @@ export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: Optio
                 name="musicStyle"
                 value={style}
                 checked={settings.style === style}
-                // "Tu canción" no se puede elegir hasta haber subido una
-                disabled={style === 'custom' && !settings.customTrackName}
+                // "Tu música" no se puede elegir hasta haber subido alguna canción
+                disabled={style === 'custom' && !settings.customTrackCount}
                 onChange={() => music.setStyle(style)}
               />
               <span>{t(`options.styles.${style}`)}</span>
@@ -101,20 +119,48 @@ export function OptionsDialog({ difficulty, onDifficultyChange, onClose }: Optio
         )}
 
         {/* El <input type="file"> nativo no se puede decorar: se oculta y su <label> hace de botón */}
-        <label className={styles.upload}>
-          {t('options.upload')}
-          <input type="file" accept=".mp3,audio/mpeg" onChange={handleUpload} />
-        </label>
-        {settings.customTrackName && (
+        <div className={styles.uploads} aria-busy={uploading}>
+          <label className={styles.upload}>
+            {t('options.uploadFiles')}
+            <input
+              type="file"
+              accept=".mp3,audio/mpeg"
+              multiple
+              onChange={handleUpload}
+              disabled={uploading}
+            />
+          </label>
+          <label className={styles.upload}>
+            {t('options.uploadFolder')}
+            <input type="file" ref={asFolderPicker} onChange={handleUpload} disabled={uploading} />
+          </label>
+        </div>
+        <p className={styles.hint}>
+          {t('options.uploadLimits', { file: MP3_LIMITS.fileMB, total: MP3_LIMITS.totalMB })}
+        </p>
+
+        {settings.customTrackCount > 0 && (
           <p className={styles.hint}>
-            {t('options.customTrack', { name: settings.customTrackName })}
+            {t('options.customTracks', { n: settings.customTrackCount })}
           </p>
         )}
-        {uploadError && (
-          <p className={styles.error} role="alert">
-            {uploadError}
-          </p>
+        {settings.currentCustomTrack && (
+          <div className={styles.nowPlaying}>
+            <p className={styles.hint}>
+              {t('options.nowPlaying', { name: settings.currentCustomTrack })}
+            </p>
+            {settings.customTrackCount > 1 && (
+              <Button variant="ghost" onClick={() => music.nextTrack()}>
+                {t('options.nextTrack')}
+              </Button>
+            )}
+          </div>
         )}
+        {uploadMessages.map((message) => (
+          <p key={message} className={styles.error} role="alert">
+            {message}
+          </p>
+        ))}
       </section>
     </Dialog>
   );

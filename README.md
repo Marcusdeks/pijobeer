@@ -169,7 +169,9 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 
 - **Tipos de botella** (`ENEMY_TYPES` en `game/config.ts`); el color indica el tipo:
   rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara el doble).
-- **Callejones**: uno por nivel, se desplazan en bucle. Las paredes son el límite de la zona jugable
+- **Callejones**: uno por nivel, en bucle. El fondo **no avanza solo**: sigue al jugador (avanza si anda
+  hacia arriba, retrocede si anda hacia abajo y quieto no se mueve), al 30 % de su velocidad para dar
+  profundidad (`BACKGROUND_FOLLOW` en `game/config.ts`). Las paredes son el límite de la zona jugable
   (`game/playfield.ts`; la medida sale del propio arte al generar los sprites).
 - **Jefes**: al cumplir el objetivo entra el jefe y las botellas siguen cayendo a la mitad de ritmo. Se
   queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Con media vida entra
@@ -198,7 +200,8 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 - **Pausa** (tecla P): menú con _Continuar_ y _Salir al menú principal_.
 - **Victoria**: menú en verde neón con letras pixel art (fuente _Press Start 2P_) con _Siguiente nivel_
   (si existe) y _Volver al menú_. Se desbloquea el siguiente nivel y se guarda la partida.
-- Al empezar una partida la página se **centra sola** en el juego y el teclado pasa al canvas.
+- Al empezar una partida la página se **centra sola** en el juego y el teclado pasa al canvas. Los avisos
+  (puntuación guardada, trucos activos) flotan encima y no mueven el juego.
 - Las **botellas** disparan con animación: salta la chapa (aviso) → la espuma sale en la explosión.
 - Los menús son HTML sobre el canvas (`components/GameOverlay`), así funcionan con teclado y lector de pantalla.
 
@@ -212,16 +215,21 @@ valor con los límites de `GAME_MODIFIER_LIMITS` (`packages/shared/src/game-modi
 ### Música
 
 En _Opciones_ se elige el **volumen** y el **estilo**: _Heavy metal_, _Hard rock_, _Black metal_ o
-**_Tu canción_**. Los ajustes se recuerdan en el navegador.
+**_Tu música_**. Los ajustes se recuerdan en el navegador.
 
 - Las canciones de cada estilo van en `client/src/assets/music/<estilo>/` (`heavy-metal`, `hard-rock`,
   `black-metal`) con los nombres de su `LEEME.md` (`menu`, `level-1`, `boss`...). No hay que tocar
   código: el juego las detecta al compilar. Si el estilo no tiene ninguna, no suena nada y el botón de
   silenciar no aparece. Solo música propia o con licencia libre: el repositorio es público.
-- **Tu canción**: el jugador sube un **.mp3** y suena en todas las pantallas. Se comprueba la extensión,
-  el tipo y los primeros bytes del archivo (`audio/mp3File.ts`), con un máximo de 20 MB. El archivo
-  **no sale nunca del navegador**: se guarda en IndexedDB (`audio/customTrackStore.ts`) para la próxima
-  visita y se reproduce con `<audio>`, que no ejecuta nada. Así no hay forma de colar código al servidor.
+- **Tu música**: el jugador sube canciones **.mp3** sueltas o **una carpeta entera** (un álbum). Suenan en
+  orden de pista, una detrás de otra y en bucle, sin cortarse al cambiar de pantalla, y se puede saltar a la
+  siguiente. Límites (`MP3_LIMITS` en `audio/mp3File.ts`): 60 MB por canción y 300 MB en total (un álbum
+  a 320 kbps son unos 110-120 MB, así que caben dos), hasta 100 canciones.
+- **Seguridad**: los archivos **no salen nunca del navegador** (se guardan en IndexedDB,
+  `audio/customTrackStore.ts`), así que no pueden llegar al servidor ni a otros jugadores. Se comprueba la
+  extensión, el tipo y el **contenido**: se salta la etiqueta ID3 y se busca una cabecera de fotograma MP3
+  válida, así que un archivo cualquiera renombrado a `.mp3` se descarta. Se reproducen con `<audio>`, que no
+  ejecuta nada, y la CSP del servidor admite URLs `blob:` solo para audio (`media-src`), nunca para scripts.
 
 ---
 

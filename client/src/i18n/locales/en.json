@@ -80,14 +80,20 @@
       "heavy-metal": "Heavy metal",
       "hard-rock": "Hard rock",
       "black-metal": "Black metal",
-      "custom": "Your song"
+      "custom": "Your music"
     },
-    "upload": "Upload your song (.mp3)",
-    "customTrack": "Your song: {{name}}",
+    "uploadFiles": "Upload songs (.mp3)",
+    "uploadFolder": "Upload a folder",
+    "uploadLimits": "Only .mp3: up to {{file}} MB per song and {{total}} MB in total (about two albums).",
+    "customTracks": "Uploaded songs: {{n}}",
+    "nowPlaying": "Now playing: {{name}}",
+    "nextTrack": "Next song ⏭",
     "noTracks": "There are no songs in this style yet.",
     "errors": {
-      "notMp3": "Only .mp3 files are allowed.",
-      "tooBig": "The file is too big (maximum {{max}} MB)."
+      "skipped": "{{n}} files were skipped because they are not valid MP3s.",
+      "limit": "The limit was reached ({{files}} songs or {{mb}} MB): the rest were not added.",
+      "noTracks": "There was no valid MP3.",
+      "notSaved": "Could not save it in the browser: it will only play during this visit."
     }
   },
   "controls": {
