@@ -40,6 +40,8 @@
     "coverAlt": "Couverture de Pijo Beer",
     "play": "Jouer",
     "chooseLevel": "Choisir le niveau",
+    "difficulty": "Difficulté",
+    "difficulties": { "easy": "Facile", "normal": "Normale", "hard": "Difficile" },
     "chooseLevelTitle": "Choisis ton niveau",
     "level": "Niveau {{level}}",
     "levelRequirement": "Détruis {{count}} bières de bourges au Niveau {{level}}",

@@ -4,6 +4,7 @@
 import {
   BOSS_POINTS,
   DEFAULT_GAME_MODIFIERS,
+  DIFFICULTIES,
   getLevel,
   POINTS_PER_KILL,
   type GameModifiers,
@@ -173,6 +174,34 @@ describe('jefes finales', () => {
       kills,
       points: kills * POINTS_PER_KILL + BOSS_POINTS.blonde,
     });
+  });
+});
+
+describe('dificultad', () => {
+  it('en difícil las botellas van más rápido y salen más a menudo que en fácil', () => {
+    const easy = session(2, { difficulty: 'easy' }).rules;
+    const hard = session(2, { difficulty: 'hard' }).rules;
+    expect(hard.enemySpeed).toBeGreaterThan(easy.enemySpeed);
+    expect(hard.spawnInterval).toBeLessThan(easy.spawnInterval);
+    expect(hard.bossHealth).toBeGreaterThan(easy.bossHealth);
+  });
+
+  it('cambia la vida que quita cada golpe', () => {
+    const game = session(1, { difficulty: 'easy' });
+    game.enemies.push(new Enemy(game.player.x, game.player.y, 'normal', fixedRandom));
+    game.step(fakeInput());
+    expect(game.player.health).toBe(
+      PLAYER.maxHealth - ENEMY.contactDamage * DIFFICULTIES.easy.damageTaken,
+    );
+  });
+
+  it('multiplica los puntos, siempre en múltiplos de POINTS_PER_KILL', () => {
+    const normal = session(1);
+    const hard = session(1, { difficulty: 'hard' });
+    const easy = session(1, { difficulty: 'easy' });
+    for (const game of [normal, hard, easy]) game.kills = 3;
+    expect(hard.points).toBe(normal.points * DIFFICULTIES.hard.points);
+    expect(easy.points % POINTS_PER_KILL).toBe(0);
   });
 });
 

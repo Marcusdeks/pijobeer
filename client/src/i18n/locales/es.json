@@ -40,6 +40,8 @@
     "coverAlt": "Portada de Pijo Beer",
     "play": "Jugar",
     "chooseLevel": "Elegir Nivel",
+    "difficulty": "Dificultad",
+    "difficulties": { "easy": "Fácil", "normal": "Normal", "hard": "Difícil" },
     "chooseLevelTitle": "Elige tu nivel",
     "level": "Nivel {{level}}",
     "levelRequirement": "Mata {{count}} cervezas pijas en el Nivel {{level}}",

@@ -174,7 +174,11 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
   queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Con media vida entra
   en **furia** (barra rosa): más rápido, menos pausa y 2 chorros más por disparo. Se gana al vaciarle la
   barra de vida. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
-- Las reglas finales de una partida (nivel + trucos de admin) se calculan en un único sitio: `game/rules.ts`.
+- **Dificultad** (en el menú; se recuerda en el navegador): _Fácil_, _Normal_ (el juego tal cual) y
+  _Difícil_. Multiplica velocidad y ritmo de botellas, vida de los jefes, daño recibido y puntos
+  (×0,5 / ×1 / ×2). Valores: `packages/shared/src/difficulty.ts`.
+- Las reglas finales de una partida (nivel + dificultad + trucos de admin) se calculan en un único sitio:
+  `game/rules.ts`.
 - **Pausa** (tecla P): menú con _Continuar_ y _Salir al menú principal_.
 - **Victoria**: menú en verde neón con letras pixel art (fuente _Press Start 2P_) con _Siguiente nivel_
   (si existe) y _Volver al menú_. Se desbloquea el siguiente nivel y se guarda la partida.

@@ -1,14 +1,19 @@
 /**
- * REGLAS DE UNA PARTIDA: el nivel + los trucos de administrador, ya combinados.
+ * REGLAS DE UNA PARTIDA: el nivel + la dificultad + los trucos de
+ * administrador, ya combinados.
  *
- * GameSession no lee el nivel ni los trucos por separado: recibe estas
- * reglas ya calculadas. Así hay UN solo sitio donde se decide, por ejemplo,
- * cuántas botellas hay que eliminar ("las del nivel, salvo que un admin
- * haya puesto otra cifra").
+ * GameSession no lee el nivel, la dificultad ni los trucos por separado:
+ * recibe estas reglas ya calculadas. Así hay UN solo sitio donde se decide,
+ * por ejemplo, cuántas botellas hay que eliminar ("las del nivel, salvo que
+ * un admin haya puesto otra cifra"). Dificultad y trucos se MULTIPLICAN:
+ * en difícil con el truco de velocidad ×2, las botellas van a 1,15 × 2.
  */
 import {
+  DEFAULT_DIFFICULTY,
   DEFAULT_GAME_MODIFIERS,
+  DIFFICULTIES,
   getLevel,
+  type DifficultyId,
   type EnemyTypeId,
   type GameModifiers,
   type LevelDefinition,
@@ -26,6 +31,10 @@ export interface GameRules {
   enemySpeed: number;
   bossHealth: number;
   invincible: boolean;
+  /** Multiplicador de la vida que pierde el jugador en cada golpe. */
+  damageTaken: number;
+  /** Multiplicador de los puntos de la partida. */
+  pointsScale: number;
   /** Elige al azar el tipo de la siguiente botella, según la mezcla del nivel. */
   pickEnemyType: (random: RandomFn) => EnemyTypeId;
 }
@@ -36,8 +45,10 @@ const MIN_SPAWN_INTERVAL = 10;
 export function resolveRules(
   levelId: number,
   modifiers: GameModifiers = DEFAULT_GAME_MODIFIERS,
+  difficultyId: DifficultyId = DEFAULT_DIFFICULTY,
 ): GameRules {
   const level = getLevel(levelId);
+  const difficulty = DIFFICULTIES[difficultyId];
 
   return {
     level,
@@ -45,11 +56,13 @@ export function resolveRules(
     killsToComplete: modifiers.killsToComplete ?? level.killsToComplete,
     spawnInterval: Math.max(
       MIN_SPAWN_INTERVAL,
-      Math.round(level.spawnInterval / modifiers.spawnRate),
+      Math.round(level.spawnInterval / (modifiers.spawnRate * difficulty.spawnRate)),
     ),
-    enemySpeed: level.enemySpeed * modifiers.enemySpeed,
-    bossHealth: modifiers.bossHealth,
+    enemySpeed: level.enemySpeed * modifiers.enemySpeed * difficulty.enemySpeed,
+    bossHealth: modifiers.bossHealth * difficulty.bossHealth,
     invincible: modifiers.invincible,
+    damageTaken: difficulty.damageTaken,
+    pointsScale: difficulty.points,
     pickEnemyType: weightedPicker(level.enemyMix),
   };
 }

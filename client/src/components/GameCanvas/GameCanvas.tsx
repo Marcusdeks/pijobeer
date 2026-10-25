@@ -16,7 +16,7 @@
  *   - Al desmontarse (cambiar de página, salir al menú): para el bucle y
  *     quita los listeners, para no dejar nada funcionando "en fantasma".
  */
-import { getLevel, type GameModifiers } from '@pijobeer/shared';
+import { getLevel, type DifficultyId, type GameModifiers } from '@pijobeer/shared';
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
 import { useTranslation } from 'react-i18next';
 // Importar las imágenes hace que Vite las incluya en el build y nos dé su URL final (con hash)
@@ -51,6 +51,7 @@ interface GameCanvasProps {
   levelId: number;
   /** Trucos de administrador; sin ellos, partida normal. */
   modifiers?: GameModifiers;
+  difficulty: DifficultyId;
   onStatusChange: (status: GameStatus) => void;
   onBossAppear?: () => void;
   onVictory: (result: GameResult) => void;
@@ -78,6 +79,7 @@ function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
 export function GameCanvas({
   levelId,
   modifiers,
+  difficulty,
   onStatusChange,
   onBossAppear,
   onVictory,
@@ -130,6 +132,7 @@ export function GameCanvas({
     const session = new GameSession({
       levelId,
       modifiers,
+      difficulty,
       events: {
         onStatusChange: (status) => eventsRef.current.onStatusChange?.(status),
         onBossAppear: () => eventsRef.current.onBossAppear?.(),
@@ -179,7 +182,7 @@ export function GameCanvas({
       loop.stop();
       input.detach();
     };
-    // Los trucos se leen al empezar la partida: cambiarlos a mitad no la reinicia
+    // Trucos y dificultad se leen al empezar la partida: cambiarlos a mitad no la reinicia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelId]);
 

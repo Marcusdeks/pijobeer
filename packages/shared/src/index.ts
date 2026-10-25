@@ -20,6 +20,7 @@
 export * from './validation';
 export * from './levels';
 export * from './game-modifiers';
+export * from './difficulty';
 export * from './game-rules';
 export * from './api-types';
 export * from './error-codes';

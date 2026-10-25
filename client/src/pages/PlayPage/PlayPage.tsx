@@ -13,7 +13,13 @@
  * En juego.js esto se hacía mostrando y ocultando secciones con style.display,
  * y era fácil dejar dos pantallas visibles a la vez por error; aquí es imposible.
  */
-import { FIRST_LEVEL, hasActiveModifiers, nextLevelId, type GameModifiers } from '@pijobeer/shared';
+import {
+  DIFFICULTY_IDS,
+  FIRST_LEVEL,
+  hasActiveModifiers,
+  nextLevelId,
+  type GameModifiers,
+} from '@pijobeer/shared';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { adminApi, scoresApi } from '../../api/endpoints';
@@ -25,6 +31,7 @@ import { StarWarsCrawl } from '../../components/StarWarsCrawl/StarWarsCrawl';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../features/auth/useAuth';
+import { useDifficulty } from '../../features/progress/useDifficulty';
 import { useProgress } from '../../features/progress/useProgress';
 import { GAME_OVER_DELAY_MS } from '../../game/config';
 import type { GameResult, GameStatus } from '../../game/GameSession';
@@ -56,6 +63,7 @@ export function PlayPage() {
   const { t } = useTranslation();
   const { user } = useAuth();
   const progress = useProgress();
+  const [difficulty, setDifficulty] = useDifficulty();
   const gameRef = useRef<GameCanvasHandle>(null);
   const runCounter = useRef(0);
 
@@ -164,6 +172,22 @@ export function PlayPage() {
           <div className={styles.cover}>
             <img src={coverImage} alt={t('play.coverAlt')} className={styles.coverImage} />
             <div className={styles.actions}>
+              {/* Radios nativos: se eligen con flechas del teclado y los lectores de pantalla los anuncian */}
+              <fieldset className={styles.difficulty}>
+                <legend>{t('play.difficulty')}</legend>
+                {DIFFICULTY_IDS.map((id) => (
+                  <label key={id}>
+                    <input
+                      type="radio"
+                      name="difficulty"
+                      value={id}
+                      checked={difficulty === id}
+                      onChange={() => setDifficulty(id)}
+                    />
+                    <span>{t(`play.difficulties.${id}`)}</span>
+                  </label>
+                ))}
+              </fieldset>
               <Button onClick={() => startLevel(FIRST_LEVEL)}>{t('play.play')}</Button>
               <Button onClick={() => setScreen({ name: 'levelSelect' })}>
                 {t('play.chooseLevel')}
@@ -196,6 +220,7 @@ export function PlayPage() {
             ref={gameRef}
             levelId={screen.levelId}
             modifiers={modifiers}
+            difficulty={difficulty}
             onStatusChange={setGameStatus}
             onBossAppear={() => setBossActive(true)}
             onVictory={handleVictory}

@@ -16,7 +16,12 @@
  * No dibuja nada (eso es renderer.ts) ni sabe de React. Avisa de lo que pasa
  * con eventos (callbacks), y React decide qué menús enseñar o qué guardar.
  */
-import { BOSS_POINTS, POINTS_PER_KILL, type GameModifiers } from '@pijobeer/shared';
+import {
+  BOSS_POINTS,
+  POINTS_PER_KILL,
+  type DifficultyId,
+  type GameModifiers,
+} from '@pijobeer/shared';
 import { ARENA, BOSS_COMMON, ENEMY } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
@@ -49,6 +54,8 @@ export interface GameSessionOptions {
   levelId: number;
   /** Trucos de administrador (por defecto, ninguno). */
   modifiers?: GameModifiers;
+  /** Dificultad elegida en el menú (por defecto, normal). */
+  difficulty?: DifficultyId;
   events?: GameEvents;
   /** Generador aleatorio. Por defecto Math.random; los tests pasan uno predecible. */
   random?: RandomFn;
@@ -79,8 +86,14 @@ export class GameSession {
   private readonly events: GameEvents;
   private readonly random: RandomFn;
 
-  constructor({ levelId, modifiers, events = {}, random = Math.random }: GameSessionOptions) {
-    this.rules = resolveRules(levelId, modifiers);
+  constructor({
+    levelId,
+    modifiers,
+    difficulty,
+    events = {},
+    random = Math.random,
+  }: GameSessionOptions) {
+    this.rules = resolveRules(levelId, modifiers, difficulty);
     this.events = events;
     this.random = random;
   }
@@ -93,10 +106,15 @@ export class GameSession {
     return this.currentStatus;
   }
 
-  /** Puntos de las botellas eliminadas más el premio del jefe, si se ha derrotado. */
+  /**
+   * Puntos de las botellas eliminadas más el premio del jefe, si se ha
+   * derrotado, por el multiplicador de la dificultad. Se redondea a un
+   * múltiplo de POINTS_PER_KILL porque el servidor rechaza cualquier otra cifra.
+   */
   get points(): number {
     const bonus = this.bossDefeated && this.level.boss ? BOSS_POINTS[this.level.boss] : 0;
-    return this.kills * POINTS_PER_KILL + bonus;
+    const raw = (this.kills * POINTS_PER_KILL + bonus) * this.rules.pointsScale;
+    return Math.round(raw / POINTS_PER_KILL) * POINTS_PER_KILL;
   }
 
   get result(): GameResult {
@@ -227,9 +245,9 @@ export class GameSession {
     }
   }
 
-  /** El truco de inmortalidad se aplica aquí, en un único sitio. */
+  /** El truco de inmortalidad y el daño de la dificultad se aplican aquí, en un único sitio. */
   private damagePlayer(amount: number): void {
-    if (!this.rules.invincible) this.player.takeDamage(amount);
+    if (!this.rules.invincible) this.player.takeDamage(Math.round(amount * this.rules.damageTaken));
   }
 
   /**

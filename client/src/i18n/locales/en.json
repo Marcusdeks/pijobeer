@@ -40,6 +40,8 @@
     "coverAlt": "Pijo Beer cover art",
     "play": "Play",
     "chooseLevel": "Choose Level",
+    "difficulty": "Difficulty",
+    "difficulties": { "easy": "Easy", "normal": "Normal", "hard": "Hard" },
     "chooseLevelTitle": "Choose your level",
     "level": "Level {{level}}",
     "levelRequirement": "Destroy {{count}} posh beers in Level {{level}}",
