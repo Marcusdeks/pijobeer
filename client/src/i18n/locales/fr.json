@@ -19,7 +19,7 @@
     "fr": "Français"
   },
   "footer": {
-    "copyright": "© {{year}} Pijo Beer. Réalisé avec React, Node.js et PostgreSQL."
+    "copyright": "© {{year}} {{game}}. Réalisé avec React, Node.js et PostgreSQL."
   },
   "home": {
     "title": "Bienvenue dans le jeu",
@@ -37,7 +37,7 @@
     "imageAlt": "Heavyatilla, le héros"
   },
   "play": {
-    "coverAlt": "Couverture de Pijo Beer",
+    "coverAlt": "Couverture de {{game}}",
     "play": "Jouer",
     "chooseLevel": "Choisir le niveau",
     "options": "Options",
@@ -61,7 +61,7 @@
     "backToMenu": "Retour au menu",
     "bosses": {
       "blonde": "FÛT BLOND DE BOURGE",
-      "dark": "FÛT NOIR DE BOURGE"
+      "iron": "FÛT DE FER DE BOURGE"
     },
     "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
   },
@@ -104,8 +104,9 @@
   },
   "credits": {
     "title": "Crédits",
-    "design": "Conception et programmation : Karazjan",
-    "music": "Musique : Hueste Negra",
+    "design": "Conception et programmation : {{author}}",
+    "art": "Graphismes : {{author}}",
+    "music": "Musique : {{band}}",
     "stack": "Réalisé avec React, TypeScript, Node.js, Express et PostgreSQL",
     "translations": "Disponible en espagnol, anglais et français"
   },

@@ -19,7 +19,7 @@
     "fr": "Français"
   },
   "footer": {
-    "copyright": "© {{year}} Pijo Beer. Made with React, Node.js and PostgreSQL."
+    "copyright": "© {{year}} {{game}}. Made with React, Node.js and PostgreSQL."
   },
   "home": {
     "title": "Welcome to the game",
@@ -37,7 +37,7 @@
     "imageAlt": "Heavyatilla, the main character"
   },
   "play": {
-    "coverAlt": "Pijo Beer cover art",
+    "coverAlt": "{{game}} cover art",
     "play": "Play",
     "chooseLevel": "Choose Level",
     "options": "Options",
@@ -61,7 +61,7 @@
     "backToMenu": "Back to menu",
     "bosses": {
       "blonde": "POSH BLONDE KEG",
-      "dark": "POSH DARK KEG"
+      "iron": "POSH IRON KEG"
     },
     "cheatsActive": "Admin cheats active: this game does not count for the ranking."
   },
@@ -104,8 +104,9 @@
   },
   "credits": {
     "title": "Credits",
-    "design": "Design and programming: Karazjan",
-    "music": "Music: Hueste Negra",
+    "design": "Design and programming: {{author}}",
+    "art": "Art: {{author}}",
+    "music": "Music: {{band}}",
     "stack": "Made with React, TypeScript, Node.js, Express and PostgreSQL",
     "translations": "Available in Spanish, English and French"
   },

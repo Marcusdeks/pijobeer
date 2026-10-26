@@ -17,7 +17,7 @@ export const POINTS_PER_KILL = 10;
  * Puntos extra por derrotar a cada jefe final. Han de ser múltiplos de
  * POINTS_PER_KILL: el servidor rechaza cualquier puntuación que no lo sea.
  */
-export const BOSS_POINTS = { blonde: 300, dark: 500 } as const;
+export const BOSS_POINTS = { blonde: 300, iron: 500 } as const;
 
 /** Máximo de puntos que el servidor acepta para una sola partida. */
 export const MAX_POINTS_PER_GAME = 1_000_000;

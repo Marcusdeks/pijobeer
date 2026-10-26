@@ -10,6 +10,7 @@
 import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router';
+import { BRAND } from '../../brand';
 import { useAuth } from '../../features/auth/useAuth';
 import { ROUTES } from '../../routes';
 import styles from './Header.module.css';
@@ -47,7 +48,7 @@ export function Header() {
     <header ref={headerRef} className={styles.header}>
       <div className={styles.container}>
         <Link to={ROUTES.home} className={styles.logo}>
-          Pijo Beer
+          {BRAND.game}
         </Link>
 
         <div className={styles.right}>

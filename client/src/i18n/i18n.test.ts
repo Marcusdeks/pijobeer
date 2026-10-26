@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest';
 import { ERROR_CODES } from '@pijobeer/shared';
+import { BRAND } from '../brand';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
@@ -50,6 +51,30 @@ describe('traducciones', () => {
   it('cada código de error del servidor tiene su traducción', () => {
     for (const code of ERROR_CODES) {
       expect(es.errors, code).toHaveProperty(code);
+    }
+  });
+
+  it.each([
+    ['es', es],
+    ['en', en],
+    ['fr', fr],
+  ])(
+    '"%s" no escribe a mano los nombres propios: usa {{game}}, {{author}} o {{band}}',
+    (_name, locale) => {
+      for (const key of reference) {
+        for (const name of Object.values(BRAND)) {
+          expect(valueAt(locale, key), key).not.toContain(name);
+        }
+      }
+    },
+  );
+
+  it('los nombres propios se rellenan solos y no se traducen', async () => {
+    const { default: i18n } = await import('./index');
+    for (const language of ['es', 'en', 'fr']) {
+      const t = i18n.getFixedT(language);
+      expect(t('credits.music')).toContain(BRAND.band);
+      expect(t('credits.art')).toContain(BRAND.author);
     }
   });
 });

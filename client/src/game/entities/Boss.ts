@@ -6,24 +6,16 @@
  *   2. COMBATE: se queda a esa altura (no avanza hacia el jugador), va de pared
  *      a pared y dispara en RÁFAGAS. Cada disparo es un abanico de chorros que
  *      puede apuntar al jugador (ver BOSS en config.ts).
- *   3. FURIA: por debajo de la mitad de vida se mueve más rápido, descansa
+ *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido, descansa
  *      menos y añade chorros al abanico (ver BOSS_ENRAGE).
  *
  * Se le gana bajándole la vida a 0: cada abrechapas que le acierta quita 1.
  */
 import type { BossId } from '@pijobeer/shared';
 import { BOSS, BOSS_COMMON, BOSS_ENRAGE, ENEMY_BULLET } from '../config';
-import type { Rect } from '../geometry';
+import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
-
-/** Un punto del área de juego (al que apunta el jefe). */
-export interface Point {
-  x: number;
-  y: number;
-}
-
-const toRadians = (degrees: number) => (degrees * Math.PI) / 180;
 
 export class Boss implements Rect {
   readonly width: number;
@@ -73,7 +65,7 @@ export class Boss implements Rect {
     return this.health <= 0;
   }
 
-  /** Fase de furia: ha perdido más de la mitad de la vida (BOSS_ENRAGE.enrageAt). */
+  /** Fase de furia: le queda poca vida (BOSS_ENRAGE.enrageAt). */
   get isEnraged(): boolean {
     return this.health <= this.maxHealth * BOSS_ENRAGE.enrageAt;
   }
@@ -160,30 +152,23 @@ export class Boss implements Rect {
    * abajo, positivo = hacia la derecha.
    */
   private fan(target?: Point): Bullet[] {
-    const enraged = this.isEnraged;
-    const streams = this.stats.streams + (enraged ? BOSS_ENRAGE.extraStreams : 0);
-    const spread = this.stats.spreadDeg + (enraged ? BOSS_ENRAGE.extraSpreadDeg : 0);
-    const center = this.stats.aimed && target ? this.aimAt(target) : 0;
-    const { x, y } = this.tap;
+    const { stats, isEnraged } = this;
+    const streams = stats.streams + (isEnraged ? stats.enragedExtraStreams : 0);
+    const spread = stats.spreadDeg + (isEnraged ? stats.enragedExtraSpreadDeg : 0);
+    const { tap } = this;
+    const center = this.stats.aimed && target ? aimDegrees(tap, target, BOSS_COMMON.maxAimDeg) : 0;
 
     return Array.from({ length: streams }, (_, i) => {
       // Con 5 chorros y 60°: -30, -15, 0, 15, 30 grados alrededor del centro
       const offset = streams > 1 ? (i / (streams - 1) - 0.5) * spread : 0;
-      const angle = toRadians(center + offset);
+      const velocity = velocityAt(center + offset, BOSS_COMMON.bulletSpeed);
       return new Bullet(
-        x - ENEMY_BULLET.width / 2,
-        y,
-        Math.cos(angle) * BOSS_COMMON.bulletSpeed,
+        tap.x - ENEMY_BULLET.width / 2,
+        tap.y,
+        velocity.y,
         ENEMY_BULLET,
-        Math.sin(angle) * BOSS_COMMON.bulletSpeed,
+        velocity.x,
       );
     });
-  }
-
-  /** Ángulo (en grados desde la vertical) hacia el objetivo, limitado a maxAimDeg. */
-  private aimAt(target: Point): number {
-    const { x, y } = this.tap;
-    const degrees = (Math.atan2(target.x - x, Math.max(1, target.y - y)) * 180) / Math.PI;
-    return Math.max(-BOSS_COMMON.maxAimDeg, Math.min(BOSS_COMMON.maxAimDeg, degrees));
   }
 }

@@ -25,7 +25,7 @@ import {
   type DifficultyId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, CAMERA, ENEMY, type PickupTypeId } from './config';
+import { ARENA, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
@@ -173,8 +173,8 @@ export class GameSession {
     const canAdvance = this.boss === null;
     const shot = this.player.update(input, this.rules.field, this.rules.shootCooldown, canAdvance);
     if (shot) this.playerBullets.push(shot);
-    if (this.player.isSprinting) this.backgroundDistance += CAMERA.sprintSpeed;
-    else if (this.player.isAdvancing) this.backgroundDistance += CAMERA.advanceSpeed;
+    const advance = this.player.advanceSpeed;
+    this.backgroundDistance += advance;
 
     for (const enemy of this.enemies) {
       const enemyShot = enemy.update();
@@ -190,6 +190,13 @@ export class GameSession {
     for (const pickup of this.pickups) pickup.update();
     for (const bullet of this.playerBullets) bullet.update();
     for (const bullet of this.enemyBullets) bullet.update();
+
+    // Al avanzar, lo que viene hacia el jugador se le acerca además a la velocidad
+    // del callejón: así nunca parece quieto (o que se aleja) cuando el suelo
+    // corre más que su caída. Parado, cada cosa cae a su propio ritmo. Sus
+    // propios abrechapas no: van por delante de él a su velocidad de siempre.
+    for (const thing of [...this.enemies, ...this.pickups, ...this.enemyBullets])
+      thing.y += advance;
   }
 
   /**

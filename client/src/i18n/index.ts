@@ -14,6 +14,10 @@
  *     <h2>{t('home.title')}</h2>
  *     <p>{t('play.level', { level: 2 })}</p>   // "Nivel 2"
  *
+ * Los NOMBRES PROPIOS (juego, autor, grupo) no se escriben en los JSON: se
+ * ponen como {{game}}, {{author}} o {{band}} y se rellenan solos con BRAND
+ * (ver brand.ts), sin pasarlos en cada t().
+ *
  * Para AÑADIR UN IDIOMA: crea locales/xx.json copiando es.json, tradúcelo,
  * y añádelo a SUPPORTED_LANGUAGES y a "resources". El test i18n.test.ts
  * comprueba que no falte ninguna clave en ningún idioma.
@@ -21,6 +25,7 @@
 import i18n from 'i18next';
 import LanguageDetector from 'i18next-browser-languagedetector';
 import { initReactI18next } from 'react-i18next';
+import { BRAND } from '../brand';
 import en from './locales/en.json';
 import es from './locales/es.json';
 import fr from './locales/fr.json';
@@ -56,6 +61,8 @@ void i18n
     interpolation: {
       // React ya escapa el texto al pintarlo (evita inyección de HTML), no hace falta hacerlo dos veces
       escapeValue: false,
+      // Nombres propios disponibles en todos los textos, en todos los idiomas
+      defaultVariables: BRAND,
     },
   });
 

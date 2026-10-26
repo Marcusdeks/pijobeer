@@ -12,7 +12,7 @@
  *   points        puntos de la partida. Premia jugar en difícil y evita que
  *                 en el ranking compitan igual una partida fácil y una difícil.
  *   fireRate      disparos del jugador (0,8 = un 20 % menos). Con el ritmo base
- *                 de config.ts sale a 3 / 2,5 / 2 disparos por segundo.
+ *                 de config.ts sale a ~3,5 / 3 / 2,4 disparos por segundo.
  *   pickupRate    cuántas latas salen (0,7 = un 30 % menos a menudo)
  *   pickupHeal    cuánto cura la lata verde. En difícil salen menos, así que
  *                 cada una cura lo mismo que en normal: castigarla dos veces

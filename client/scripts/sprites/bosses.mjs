@@ -27,7 +27,7 @@ import {
 /** Jefes, en el orden de las columnas de la hoja. */
 const BOSSES = [
   { id: 'blonde', file: 'barrel-blonde.png' },
-  { id: 'dark', file: 'barrel-dark.png' },
+  { id: 'iron', file: 'barrel-iron.png' },
 ];
 
 /** Alto del barril en el juego. */

@@ -16,7 +16,7 @@
  */
 
 /** Jefes finales disponibles (su comportamiento está en client/src/game/config.ts). */
-export type BossId = 'blonde' | 'dark';
+export type BossId = 'blonde' | 'iron';
 
 /** Tipos de botella (sus estadísticas están en client/src/game/config.ts). */
 export type EnemyTypeId = 'normal' | 'fast' | 'heavy';
@@ -74,7 +74,7 @@ export const LEVELS: readonly LevelDefinition[] = [
     killsToComplete: 60,
     // 40 s avanzando por el callejón
     distanceToComplete: 2400,
-    boss: 'dark',
+    boss: 'iron',
     spawnInterval: 55,
     enemySpeed: 1.3,
     enemyMix: { normal: 3, fast: 4, heavy: 3 },

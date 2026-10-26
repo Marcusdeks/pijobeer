@@ -161,11 +161,11 @@ por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comu
 
 Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 
-| Nivel | Objetivo                         | Botellas salen cada | Velocidad | Tipos de botella           | Jefe final                                                   |
-| ----- | -------------------------------- | ------------------- | --------- | -------------------------- | ------------------------------------------------------------ |
-| 1     | 36 botellas                      | 1,5 s               | ×1        | normales                   | —                                                            |
-| 2     | 50 botellas + 1800 px recorridos | 1,2 s               | ×1,15     | normales, rápidas, pesadas | Barril rubio (80 de vida, ráfagas de 5 apuntadas)            |
-| 3     | 60 botellas + 2400 px recorridos | 0,9 s               | ×1,3      | más rápidas y pesadas      | Barril negro (140 de vida, ráfagas de abanicos de 5 chorros) |
+| Nivel | Objetivo                         | Botellas salen cada | Velocidad | Tipos de botella           | Jefe final                                                         |
+| ----- | -------------------------------- | ------------------- | --------- | -------------------------- | ------------------------------------------------------------------ |
+| 1     | 36 botellas                      | 1,5 s               | ×1        | normales                   | —                                                                  |
+| 2     | 50 botellas + 1800 px recorridos | 1,2 s               | ×1,15     | normales, rápidas, pesadas | Barril rubio (80 de vida, ráfagas de 5 apuntadas)                  |
+| 3     | 60 botellas + 2400 px recorridos | 0,9 s               | ×1,3      | más rápidas y pesadas      | Barril de hierro (140 de vida, ráfagas de 3 abanicos de 3 chorros) |
 
 La distancia (`distanceToComplete`) no se le enseña al jugador: son 30 s y 40 s mirando hacia delante,
 así que pasarse el nivel mirando a los lados no basta para llegar al jefe. Si un admin fija las botellas
@@ -173,16 +173,28 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
 
 - **Tipos de botella** (`ENEMY_TYPES` en `game/config.ts`); el color indica el tipo:
   rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara el doble).
-- **Callejones**: uno por nivel, en bucle, como una **cinta de correr**: mientras el personaje **mira recto hacia
-  delante** el callejón avanza solo y él corre en el sitio, sin pulsar nada. **Manteniendo W esprinta**: el
-  callejón va más rápido y las piernas también. Si mira a un lado, en diagonal o hacia atrás, se para. Contra el jefe el callejón no avanza. El jugador sigue
-  pudiendo moverse por toda la pantalla para esquivar. El suelo es solo decorado: no arrastra a botellas
-  ni latas, y avanza más despacio que la botella más lenta para que todo parezca venir hacia el jugador
-  (`CAMERA` en `game/config.ts`). Las paredes son el límite de la zona jugable
+- **Disparos**: el jugador dispara siempre recto hacia arriba y las botellas recto hacia abajo. Los jefes
+  apuntan a donde está el jugador **en el momento del disparo**; la espuma sigue recta, sin perseguirle.
+- **Callejones**: uno por nivel, en bucle, como una **cinta de correr** (`CAMERA` en `game/config.ts`):
+
+  | Situación                                    | Avance del callejón (px/paso) |
+  | -------------------------------------------- | ----------------------------- |
+  | Mirando recto hacia delante, sin pulsar nada | 1 (corre en el sitio)         |
+  | Manteniendo W                                | 2,5 (esprinta)                |
+  | Manteniendo W, ya en media pantalla          | 4                             |
+  | En diagonal (W+A o W+D), solo mientras pulsa | lo de arriba × 0,7            |
+  | Mirando a un lado o atrás, o contra el jefe  | 0                             |
+
+  El personaje **no sube de media pantalla** (`PLAYER.minY`): a partir de ahí lo que corre es el callejón.
+  Por debajo se mueve libremente para esquivar. Botellas, latas y balas enemigas caen a su velocidad **más
+  la del callejón**: si el jugador avanza, todo le viene encima más deprisa (nunca parece quieto ni que se
+  aleja con el suelo); parado, cada cosa cae a su ritmo. Las paredes son el límite de la zona jugable
   (`game/playfield.ts`; la medida sale del propio arte al generar los sprites).
+
 - **Jefes**: al cumplir el objetivo entra el jefe y las botellas siguen cayendo a la mitad de ritmo. Se
-  queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Con media vida entra
-  en **furia** (barra rosa): más rápido, menos pausa y 2 chorros más por disparo. Se gana al vaciarle la
+  queda arriba moviéndose de pared a pared y dispara ráfagas que apuntan al jugador. Cuando le queda un
+  20 % de vida entra en **furia** (barra rosa): más rápido, menos pausa y más chorros por disparo (el rubio
+  2 más; el de hierro 1, y siempre con más de 20° entre chorro y chorro para poder esquivarlos). Se gana al vaciarle la
   barra de vida. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
 - **Latas** (`PICKUP` y `PICKUP_TYPES` en `game/config.ts`): cada cierto tiempo cae una, también contra el
   jefe. La **verde** cura y la de **leopardo** hace disparar el doble de rápido durante 6 s (una barra
@@ -198,8 +210,8 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
 
 - **Dificultad** (en _Opciones_; se recuerda en el navegador): _Fácil_, _Normal_ (el juego tal cual) y
   _Difícil_. Multiplica velocidad y ritmo de botellas, vida de los jefes, daño recibido, puntos
-  (×0,5 / ×1 / ×2), latas y **disparos del jugador** (3 / 2,5 / 2 por segundo: entre un 25 % y un 50 %
-  menos que los 4 de antes). Valores: `packages/shared/src/difficulty.ts`.
+  (×0,5 / ×1 / ×2), latas y **disparos del jugador** (~3,5 / 3 / 2,4 por segundo).
+  Valores: `packages/shared/src/difficulty.ts`.
 - Las reglas finales de una partida (nivel + dificultad + trucos de admin) se calculan en un único sitio:
   `game/rules.ts`.
 - **Menú de Jugar**: _Jugar_, _Elegir nivel_ y _Opciones_. Las dos últimas abren una ventana modal
@@ -215,6 +227,16 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
   (puntuación guardada, trucos activos) flotan encima y no mueven el juego.
 - Las **botellas** disparan con animación: salta la chapa (aviso) → la espuma sale en la explosión.
 - Los menús son HTML sobre el canvas (`components/GameOverlay`), así funcionan con teclado y lector de pantalla.
+
+### Idiomas
+
+Los textos están ya traducidos en `client/src/i18n/locales/` (`es.json`, `en.json`, `fr.json`), uno por
+idioma, con las mismas claves. Los componentes piden `t('credits.music')` e **i18next** devuelve el texto
+del idioma elegido: sin APIs, al instante y sin conexión. Un test comprueba que ningún idioma se deja
+claves ni variables.
+
+Los **nombres propios** (juego, autor, grupo) no se traducen: están solo en `client/src/brand.ts` y los
+textos los usan como `{{game}}`, `{{author}}` y `{{band}}`. Otro test impide escribirlos a mano en los JSON.
 
 ### Juego admin (solo administradores)
 

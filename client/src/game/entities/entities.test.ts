@@ -36,7 +36,7 @@ describe('Player', () => {
     const player = new Player(400, 300);
     for (let i = 0; i < 200; i++) player.update(fakeInput('left', 'up'), field);
     expect(player.x).toBe(field.left);
-    expect(player.y).toBe(PLAYER.topMargin); // sitio para la cabeza y la barra de vida
+    expect(player.y).toBe(PLAYER.minY); // como mucho, media pantalla
 
     for (let i = 0; i < 200; i++) player.update(fakeInput('right', 'down'), field);
     expect(player.x + PLAYER.width).toBe(field.right);
@@ -53,6 +53,15 @@ describe('Player', () => {
     const { y } = shots[0]!;
     shots[0]!.update();
     expect(shots[0]!.y).toBe(y - PLAYER_BULLET.speed);
+  });
+
+  it('dispara siempre recto hacia arriba, mire hacia donde mire', () => {
+    for (const key of ['left', 'down', 'right'] as const) {
+      const player = new Player(400, 400);
+      player.update(fakeInput(key)); // se gira
+      const shot = player.update(fakeInput('shoot'))!;
+      expect([shot.velocityX, shot.velocityY]).toEqual([0, -PLAYER_BULLET.speed]);
+    }
   });
 
   it('la vida no baja de 0', () => {
@@ -90,6 +99,7 @@ describe('Enemy (botella)', () => {
     expect(bullet.y).toBe(enemy.y + enemy.height + ENEMY.bulletGap);
     expect(bullet.x + bullet.width / 2).toBe(enemy.x + enemy.width / 2);
     expect(bullet.width).toBe(ENEMY_BULLET.width);
+    expect([bullet.velocityX, bullet.velocityY]).toEqual([0, ENEMY_BULLET.speed]); // recta hacia abajo
   });
 
   it('cada tipo baja a su velocidad, multiplicada por la del nivel', () => {
@@ -126,7 +136,7 @@ describe('Boss (jefe final)', () => {
   const field = playfieldFor(getLevel(2));
 
   /** Lleva al jefe hasta su posición de combate. */
-  function arrived(id: 'blonde' | 'dark', healthScale = 1) {
+  function arrived(id: 'blonde' | 'iron', healthScale = 1) {
     const boss = new Boss(id, field, healthScale);
     while (boss.isEntering) boss.update();
     return boss;
@@ -188,18 +198,37 @@ describe('Boss (jefe final)', () => {
   });
 
   it('el oscuro dispara un abanico de chorros y tiene más vida', () => {
-    const fired = nextShot(arrived('dark'));
-    expect(fired).toHaveLength(BOSS.dark.streams);
+    const fired = nextShot(arrived('iron'));
+    expect(fired).toHaveLength(BOSS.iron.streams);
     // Sin objetivo, el abanico es simétrico alrededor de la vertical
     const vx = fired.map((b) => b.velocityX);
     expect(Math.min(...vx)).toBeCloseTo(-Math.max(...vx));
-    expect(BOSS.dark.health).toBeGreaterThan(BOSS.blonde.health);
+    expect(BOSS.iron.health).toBeGreaterThan(BOSS.blonde.health);
   });
 
-  it('con media vida entra en furia: más chorros por disparo', () => {
-    const boss = arrived('dark');
+  it('entra en furia cuando le queda un 20 % de vida: más chorros por disparo', () => {
+    const boss = arrived('iron');
+    while (boss.healthPercent > BOSS_ENRAGE.enrageAt * 100 + 1) {
+      boss.hit();
+      expect(boss.isEnraged).toBe(false);
+    }
     while (!boss.isEnraged) boss.hit();
-    expect(nextShot(boss)).toHaveLength(BOSS.dark.streams + BOSS_ENRAGE.extraStreams);
+    expect(boss.healthPercent).toBeLessThanOrEqual(20);
+    expect(nextShot(boss)).toHaveLength(BOSS.iron.streams + BOSS.iron.enragedExtraStreams);
+  });
+
+  it('el de hierro deja huecos para esquivar: chorros separados al menos 20°, también con furia', () => {
+    const angles = (boss: Boss) =>
+      nextShot(boss)
+        .map((b) => (Math.atan2(b.velocityX, b.velocityY) * 180) / Math.PI)
+        .sort((a, b) => a - b);
+    const minGap = (degrees: number[]) =>
+      Math.min(...degrees.slice(1).map((d, i) => d - degrees[i]!));
+
+    const boss = arrived('iron');
+    expect(minGap(angles(boss))).toBeGreaterThanOrEqual(20);
+    while (!boss.isEnraged) boss.hit();
+    expect(minGap(angles(boss))).toBeGreaterThanOrEqual(20);
   });
 
   it('el truco de vida de los jefes multiplica su vida', () => {

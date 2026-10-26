@@ -9,7 +9,7 @@
  * renderer: el renderer solo pregunta "¿qué frame dibujo?" (animationFrame).
  * Así la animación también se puede probar en tests sin dibujar nada.
  */
-import { ARENA, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from '../config';
+import { ARENA, CAMERA, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from '../config';
 import { directionFromInput, type Direction } from '../direction';
 import { clamp, type Rect } from '../geometry';
 import type { InputState } from '../input/InputState';
@@ -35,16 +35,19 @@ export class Player implements Rect {
   isMoving = false;
 
   /**
-   * true mientras avanza por el callejón: mira recto hacia delante (arriba;
-   * en diagonal no cuenta) y la partida lo permite (contra el jefe, no).
-   * No hace falta pulsar nada: como en una cinta de correr, el personaje
-   * corre en el sitio y es el callejón el que se mueve (ver CAMERA en config.ts).
-   * Mirando a un lado, en diagonal o hacia atrás, se para.
+   * true mientras avanza por el callejón (si la partida lo permite: contra el
+   * jefe, no). Mirando recto hacia delante avanza solo, sin pulsar nada: como
+   * en una cinta de correr, corre en el sitio y es el callejón el que se mueve
+   * (ver CAMERA en config.ts). En diagonal solo avanza mientras se pulsa W.
+   * Mirando a un lado o hacia atrás, se para.
    */
   isAdvancing = false;
 
-  /** true si además mantiene pulsado "arriba": esprinta (el callejón va más rápido). */
+  /** true si además mantiene pulsado "arriba" (recto): esprinta y las piernas van más rápido. */
   isSprinting = false;
+
+  /** Píxeles que avanza el callejón en este paso (0 = parado). Lo suma GameSession. */
+  advanceSpeed = 0;
 
   /** Pasos acumulados andando. Se reinicia al pararse, para empezar siempre el ciclo desde el principio. */
   private walkSteps = 0;
@@ -111,9 +114,9 @@ export class Player implements Rect {
     this.x += dx * PLAYER.speed;
     this.y += dy * PLAYER.speed;
 
-    // A los lados, las paredes del callejón. Arriba, sitio para la cabeza y la barra de vida.
+    // A los lados, las paredes del callejón. Arriba, como mucho media pantalla.
     this.x = clamp(this.x, field.left, field.right - this.width);
-    this.y = clamp(this.y, PLAYER.topMargin, ARENA.height - this.height);
+    this.y = clamp(this.y, PLAYER.minY, ARENA.height - this.height);
 
     this.updateAnimation(dx, dy, canAdvance);
 
@@ -158,13 +161,26 @@ export class Player implements Rect {
     // ir hacia delante, sigue avanzando sin pulsar nada.
     if (direction !== null) this.facing = direction;
     this.isMoving = direction !== null;
-    this.isAdvancing = canAdvance && this.facing === FORWARD;
+
+    // Con W pulsada (recta o en diagonal) avanza mientras se pulse. Sin pulsar
+    // nada, solo sigue avanzando (cinta de correr) si se quedó mirando recto.
+    const pushing = dy < 0;
+    this.isAdvancing = canAdvance && (pushing || (direction === null && this.facing === FORWARD));
     this.isSprinting = this.isAdvancing && direction === FORWARD;
+    this.advanceSpeed = this.isAdvancing ? this.strideSpeed(pushing, dx !== 0) : 0;
 
     // Andando o corriendo en el sitio, el ciclo sigue (al esprintar, al doble de
     // velocidad: las piernas van más rápido); parado, vuelve al principio
     if (this.isSprinting) this.walkSteps += 2;
     else if (this.isMoving || this.isAdvancing) this.walkSteps++;
     else this.walkSteps = 0;
+  }
+
+  /** Píxeles por paso que avanza el callejón cuando el jugador avanza (ver CAMERA en config.ts). */
+  private strideSpeed(pushing: boolean, diagonal: boolean): number {
+    if (!pushing) return CAMERA.advanceSpeed;
+    // Pegado a media pantalla ya no puede subir más: lo que corre es el callejón
+    const speed = this.y === PLAYER.minY ? CAMERA.lineSpeed : CAMERA.sprintSpeed;
+    return diagonal ? speed * CAMERA.diagonalScale : speed;
   }
 }

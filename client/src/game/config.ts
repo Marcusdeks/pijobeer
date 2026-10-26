@@ -50,18 +50,18 @@ export const PLAYER = {
   width: 30,
   height: 64,
   /**
-   * Lo más arriba que puede subir la caja de colisión. No es 0 porque el
-   * dibujo y la barra de vida sobresalen por encima de la caja: con 0 se
-   * saldrían del canvas y la cabeza quedaría cortada.
+   * Lo más arriba que puede subir la caja de colisión: media pantalla. Así el
+   * personaje no se mete entre lo que le cae encima; a partir de esa línea,
+   * si sigue avanzando con W, es el callejón el que corre más (ver CAMERA).
    */
-  topMargin: 12,
+  minY: ARENA.height / 2,
   speed: 5,
   maxHealth: 100,
   /**
-   * Pasos entre disparo y disparo en dificultad normal (24 = 2,5 disparos por
+   * Pasos entre disparo y disparo en dificultad normal (20 = 3 disparos por
    * segundo). La dificultad lo multiplica (fireRate en difficulty.ts).
    */
-  shootCooldown: 24,
+  shootCooldown: 20,
   /** Distancia entre la parte de arriba del jugador y el borde inferior al empezar (deja 16 px bajo los pies). */
   spawnBottomOffset: 80,
 } as const;
@@ -133,6 +133,10 @@ export const ENEMY_TYPES = {
  *   streams     cuántos chorros salen en cada disparo
  *   spreadDeg   apertura total del abanico, en grados (0 = todos juntos)
  *   aimed       true = el abanico apunta al jugador; false = hacia abajo
+ *
+ * Y lo que añade la fase de furia (ver BOSS_ENRAGE) a ese abanico:
+ *   enragedExtraStreams    chorros de más por disparo
+ *   enragedExtraSpreadDeg  apertura de más, para repartir los chorros nuevos
  */
 export const BOSS = {
   /** Rubio: apunta al jugador. Quedarse quieto es recibir toda la ráfaga. */
@@ -149,34 +153,41 @@ export const BOSS = {
     streams: 1,
     spreadDeg: 0,
     aimed: true,
+    enragedExtraStreams: 2,
+    enragedExtraSpreadDeg: 30,
   },
-  /** Negro: abanico ancho que cubre media pantalla, y apunta al jugador. */
-  dark: {
+  /**
+   * Hierro: abanico que apunta al jugador. Pocos chorros y bien separados
+   * (25° entre uno y otro) para que haya hueco por donde colarse: la
+   * dificultad está en su vida y en no parar de moverse, no en un muro de espuma.
+   */
+  iron: {
     health: 140,
     width: 70,
     height: 96,
     speed: 3,
-    burstSize: 4,
+    burstSize: 3,
     burstGap: 8,
-    burstPause: 35,
-    streams: 5,
-    spreadDeg: 60,
+    burstPause: 50,
+    streams: 3,
+    spreadDeg: 50,
     aimed: true,
+    /** Con furia, 4 chorros en 70°: siguen saliendo a más de 20° entre sí. */
+    enragedExtraStreams: 1,
+    enragedExtraSpreadDeg: 20,
   },
 } as const satisfies Record<BossId, object>;
 
 /**
- * FASE DE FURIA: al bajar de enrageAt de su vida (0,5 = la mitad), el jefe se
- * enfada: se mueve más rápido, descansa menos entre ráfagas y añade chorros.
- * Su barra de vida cambia de color para avisar al jugador.
+ * FASE DE FURIA: al bajar de enrageAt de su vida (0,2 = le queda un 20 %), el
+ * jefe se enfada: se mueve más rápido, descansa menos entre ráfagas y añade
+ * chorros (los de cada jefe, en BOSS). Su barra de vida cambia de color para
+ * avisar al jugador.
  */
 export const BOSS_ENRAGE = {
-  enrageAt: 0.5,
+  enrageAt: 0.2,
   speedScale: 1.4,
   pauseScale: 0.5,
-  extraStreams: 2,
-  /** Apertura que se suma al abanico (para repartir los chorros nuevos). */
-  extraSpreadDeg: 30,
 } as const;
 
 /** Lo común a todos los jefes. */
@@ -234,22 +245,30 @@ export type PickupTypeId = keyof typeof PICKUP_TYPES;
 
 /**
  * CÁMARA: cómo se avanza por el callejón. Funciona como una cinta de correr:
- * mientras el personaje MIRA recto hacia delante (arriba; en diagonal no
- * cuenta) el callejón avanza solo y él corre en el sitio, sin pulsar nada.
- * Manteniendo W, esprinta: el callejón va más rápido. Si mira a un lado, en
- * diagonal o hacia atrás, se para. Contra el jefe el callejón no avanza.
- * El jugador sigue pudiendo moverse por toda la pantalla para esquivar.
+ *   - Mirando RECTO hacia delante (arriba) sin pulsar nada, el callejón avanza
+ *     solo y el personaje corre en el sitio (advanceSpeed).
+ *   - Manteniendo W, esprinta (sprintSpeed). Al llegar a media pantalla ya no
+ *     sube más (PLAYER.minY) y, si sigue pulsando W, el callejón va aún más
+ *     rápido (lineSpeed).
+ *   - En diagonal (W+A o W+D) solo avanza mientras se pulsa, nunca solo, y más
+ *     despacio que recto (diagonalScale): parte del paso se va hacia el lado.
+ *   - Mirando a un lado o hacia atrás, se para. Contra el jefe tampoco avanza.
+ * El jugador puede moverse por toda su mitad de la pantalla para esquivar.
  *
- * El suelo es solo decorado: no arrastra a botellas ni latas, que se mueven a
- * su propia velocidad (la que marcan el nivel y la dificultad). Por eso el
- * avance normal es más lento que la botella más lenta: así todo parece venir
- * hacia el jugador y nunca alejarse con el suelo.
+ * Botellas, latas y balas enemigas caen a su propia velocidad (la que marcan
+ * el nivel y la dificultad) MÁS lo que avance el callejón en ese paso (ver
+ * GameSession): si el jugador avanza, todo le viene encima más deprisa y nunca
+ * parece quieto o que se aleja con el suelo. Parado, caen a su ritmo.
  */
 export const CAMERA = {
   /** Píxeles por paso que avanza el callejón (1 = 60 píxeles por segundo). */
   advanceSpeed: 1,
   /** Píxeles por paso al esprintar con W (2,5 = 150 píxeles por segundo): se llega antes al jefe. */
   sprintSpeed: 2.5,
+  /** Píxeles por paso esprintando ya pegado a media pantalla (4 = 240 píxeles por segundo). */
+  lineSpeed: 4,
+  /** Multiplicador de las dos anteriores al avanzar en diagonal (0,7 = un 30 % más despacio). */
+  diagonalScale: 0.7,
 } as const;
 
 /**
@@ -269,7 +288,7 @@ export const PLAYER_BULLET = {
 export const ENEMY_BULLET = {
   width: 10,
   height: 12,
-  /** Píxeles por paso, hacia abajo. */
+  /** Píxeles por paso, hacia abajo (más lo que avance el callejón: ver CAMERA). */
   speed: 5,
   /** Pasos por frame de la animación del chorro. */
   frameSteps: 5,

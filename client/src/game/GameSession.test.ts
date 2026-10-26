@@ -15,7 +15,9 @@ import {
   BOSS_COMMON,
   CAMERA,
   ENEMY,
+  ENEMY_BULLET,
   ENEMY_TYPES,
+  PICKUP,
   PICKUP_TYPES,
   PLAYER,
   PLAYER_BULLET,
@@ -47,6 +49,8 @@ const BOSS_ENTRY_STEPS = Math.ceil((BOSS_COMMON.holdY + 200) / BOSS_COMMON.enter
 describe('aparición de botellas y progresión', () => {
   it('salen al ritmo del nivel', () => {
     const game = session(1);
+    // Mirando a un lado no avanza: las botellas caen solo a su ritmo y la primera sigue en pantalla
+    game.player.facing = 'izquierda';
     run(game, game.rules.spawnInterval * 3);
     expect(game.enemies).toHaveLength(3);
   });
@@ -102,12 +106,34 @@ describe('aparición de botellas y progresión', () => {
     expect(game.backgroundDistance).toBe(60 * CAMERA.advanceSpeed + 10 * CAMERA.sprintSpeed);
   });
 
-  it('en diagonal no avanza: solo cuenta mirar recto hacia delante', () => {
+  it('no sube de media pantalla; ahí, manteniendo W, el callejón va aún más rápido', () => {
+    const game = session(1, { modifiers: withModifiers({ invincible: true }) });
+    run(game, 100, fakeInput('up'));
+    expect(game.player.y).toBe(PLAYER.minY);
+
+    const reached = game.backgroundDistance;
+    run(game, 10, fakeInput('up'));
+    expect(game.player.y).toBe(PLAYER.minY);
+    expect(game.backgroundDistance).toBe(reached + 10 * CAMERA.lineSpeed);
+  });
+
+  it('en diagonal avanza más despacio y solo mientras se pulsa', () => {
     const game = session(1, { modifiers: withModifiers({ invincible: true }) });
     run(game, 10, fakeInput('up', 'left'));
-    expect(game.backgroundDistance).toBe(0);
-    run(game, 10); // y al soltar sigue mirando en diagonal: parado
-    expect(game.backgroundDistance).toBe(0);
+    expect(game.backgroundDistance).toBeCloseTo(10 * CAMERA.sprintSpeed * CAMERA.diagonalScale);
+
+    // Pegado a media pantalla, también más rápido (y también con el recorte de la diagonal)
+    run(game, 100, fakeInput('up', 'right'));
+    const reached = game.backgroundDistance;
+    run(game, 10, fakeInput('up', 'right'));
+    expect(game.backgroundDistance - reached).toBeCloseTo(
+      10 * CAMERA.lineSpeed * CAMERA.diagonalScale,
+    );
+
+    // Al soltar sigue mirando en diagonal, pero no avanza solo
+    const released = game.backgroundDistance;
+    run(game, 10);
+    expect(game.backgroundDistance).toBe(released);
   });
 
   it('mirando a un lado o hacia atrás se para, aunque suelte las teclas', () => {
@@ -127,15 +153,29 @@ describe('aparición de botellas y progresión', () => {
     expect(game.backgroundDistance).toBe(reached + 10 * CAMERA.advanceSpeed);
   });
 
-  it('el suelo no arrastra a las botellas: caen a su velocidad, se avance o no', () => {
+  it('al avanzar, botellas, latas y espuma se acercan además a la velocidad del callejón', () => {
     const game = session(1, { modifiers: withModifiers({ invincible: true }) });
-    game.enemies.push(new Enemy(300, 100, 'normal', fixedRandom));
-    const before = game.enemies[0]!.y;
-    game.step(fakeInput());
-    expect(game.player.isAdvancing).toBe(true);
-    expect(game.enemies[0]!.y - before).toBeCloseTo(
-      ENEMY_TYPES.normal.speed * getLevel(1).enemySpeed,
-    );
+    const fall = ENEMY_TYPES.normal.speed * getLevel(1).enemySpeed;
+    const things = () => [game.enemies[0]!, game.pickups[0]!, game.enemyBullets[0]!];
+    const place = () => {
+      game.enemies = [new Enemy(300, 100, 'normal', fixedRandom)];
+      game.pickups = [new Pickup(400, 100, 'health')];
+      game.enemyBullets = [new Bullet(500, 100, ENEMY_BULLET.speed, ENEMY_BULLET)];
+    };
+    const ownSpeeds = [fall, PICKUP.fallSpeed, ENEMY_BULLET.speed];
+
+    // Avanzando con W: su propia caída más el avance del callejón
+    place();
+    game.step(fakeInput('up'));
+    const advance = game.player.advanceSpeed;
+    expect(advance).toBe(CAMERA.sprintSpeed);
+    things().forEach((thing, i) => expect(thing.y - 100).toBeCloseTo(ownSpeeds[i]! + advance));
+
+    // Parado (mirando a un lado): solo su propia caída
+    place();
+    game.step(fakeInput('left'));
+    expect(game.player.advanceSpeed).toBe(0);
+    things().forEach((thing, i) => expect(thing.y - 100).toBeCloseTo(ownSpeeds[i]!));
   });
 
   it('contra el jefe el callejón se para', () => {
@@ -167,12 +207,13 @@ describe('aparición de botellas y progresión', () => {
     expect(rules.distanceToComplete).toBe(0);
   });
 
-  it('se dispara menos cuanto más difícil (3 / 2,5 / 2 disparos por segundo)', () => {
+  it('se dispara menos cuanto más difícil (~3,5 / 3 / 2,4 disparos por segundo)', () => {
     const shotsPerSecond = (difficulty: 'easy' | 'normal' | 'hard') =>
       60 / session(1, { difficulty }).rules.shootCooldown;
-    expect(shotsPerSecond('easy')).toBe(3);
-    expect(shotsPerSecond('normal')).toBe(2.5);
-    expect(shotsPerSecond('hard')).toBe(2);
+    // En fácil la espera se redondea a pasos enteros (17), así que no es exactamente 3,6
+    expect(shotsPerSecond('easy')).toBeCloseTo(3.5, 1);
+    expect(shotsPerSecond('normal')).toBe(3);
+    expect(shotsPerSecond('hard')).toBe(2.4);
   });
 });
 
@@ -251,8 +292,9 @@ describe('jefes finales', () => {
   it('su contacto quita vida una vez y espera antes de volver a hacerlo', () => {
     const { game, boss } = bossFight();
     game.enemyBullets = [];
-    game.player.x = boss.x;
-    game.player.y = boss.y;
+    // El jugador no sube de media pantalla, así que es el jefe el que se le pone encima
+    boss.x = game.player.x;
+    boss.y = game.player.y;
     game.step(fakeInput());
     game.enemyBullets = [];
     expect(game.player.health).toBe(PLAYER.maxHealth - BOSS_COMMON.contactDamage);
