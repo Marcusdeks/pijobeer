@@ -10,11 +10,17 @@
  *   2. Escalarlas con el mismo factor, para que el neutro mida TARGET_HEIGHT.
  *   3. Colocar cada pose en su frame de 64x80 con la base de los pies en el pivote.
  *   4. Componer la fila: [neutro, paso 1, neutro, paso 2].
+ *
+ * Además, la pose de la CHUPA (art/player/jacket.jpg: de espaldas, abriéndola
+ * para protegerse) va en su propia imagen, assets/sprites/player-jacket.png:
+ * un solo frame del mismo tamaño y con el mismo pivote que los de la hoja,
+ * así el juego la coloca exactamente igual que cualquier otra pose.
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import {
   ART_DIR,
+  boundingBox,
   extractScaled,
   fullRegion,
   layer,
@@ -27,6 +33,7 @@ import {
 
 const META_PATH = path.join(OUTPUT_DIR, 'player.json');
 const OUTPUT_PATH = path.join(OUTPUT_DIR, 'player.png');
+const JACKET_OUTPUT_PATH = path.join(OUTPUT_DIR, 'player-jacket.png');
 
 /**
  * Arte fuente de cada dirección (clave = nombre de fila en player.json).
@@ -128,4 +135,21 @@ export async function buildPlayerSheet() {
 
   await writeSheet(OUTPUT_PATH, frameW * columns, frameH * rows, layers);
   console.log(`✔ ${rel(OUTPUT_PATH)} (${frameW * columns}x${frameH * rows})`);
+
+  await buildJacketFrame(meta);
+}
+
+/** La pose de la chupa: misma altura que el neutro y los pies sobre el pivote. */
+async function buildJacketFrame({ frame_width: frameW, frame_height: frameH, pivot_pies: pivot }) {
+  const image = await loadWithoutBackground(path.join(ART_DIR, 'player', 'jacket.jpg'));
+  const box = boundingBox(image, fullRegion(image));
+  const sprite = await extractScaled(image, box, TARGET_HEIGHT / box.height);
+  if (sprite.width > frameW) console.warn(`⚠️  chupa: ${sprite.width} px de ancho no cabe entera`);
+
+  await writeSheet(JACKET_OUTPUT_PATH, frameW, frameH, [
+    layer(sprite, pivot.x - sprite.width / 2, pivot.y - sprite.height + 1),
+  ]);
+  console.log(
+    `✔ ${rel(JACKET_OUTPUT_PATH)} (${frameW}x${frameH}, chupa ${sprite.width}x${sprite.height})`,
+  );
 }

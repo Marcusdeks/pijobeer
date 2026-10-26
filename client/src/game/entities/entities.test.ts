@@ -1,8 +1,8 @@
 /**
- * Tests de las entidades del motor: jugador, botellas y jefes.
+ * Tests de las entidades del motor: jugador (y su chupa), botellas, barriles y jefes.
  * Corren en Node, sin navegador ni canvas: la lógica está separada del dibujo.
  */
-import { getLevel } from '@pijobeer/shared';
+import { getLevel, type BossId } from '@pijobeer/shared';
 import { describe, expect, it } from 'vitest';
 import {
   ARENA,
@@ -12,8 +12,10 @@ import {
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
+  JACKET,
   PLAYER,
   PLAYER_BULLET,
+  THROWN_BOTTLE,
 } from '../config';
 import { intersects } from '../geometry';
 import { playfieldFor } from '../playfield';
@@ -34,11 +36,11 @@ describe('Player', () => {
   it('no sale del área de juego ni se mete en las paredes', () => {
     const field = { left: 100, right: 700 };
     const player = new Player(400, 300);
-    for (let i = 0; i < 200; i++) player.update(fakeInput('left', 'up'), field);
+    for (let i = 0; i < 200; i++) player.update(fakeInput('left', 'up'), { field });
     expect(player.x).toBe(field.left);
     expect(player.y).toBe(PLAYER.minY); // como mucho, media pantalla
 
-    for (let i = 0; i < 200; i++) player.update(fakeInput('right', 'down'), field);
+    for (let i = 0; i < 200; i++) player.update(fakeInput('right', 'down'), { field });
     expect(player.x + PLAYER.width).toBe(field.right);
     expect(player.y).toBe(ARENA.height - PLAYER.height);
   });
@@ -62,6 +64,42 @@ describe('Player', () => {
       const shot = player.update(fakeInput('shoot'))!;
       expect([shot.velocityX, shot.velocityY]).toEqual([0, -PLAYER_BULLET.speed]);
     }
+  });
+
+  it('con la chupa (B) se queda quieto y no dispara, solo donde el nivel lo permite', () => {
+    const shielded = new Player(400, 400);
+    for (let i = 0; i < 10; i++) {
+      const shot = shielded.update(fakeInput('shield', 'left', 'shoot'), { jacketAllowed: true });
+      expect(shot).toBeNull();
+    }
+    expect(shielded.isShielding).toBe(true);
+    expect([shielded.x, shielded.y]).toEqual([400, 400]);
+
+    // En un nivel sin chupa, la B no hace nada
+    const normal = new Player(400, 400);
+    normal.update(fakeInput('shield', 'left'));
+    expect(normal.isShielding).toBe(false);
+    expect(normal.x).toBe(400 - PLAYER.speed);
+  });
+
+  it('la chupa para 3 chorros, se empapa y tarda en secarse', () => {
+    const player = new Player(400, 400);
+    const shield = () => player.update(fakeInput('shield'), { jacketAllowed: true });
+    shield();
+    for (let i = 0; i < JACKET.maxBlocks - 1; i++) {
+      player.blockShot();
+      expect(player.isShielding).toBe(true);
+    }
+    player.blockShot(); // el tercero la empapa
+    expect(player.isShielding).toBe(false);
+    expect(player.dryingPercent).toBe(100);
+
+    for (let i = 0; i < JACKET.dryingSteps - 1; i++) {
+      shield();
+      expect(player.isShielding).toBe(false); // aún mojada
+    }
+    shield();
+    expect(player.isShielding).toBe(true); // ya seca
   });
 
   it('la vida no baja de 0', () => {
@@ -102,6 +140,41 @@ describe('Enemy (botella)', () => {
     expect([bullet.velocityX, bullet.velocityY]).toEqual([0, ENEMY_BULLET.speed]); // recta hacia abajo
   });
 
+  it('el barril pequeño aguanta 3 impactos y apunta al jugador', () => {
+    const barrel = new Enemy(100, 100, 'barrel', fixedRandom);
+    expect(barrel.hit()).toBe(false);
+    expect(barrel.hit()).toBe(false);
+    expect(barrel.isFlashing).toBe(true); // avisa de que el impacto ha contado
+    expect(barrel.hit()).toBe(true);
+    expect(barrel.alive).toBe(false);
+
+    const shooter = new Enemy(100, 100, 'barrel', fixedRandom);
+    const target = { x: 400, y: 450 };
+    let bullet = shooter.update(target);
+    while (!bullet) bullet = shooter.update(target);
+    expect(bullet.velocityX).toBeGreaterThan(0);
+    expect(bullet.velocityY).toBeGreaterThan(0);
+  });
+
+  it('el barril va a la velocidad de la botella pesada', () => {
+    expect(ENEMY_TYPES.barrel.speed).toBe(ENEMY_TYPES.heavy.speed);
+  });
+
+  it('la botella lanzada gira poco a poco hacia el jugador y, al pasarle, sigue recta', () => {
+    const target = { x: 600, y: 450 };
+    const bottle = Enemy.thrownAt('normal', { x: 400, y: 100 }, { x: 400, y: 450 }, fixedRandom);
+    expect(bottle.heading).toBe(0);
+
+    bottle.update(target);
+    expect(bottle.heading).toBeCloseTo(THROWN_BOTTLE.turnDeg); // gira, pero solo un poco
+    for (let i = 0; i < 300 && bottle.center.y < target.y; i++) bottle.update(target);
+    expect(bottle.heading).toBeGreaterThan(0);
+
+    const heading = bottle.heading;
+    bottle.update({ x: 0, y: 450 }); // ya le ha pasado: no vuelve a por él
+    expect(bottle.heading).toBe(heading);
+  });
+
   it('cada tipo baja a su velocidad, multiplicada por la del nivel', () => {
     const fall = (type: 'normal' | 'fast' | 'heavy', scale = 1) => {
       const enemy = new Enemy(100, 0, type, fixedRandom, scale);
@@ -136,18 +209,42 @@ describe('Boss (jefe final)', () => {
   const field = playfieldFor(getLevel(2));
 
   /** Lleva al jefe hasta su posición de combate. */
-  function arrived(id: 'blonde' | 'iron', healthScale = 1) {
-    const boss = new Boss(id, field, healthScale);
+  function arrived(id: BossId, healthScale = 1) {
+    const boss = new Boss(id, field, { healthScale, random: fixedRandom });
     while (boss.isEntering) boss.update();
     return boss;
   }
 
+  /** Avanza hasta el siguiente ataque y devuelve lo lanzado. */
+  function nextAttack(boss: Boss, target?: { x: number; y: number }) {
+    let attack = boss.update(target);
+    while (!attack.bullets.length && !attack.bottles.length) attack = boss.update(target);
+    return attack;
+  }
+  const nextShot = (boss: Boss, target?: { x: number; y: number }) =>
+    nextAttack(boss, target).bullets;
+
+  /** Pasos en los que ataca, durante `steps` pasos. */
+  function attackSteps(boss: Boss, steps: number) {
+    const result: number[] = [];
+    for (let step = 0; step < steps; step++) {
+      const { bullets, bottles } = boss.update();
+      if (bullets.length || bottles.length) result.push(step);
+    }
+    return result;
+  }
+
+  /** Lleva al jefe a su fase de furia quitándole la vida de 1 en 1. */
+  function enrage(boss: Boss) {
+    while (!boss.isEnraged) boss.hit(1);
+  }
+
   it('entra sin disparar ni recibir daño, y se queda a su altura sin avanzar', () => {
-    const boss = new Boss('blonde', field);
+    const boss = new Boss('wood', field);
     expect(boss.hit()).toBe(false);
 
     let bullets = 0;
-    while (boss.isEntering) bullets += boss.update().length;
+    while (boss.isEntering) bullets += boss.update().bullets.length;
     expect(bullets).toBe(0);
 
     for (let i = 0; i < 500; i++) boss.update();
@@ -155,19 +252,24 @@ describe('Boss (jefe final)', () => {
   });
 
   it('va de pared a pared sin salirse del suelo', () => {
-    const boss = arrived('blonde');
+    const boss = arrived('wood');
     const xs = Array.from({ length: 1500 }, () => (boss.update(), boss.x));
     expect(Math.min(...xs)).toBe(field.left);
     expect(Math.max(...xs) + boss.width).toBe(field.right);
   });
 
+  it('cada abrechapas le quita PLAYER_BULLET.damage: el de madera cae en 16', () => {
+    const boss = arrived('wood');
+    boss.hit();
+    expect(boss.health).toBe(BOSS.wood.health - PLAYER_BULLET.damage);
+    for (let i = 1; i < 16; i++) boss.hit();
+    expect(boss.isDead).toBe(true);
+  });
+
   it('dispara en ráfagas: varios disparos seguidos y una pausa', () => {
-    const boss = arrived('blonde');
-    const stats = BOSS.blonde;
-    const shotSteps: number[] = [];
-    for (let step = 0; shotSteps.length < stats.burstSize * 2; step++) {
-      if (boss.update().length) shotSteps.push(step);
-    }
+    const boss = arrived('wood');
+    const stats = BOSS.wood;
+    const shotSteps = attackSteps(boss, 400).slice(0, stats.burstSize * 2);
     const gaps = shotSteps.slice(1).map((s, i) => s - shotSteps[i]!);
     // Dentro de la ráfaga, la espera corta; entre ráfagas, la pausa larga
     expect(gaps.slice(0, stats.burstSize - 1)).toEqual(
@@ -176,43 +278,51 @@ describe('Boss (jefe final)', () => {
     expect(gaps[stats.burstSize - 1]).toBe(stats.burstPause);
   });
 
-  /** Avanza hasta el siguiente disparo y devuelve sus balas. */
-  function nextShot(boss: Boss, target?: { x: number; y: number }) {
-    let fired = boss.update(target);
-    while (!fired.length) fired = boss.update(target);
-    return fired;
-  }
+  it('el de madera, con furia, hace la mitad de ráfagas (del mismo tamaño)', () => {
+    const stats = BOSS.wood;
+    const burstLength = (stats.burstSize - 1) * stats.burstGap;
+    // Ciclo de ráfaga + pausa: antes la pausa se reducía a la mitad; ahora crece
+    const before = burstLength + Math.round(stats.burstPause * 0.5);
+    const now = burstLength + Math.round(stats.burstPause * stats.enragedPauseScale);
+    expect(now / before).toBeCloseTo(2, 0);
 
-  it('el rubio apunta al jugador: si está a la derecha, la espuma va hacia la derecha', () => {
-    const boss = arrived('blonde');
+    const boss = arrived('wood');
+    enrage(boss);
+    const steps = attackSteps(boss, 600);
+    const firstOfEachBurst = steps.filter((s, i) => i === 0 || s - steps[i - 1]! > stats.burstGap);
+    expect(firstOfEachBurst[2]! - firstOfEachBurst[1]!).toBe(now);
+  });
+
+  it('el de madera apunta al jugador: si está a la derecha, la espuma va hacia la derecha', () => {
+    const boss = arrived('wood');
     const [bullet] = nextShot(boss, { x: field.right, y: 450 });
     expect(bullet!.velocityX).toBeGreaterThan(0);
     expect(bullet!.velocityY).toBeGreaterThan(0);
   });
 
   it('nunca dispara casi en horizontal, aunque el jugador esté pegado a un lado', () => {
-    const boss = arrived('blonde');
+    const boss = arrived('wood');
     const [bullet] = nextShot(boss, { x: boss.x + 1000, y: boss.y + boss.height + 1 });
     const degrees = (Math.atan2(bullet!.velocityX, bullet!.velocityY) * 180) / Math.PI;
     expect(degrees).toBeCloseTo(BOSS_COMMON.maxAimDeg);
   });
 
-  it('el oscuro dispara un abanico de chorros y tiene más vida', () => {
+  it('el de hierro dispara un abanico de chorros y tiene más vida', () => {
     const fired = nextShot(arrived('iron'));
     expect(fired).toHaveLength(BOSS.iron.streams);
     // Sin objetivo, el abanico es simétrico alrededor de la vertical
     const vx = fired.map((b) => b.velocityX);
     expect(Math.min(...vx)).toBeCloseTo(-Math.max(...vx));
-    expect(BOSS.iron.health).toBeGreaterThan(BOSS.blonde.health);
+    expect(BOSS.iron.health).toBeGreaterThan(BOSS.wood.health);
   });
 
   it('entra en furia cuando le queda un 20 % de vida: más chorros por disparo', () => {
     const boss = arrived('iron');
     while (boss.healthPercent > BOSS_ENRAGE.enrageAt * 100 + 1) {
-      boss.hit();
+      boss.hit(1);
       expect(boss.isEnraged).toBe(false);
     }
-    while (!boss.isEnraged) boss.hit();
+    enrage(boss);
     expect(boss.healthPercent).toBeLessThanOrEqual(20);
     expect(nextShot(boss)).toHaveLength(BOSS.iron.streams + BOSS.iron.enragedExtraStreams);
   });
@@ -227,11 +337,30 @@ describe('Boss (jefe final)', () => {
 
     const boss = arrived('iron');
     expect(minGap(angles(boss))).toBeGreaterThanOrEqual(20);
-    while (!boss.isEnraged) boss.hit();
+    enrage(boss);
     expect(minGap(angles(boss))).toBeGreaterThanOrEqual(20);
   });
 
+  it('el pijo no dispara espuma: lanza botellas que van a por el jugador', () => {
+    const { bullets, bottles } = nextAttack(arrived('pijo'), { x: 400, y: 450 });
+    expect(bullets).toHaveLength(0);
+    expect(bottles).toHaveLength(1);
+    expect(bottles[0]!.thrown).toBe(true);
+    expect(['normal', 'fast', 'heavy']).toContain(bottles[0]!.type);
+  });
+
+  it('dos jefes a la vez empiezan separados y salen en direcciones opuestas', () => {
+    const [left, right] = [0, 1].map((slot) => new Boss('pijo', field, { slot, count: 2 }));
+    expect(left!.x + left!.width).toBeLessThan(right!.x);
+    const [leftX, rightX] = [left!.x, right!.x];
+    while (left!.isEntering) [left, right].forEach((boss) => boss!.update());
+    left!.update();
+    right!.update();
+    expect(left!.x).toBeGreaterThan(leftX);
+    expect(right!.x).toBeLessThan(rightX);
+  });
+
   it('el truco de vida de los jefes multiplica su vida', () => {
-    expect(arrived('blonde', 0.5).maxHealth).toBe(BOSS.blonde.health / 2);
+    expect(arrived('wood', 0.5).maxHealth).toBe(BOSS.wood.health / 2);
   });
 });

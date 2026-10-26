@@ -60,8 +60,18 @@
     "nextLevel": "Niveau suivant",
     "backToMenu": "Retour au menu",
     "bosses": {
-      "blonde": "FÛT BLOND DE BOURGE",
-      "iron": "FÛT DE FER DE BOURGE"
+      "wood": "FÛT EN BOIS DE BOURGE",
+      "iron": "FÛT DE FER DE BOURGE",
+      "pijo_one": "BOURGE ENNEMI",
+      "pijo_other": "BOURGES ENNEMIS"
+    },
+    "skipStory": "Passer ➜",
+    "story": {
+      "jacketTutorial": "Appuie sur la touche {{key}} pour te protéger de certains tirs. Ne la garde pas enfoncée trop longtemps, sinon ton blouson sera trempé de cette bière de bourge.",
+      "level4Opening": "{{hero}} : Tiens, on sort enfin de la zone industrielle. Ici, il y aura encore plus de racaille bourge.",
+      "pijosHero": "{{hero}} : Hé ! C'est vous qui m'avez balancé ces putains de bouteilles ?",
+      "pijosReply": "Bourges : *sanglotent* O-oui ! Arrête de nous poursuivre ! On atteindra notre but même si tu essaies de nous arrêter ! *ils fondent en larmes de pure terreur*",
+      "pijosHint": "Attention : le blouson ne protège pas des bouteilles lancées."
     },
     "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
   },
@@ -100,6 +110,7 @@
     "title": "Commandes",
     "move": "Déplacement",
     "shoot": "Tirer",
+    "shield": "Se protéger avec le blouson (dès le niveau 3)",
     "pause": "Pause"
   },
   "credits": {

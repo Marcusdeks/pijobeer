@@ -34,6 +34,8 @@ export const CONTROLS = {
   up: 'w',
   down: 's',
   shoot: 'v',
+  /** Mantener pulsada para protegerse con la chupa (en los niveles que lo permiten). */
+  shield: 'b',
   pause: 'p',
 } as const;
 
@@ -64,6 +66,23 @@ export const PLAYER = {
   shootCooldown: 20,
   /** Distancia entre la parte de arriba del jugador y el borde inferior al empezar (deja 16 px bajo los pies). */
   spawnBottomOffset: 80,
+} as const;
+
+/**
+ * LA CHUPA: manteniendo la B, el jugador se tapa con ella y la espuma no le
+ * hace daño. Solo en los niveles que lo permiten (jacket en levels.ts).
+ *
+ * Mientras se tapa no puede moverse ni disparar (tiene las manos ocupadas) y
+ * el callejón no avanza. Solo para la ESPUMA: los botellazos (chocar con una
+ * botella o con un jefe) hacen daño igual.
+ *
+ * Tras parar maxBlocks chorros se empapa y se la quita: no vuelve a servir
+ * hasta que pasen dryingSteps pasos (una barra azul lo indica).
+ */
+export const JACKET = {
+  maxBlocks: 3,
+  /** 300 pasos = 5 s secándose. */
+  dryingSteps: 300,
 } as const;
 
 /**
@@ -104,43 +123,108 @@ export const ENEMY = {
   contactDamage: 20,
 } as const;
 
+/** Caja de colisión de cualquier botella (ver ENEMY). */
+const BOTTLE_BOX = { width: ENEMY.width, height: ENEMY.height } as const;
+
 /**
- * TIPOS DE BOTELLA. Cada nivel decide en qué proporción salen (enemyMix en
- * packages/shared/src/levels.ts). El color de la botella indica su tipo, para
- * que el jugador sepa de un vistazo qué le viene encima.
+ * TIPOS DE ENEMIGO. Cada nivel decide en qué proporción salen (enemyMix en
+ * packages/shared/src/levels.ts). El dibujo indica el tipo, para que el
+ * jugador sepa de un vistazo qué le viene encima.
  *
  *   speed         píxeles por paso de caída (antes del multiplicador del nivel)
  *   shootCooldown pasos de espera entre el final de un disparo y el siguiente
- *   variant       color en la hoja de sprites
+ *   hits          abrechapas que aguanta (los puntos de cada uno, en ENEMY_POINTS)
+ *   aimed         true = dispara hacia donde está el jugador; false = recto hacia abajo
+ *   variant       color en la hoja de botellas (null = no es una botella)
+ *   width/height  caja de colisión
  */
 export const ENEMY_TYPES = {
   /** La de siempre. */
-  normal: { speed: 2, shootCooldown: 90, variant: 'pink' },
+  normal: { speed: 2, shootCooldown: 90, hits: 1, aimed: false, variant: 'pink', ...BOTTLE_BOX },
   /** Rápida: baja más deprisa, dispara como la normal. */
-  fast: { speed: 3.2, shootCooldown: 90, variant: 'gold' },
+  fast: { speed: 3.2, shootCooldown: 90, hits: 1, aimed: false, variant: 'gold', ...BOTTLE_BOX },
   /** Pesada: lenta, pero dispara el doble (espera menos de la mitad entre disparos). */
-  heavy: { speed: 1.3, shootCooldown: 33, variant: 'dark' },
-} as const satisfies Record<EnemyTypeId, { speed: number; shootCooldown: number; variant: string }>;
+  heavy: { speed: 1.3, shootCooldown: 33, hits: 1, aimed: false, variant: 'dark', ...BOTTLE_BOX },
+  /**
+   * Barril pequeño (nivel 4): a la velocidad de la pesada, aguanta 3 impactos y
+   * apunta al jugador. Dispara menos que una botella porque no hay que esquivar
+   * solo su espuma: también hay que gastar tres disparos en él.
+   * Caja: el dibujo (barrel-minion.json, 34x44) sin los bordes redondeados.
+   */
+  barrel: {
+    speed: 1.3,
+    shootCooldown: 150,
+    hits: 3,
+    aimed: true,
+    variant: null,
+    width: 30,
+    height: 40,
+  },
+} as const satisfies Record<
+  EnemyTypeId,
+  {
+    speed: number;
+    shootCooldown: number;
+    hits: number;
+    aimed: boolean;
+    variant: string | null;
+    width: number;
+    height: number;
+  }
+>;
 
 /**
- * JEFES FINALES (barriles). Aparecen cuando se cumple el objetivo de botellas
- * de un nivel con jefe. Entran desde arriba, se quedan a la altura holdY
- * moviéndose de pared a pared, y disparan en RÁFAGAS: burstSize disparos
+ * BOTELLAS LANZADAS por los pijos (jefes del nivel 4). Son botellas normales
+ * de un tipo al azar (disparan como su tipo, hacia donde van), pero en vez
+ * de caer rectas van a por el jugador girando poco a poco: con un giro
+ * máximo por paso pequeño, un cambio de dirección a tiempo basta para
+ * esquivarlas. Cuando ya han pasado al jugador dejan de girar y siguen recto.
+ */
+export const THROWN_BOTTLE = {
+  /** Píxeles por paso. */
+  speed: 3,
+  /** Grados que puede girar como mucho en cada paso. */
+  turnDeg: 1.2,
+} as const;
+
+/**
+ * JEFES FINALES. Aparecen cuando se cumple el objetivo de un nivel con jefe
+ * (en el nivel 4, dos a la vez). Entran desde arriba, se quedan a la altura
+ * holdY moviéndose de pared a pared, y atacan en RÁFAGAS: burstSize ataques
  * seguidos (separados burstGap pasos) y después una pausa de burstPause pasos.
- * Se les gana bajándoles la vida a 0 (cada abrechapas quita 1).
+ * Se les gana bajándoles la vida a 0 (cada abrechapas quita PLAYER_BULLET.damage).
  *
- * Cada disparo puede ser de varios chorros a la vez, repartidos en abanico:
- *   streams     cuántos chorros salen en cada disparo
+ *   attack      'foam' = chorros de espuma; 'bottles' = lanza botellas teledirigidas
+ *   streams     cuántos chorros (o botellas) salen en cada ataque
  *   spreadDeg   apertura total del abanico, en grados (0 = todos juntos)
  *   aimed       true = el abanico apunta al jugador; false = hacia abajo
  *
- * Y lo que añade la fase de furia (ver BOSS_ENRAGE) a ese abanico:
+ * Y lo que cambia en la fase de furia (ver BOSS_ENRAGE):
  *   enragedExtraStreams    chorros de más por disparo
  *   enragedExtraSpreadDeg  apertura de más, para repartir los chorros nuevos
+ *   enragedPauseScale      multiplica la pausa entre ráfagas (< 1 = más ráfagas)
  */
+interface BossStats {
+  attack: 'foam' | 'bottles';
+  health: number;
+  width: number;
+  height: number;
+  speed: number;
+  burstSize: number;
+  burstGap: number;
+  burstPause: number;
+  streams: number;
+  spreadDeg: number;
+  aimed: boolean;
+  enragedExtraStreams: number;
+  enragedExtraSpreadDeg: number;
+  enragedPauseScale: number;
+}
+
 export const BOSS = {
-  /** Rubio: apunta al jugador. Quedarse quieto es recibir toda la ráfaga. */
-  blonde: {
+  /** Madera: apunta al jugador. Quedarse quieto es recibir toda la ráfaga. */
+  wood: {
+    attack: 'foam',
     health: 80,
     /** Caja de colisión (el dibujo mide 80x104; se recortan los bordes redondeados). */
     width: 70,
@@ -155,6 +239,12 @@ export const BOSS = {
     aimed: true,
     enragedExtraStreams: 2,
     enragedExtraSpreadDeg: 30,
+    /**
+     * Con furia hace la MITAD de ráfagas que antes (del mismo tamaño): cada
+     * ráfaga dura 24 pasos, así que con la pausa a 68 (45 × 1,5) va una cada
+     * 92 pasos en vez de una cada 46 (24 + 45 × 0,5).
+     */
+    enragedPauseScale: 1.5,
   },
   /**
    * Hierro: abanico que apunta al jugador. Pocos chorros y bien separados
@@ -162,6 +252,7 @@ export const BOSS = {
    * dificultad está en su vida y en no parar de moverse, no en un muro de espuma.
    */
   iron: {
+    attack: 'foam',
     health: 140,
     width: 70,
     height: 96,
@@ -175,19 +266,39 @@ export const BOSS = {
     /** Con furia, 4 chorros en 70°: siguen saliendo a más de 20° entre sí. */
     enragedExtraStreams: 1,
     enragedExtraSpreadDeg: 20,
+    enragedPauseScale: 0.5,
   },
-} as const satisfies Record<BossId, object>;
+  /**
+   * Pijo (nivel 4, salen dos): lanza una botella teledirigida cada 2 s, de un
+   * tipo al azar. Con furia, una cada segundo.
+   */
+  pijo: {
+    attack: 'bottles',
+    health: 100,
+    /** Caja de colisión (el dibujo mide 60x96; se recortan los brazos). */
+    width: 44,
+    height: 88,
+    speed: 2,
+    burstSize: 1,
+    burstGap: 1,
+    burstPause: 120,
+    streams: 1,
+    spreadDeg: 0,
+    aimed: true,
+    enragedExtraStreams: 0,
+    enragedExtraSpreadDeg: 0,
+    enragedPauseScale: 0.5,
+  },
+} as const satisfies Record<BossId, BossStats>;
 
 /**
  * FASE DE FURIA: al bajar de enrageAt de su vida (0,2 = le queda un 20 %), el
- * jefe se enfada: se mueve más rápido, descansa menos entre ráfagas y añade
- * chorros (los de cada jefe, en BOSS). Su barra de vida cambia de color para
- * avisar al jugador.
+ * jefe se enfada: se mueve más rápido y cambia su ritmo de ataque (lo de cada
+ * jefe, en BOSS). Su barra de vida cambia de color para avisar al jugador.
  */
 export const BOSS_ENRAGE = {
   enrageAt: 0.2,
   speedScale: 1.4,
-  pauseScale: 0.5,
 } as const;
 
 /** Lo común a todos los jefes. */
@@ -281,6 +392,12 @@ export const PLAYER_BULLET = {
   height: 14,
   /** Píxeles por paso, hacia arriba. */
   speed: 8,
+  /**
+   * Vida que quita a un jefe cada abrechapas (5 = el de madera cae en 16
+   * impactos y el de hierro en 28). A las botellas y barriles pequeños no les
+   * afecta: cuentan impactos (hits en ENEMY_TYPES).
+   */
+  damage: 5,
   /** Pasos por frame de la animación de las llamas. */
   frameSteps: 5,
 } as const;
@@ -301,6 +418,8 @@ export const COLORS = {
   playerCritical: '#ff0000', // vida < 25 %
   /** Barra del acelerón de la lata de velocidad. */
   playerBoost: '#ffc400',
+  /** Barra de la chupa mientras se seca. */
+  jacketDrying: '#3fa9ff',
   /** Lata mientras se descarga su imagen. */
   pickup: '#3fbf3f',
   playerBullet: '#ffffff',

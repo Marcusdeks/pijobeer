@@ -1,0 +1,48 @@
+/* Cubre exactamente el canvas (su contenedor es position: relative), como GameOverlay */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.2rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.6);
+  border-radius: var(--radius-md);
+}
+
+/* Caja de diálogo de videojuego retro: letras pixel art sobre fondo negro con borde */
+.box {
+  display: grid;
+  gap: 1rem;
+  max-width: 40rem;
+  padding: 1.2rem 1.4rem;
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.55rem, 1.5vw, 0.75rem);
+  line-height: 1.9;
+  color: var(--color-text);
+  background: rgba(0, 0, 0, 0.85);
+  border: 3px solid var(--color-text);
+  border-radius: var(--radius-sm);
+}
+
+.box p {
+  margin: 0;
+}
+
+/* Móvil: el canvas mide poco más de 200 px de alto y el texto tiene que caber dentro */
+@media (max-width: 600px) {
+  .overlay {
+    gap: 0.4rem;
+    padding: 0.5rem;
+    overflow-y: auto;
+  }
+
+  .box {
+    gap: 0.4rem;
+    padding: 0.6rem;
+    font-size: 0.5rem;
+    line-height: 1.6;
+  }
+}

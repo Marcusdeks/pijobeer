@@ -9,7 +9,8 @@
  * (cambios de estado, victoria, fin de partida).
  *
  * En sentido contrario, el padre puede dar órdenes al motor a través de
- * `ref` (pausar y reanudar), que es lo que usan los botones del menú de pausa.
+ * `ref` (pausar, reanudar y cerrar un texto), que es lo que usan los botones
+ * de los menús.
  *
  * Ciclo de vida (useEffect):
  *   - Al montarse: crea la partida, empieza a escuchar el teclado y arranca el bucle.
@@ -23,16 +24,20 @@ import { useTranslation } from 'react-i18next';
 import alley1Url from '../../assets/sprites/alley-1.webp';
 import alley2Url from '../../assets/sprites/alley-2.webp';
 import alley3Url from '../../assets/sprites/alley-3.webp';
+import alley4Url from '../../assets/sprites/alley-4.webp';
+import minionSheetUrl from '../../assets/sprites/barrel-minion.png';
 import bossSheetUrl from '../../assets/sprites/bosses.png';
 import foamSheetUrl from '../../assets/sprites/bullet-foam.png';
 import openerSheetUrl from '../../assets/sprites/bullet-opener.png';
 import enemySheetUrl from '../../assets/sprites/enemy-bottles.png';
 import pickupSheetUrl from '../../assets/sprites/pickups.png';
+import jacketSheetUrl from '../../assets/sprites/player-jacket.png';
 import playerSheetUrl from '../../assets/sprites/player.png';
 import { ARENA } from '../../game/config';
 import { GameLoop } from '../../game/GameLoop';
 import {
   GameSession,
+  type DialogMoment,
   type GameEvents,
   type GameResult,
   type GameStatus,
@@ -46,6 +51,8 @@ import styles from './GameCanvas.module.css';
 export interface GameCanvasHandle {
   pause: () => void;
   resume: () => void;
+  /** Cierra el texto que se está enseñando y la partida sigue. */
+  closeDialog: () => void;
 }
 
 interface GameCanvasProps {
@@ -53,7 +60,11 @@ interface GameCanvasProps {
   /** Trucos de administrador; sin ellos, partida normal. */
   modifiers?: GameModifiers;
   difficulty: DifficultyId;
+  /** Momentos en los que la partida se para para enseñar un texto (ver DialogMoment). */
+  dialogs?: readonly DialogMoment[];
   onStatusChange: (status: GameStatus) => void;
+  /** La partida se ha parado para enseñar el texto de ese momento. */
+  onDialog?: (moment: DialogMoment) => void;
   onVictory: (result: GameResult) => void;
   onGameOver: (result: GameResult) => void;
   /** Contenido que se pinta ENCIMA del canvas (menús de pausa y victoria). */
@@ -62,7 +73,7 @@ interface GameCanvasProps {
   ref?: Ref<GameCanvasHandle>;
 }
 
-const ALLEY_URLS = { 1: alley1Url, 2: alley2Url, 3: alley3Url } as const;
+const ALLEY_URLS = { 1: alley1Url, 2: alley2Url, 3: alley3Url, 4: alley4Url } as const;
 
 /** Imágenes de una partida. Del fondo solo se descarga el callejón de ESE nivel. */
 function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
@@ -73,6 +84,8 @@ function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
     openerSheet: openerSheetUrl,
     bossSheet: bossSheetUrl,
     pickupSheet: pickupSheetUrl,
+    minionSheet: minionSheetUrl,
+    jacketSheet: jacketSheetUrl,
     alley: ALLEY_URLS[getLevel(levelId).alley],
   };
 }
@@ -81,7 +94,9 @@ export function GameCanvas({
   levelId,
   modifiers,
   difficulty,
+  dialogs,
   onStatusChange,
+  onDialog,
   onVictory,
   onGameOver,
   children,
@@ -99,14 +114,14 @@ export function GameCanvas({
   const labelsRef = useRef<RenderLabels | null>(null);
 
   useEffect(() => {
-    eventsRef.current = { onStatusChange, onVictory, onGameOver };
-  }, [onStatusChange, onVictory, onGameOver]);
+    eventsRef.current = { onStatusChange, onDialog, onVictory, onGameOver };
+  }, [onStatusChange, onDialog, onVictory, onGameOver]);
 
   useEffect(() => {
     labelsRef.current = {
       hud: (data) => t('play.hud', data),
       gameOver: t('play.gameOver'),
-      bossName: (id) => t(`play.bosses.${id}`),
+      bossName: (id, count) => t(`play.bosses.${id}`, { count }),
     };
   }, [t]);
 
@@ -120,6 +135,7 @@ export function GameCanvas({
   useImperativeHandle(ref, () => ({
     pause: () => sessionRef.current?.pause(),
     resume: () => sessionRef.current?.resume(),
+    closeDialog: () => sessionRef.current?.closeDialog(),
   }));
 
   useEffect(() => {
@@ -130,8 +146,10 @@ export function GameCanvas({
       levelId,
       modifiers,
       difficulty,
+      dialogs,
       events: {
         onStatusChange: (status) => eventsRef.current.onStatusChange?.(status),
+        onDialog: (moment) => eventsRef.current.onDialog?.(moment),
         onVictory: (result) => eventsRef.current.onVictory?.(result),
         onGameOver: (result) => eventsRef.current.onGameOver?.(result),
       },
@@ -152,6 +170,8 @@ export function GameCanvas({
       openerSheet: null,
       bossSheet: null,
       pickupSheet: null,
+      minionSheet: null,
+      jacketSheet: null,
       alley: null,
     };
     let disposed = false;
@@ -179,7 +199,7 @@ export function GameCanvas({
       loop.stop();
       input.detach();
     };
-    // Trucos y dificultad se leen al empezar la partida: cambiarlos a mitad no la reinicia
+    // Trucos, dificultad y textos se leen al empezar la partida: cambiarlos a mitad no la reinicia
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [levelId]);
 

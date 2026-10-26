@@ -31,6 +31,8 @@ import {
   ENEMY_ANCHOR,
   enemyFrame,
   FOAM_ANCHOR,
+  MINION_ANCHOR,
+  minionFrame,
   foamFrame,
   OPENER_ANCHOR,
   openerFrame,
@@ -51,11 +53,15 @@ export interface RenderAssets {
   openerSheet: HTMLImageElement | null;
   bossSheet: HTMLImageElement | null;
   pickupSheet: HTMLImageElement | null;
+  /** Barril pequeño del nivel 4. */
+  minionSheet: HTMLImageElement | null;
+  /** Pose del jugador tapándose con la chupa (un solo frame, mismo pivote que player.png). */
+  jacketSheet: HTMLImageElement | null;
   /** Callejón del nivel en curso. */
   alley: HTMLImageElement | null;
 }
 
-/** Barras sobre la cabeza del jugador: la de vida y, encima, la del acelerón. */
+/** Barras sobre la cabeza del jugador: la de vida y, encima, las del acelerón y la chupa secándose. */
 const HEALTH_BAR = { width: 36, height: 4, gap: 6 } as const;
 
 /** Barra de vida del jefe, arriba en el centro. */
@@ -71,8 +77,8 @@ export interface RenderLabels {
     points: number;
   }) => string;
   gameOver: string;
-  /** Nombre del jefe para su barra de vida. */
-  bossName: (id: BossId) => string;
+  /** Nombre del jefe (o de la pareja, si salen varios iguales) para su barra de vida. */
+  bossName: (id: BossId, count: number) => string;
 }
 
 export function renderGame(
@@ -94,9 +100,9 @@ export function renderGame(
   // estela quede detrás de ellos y no los tape al salir.
   for (const bullet of session.enemyBullets) drawFoam(ctx, bullet, assets.foamSheet);
   for (const pickup of session.pickups) drawPickup(ctx, pickup, assets.pickupSheet);
-  for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets.enemySheet);
-  if (session.boss) drawBoss(ctx, session.boss, assets.bossSheet);
-  drawPlayer(ctx, session.player, assets.playerSheet);
+  for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets);
+  for (const boss of session.bosses) drawBoss(ctx, boss, assets.bossSheet);
+  drawPlayer(ctx, session.player, assets);
   for (const bullet of session.playerBullets) drawOpener(ctx, bullet, assets.openerSheet);
 
   // 3. HUD (marcador)
@@ -116,7 +122,10 @@ export function renderGame(
     10,
   );
 
-  if (session.boss) drawBossBar(ctx, session.boss, labels.bossName(session.boss.id));
+  const [firstBoss] = session.bosses;
+  if (firstBoss) {
+    drawBossBar(ctx, session.bosses, labels.bossName(firstBoss.id, session.level.bosses.length));
+  }
 
   // 4. Fin de partida (la pausa y la victoria son menús HTML, ver la cabecera del archivo)
   if (session.status === 'over') drawOverlay(ctx, labels.gameOver, COLORS.gameOver, 48);
@@ -176,8 +185,14 @@ function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, sheet: HTMLImageEle
   drawFrame(ctx, sheet, frame, BOSS_ANCHOR, boss.x + boss.width / 2, boss.y + boss.height / 2);
 }
 
-/** Nombre del jefe y su barra de vida, arriba en el centro. */
-function drawBossBar(ctx: CanvasRenderingContext2D, boss: Boss, name: string): void {
+/**
+ * Nombre de los jefes y su barra de vida, arriba en el centro. Si son varios
+ * (los dos pijos), la barra es la vida que les queda entre todos: así se ve de
+ * un vistazo cuánto falta para ganar, también cuando ya ha caído uno.
+ */
+function drawBossBar(ctx: CanvasRenderingContext2D, bosses: readonly Boss[], name: string): void {
+  const health = bosses.reduce((sum, boss) => sum + boss.health, 0);
+  const maxHealth = bosses[0]!.maxHealth * bosses.length;
   const x = Math.round(ARENA.width / 2 - BOSS_BAR.width / 2);
   const y = BOSS_BAR.top;
 
@@ -190,8 +205,8 @@ function drawBossBar(ctx: CanvasRenderingContext2D, boss: Boss, name: string): v
   ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
   ctx.fillRect(x - 2, y - 2, BOSS_BAR.width + 4, BOSS_BAR.height + 4);
   // En fase de furia la barra cambia de color para avisar al jugador
-  ctx.fillStyle = boss.isEnraged ? COLORS.bossEnraged : COLORS.bossHealth;
-  ctx.fillRect(x, y, Math.round((BOSS_BAR.width * boss.healthPercent) / 100), BOSS_BAR.height);
+  ctx.fillStyle = bosses.some((boss) => boss.isEnraged) ? COLORS.bossEnraged : COLORS.bossHealth;
+  ctx.fillRect(x, y, Math.round((BOSS_BAR.width * health) / maxHealth), BOSS_BAR.height);
 }
 
 /**
@@ -222,11 +237,37 @@ function drawFrame(
   );
 }
 
-/** Botella: su base (el ancla) va en el centro del borde superior de su caja de colisión. */
-function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, sheet: HTMLImageElement | null) {
+/**
+ * Enemigo:
+ *   - Barril pequeño: centrado en su caja; en blanco durante el destello de impacto.
+ *   - Botella: su base (el ancla) va en el centro del borde superior de su caja.
+ *     Las lanzadas por los pijos se giran alrededor del centro hacia donde van
+ *     (el dibujo apunta hacia abajo, como el chorro de espuma).
+ */
+function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, assets: RenderAssets) {
+  const { center } = enemy;
+  if (enemy.type === 'barrel') {
+    if (!assets.minionSheet) return fillRect(ctx, enemy, COLORS.enemy);
+    return drawFrame(
+      ctx,
+      assets.minionSheet,
+      minionFrame(enemy.isFlashing),
+      MINION_ANCHOR,
+      center.x,
+      center.y,
+    );
+  }
+
+  const sheet = assets.enemySheet;
   if (!sheet) return fillRect(ctx, enemy, COLORS.enemy);
   const frame = enemyFrame(enemy.type, enemy.animationFrame);
-  drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, enemy.x + enemy.width / 2, enemy.y);
+  if (enemy.heading === 0) return drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, center.x, enemy.y);
+
+  ctx.save();
+  ctx.translate(Math.round(center.x), Math.round(center.y));
+  ctx.rotate((-enemy.heading * Math.PI) / 180);
+  drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, 0, -enemy.height / 2);
+  ctx.restore();
 }
 
 /** Lata: centrada en su caja de colisión. */
@@ -284,18 +325,19 @@ function drawOpener(ctx: CanvasRenderingContext2D, bullet: Bullet, sheet: HTMLIm
  * de la caja de colisión. Por eso el dibujo sobresale de la caja por los
  * lados y por arriba, lo cual es normal: la caja es solo para los impactos.
  */
-function drawPlayer(
-  ctx: CanvasRenderingContext2D,
-  player: Player,
-  sheet: HTMLImageElement | null,
-): void {
+function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, assets: RenderAssets): void {
+  // Tapado con la chupa se dibuja su pose (si aún no ha cargado, la normal)
+  const jacket = player.isShielding ? assets.jacketSheet : null;
+  const sheet = jacket ?? assets.playerSheet;
   if (!sheet) {
     // Imagen aún no disponible: rectángulo provisional del color de la vida
     fillRect(ctx, player, healthColor(player));
     return;
   }
 
-  const frame = playerFrame(player.facing, player.animationFrame);
+  const frame = jacket
+    ? { sx: 0, sy: 0, width: jacket.width, height: jacket.height }
+    : playerFrame(player.facing, player.animationFrame);
   const feetX = player.x + player.width / 2;
   const feetY = player.y + player.height;
   drawFrame(ctx, sheet, frame, PLAYER_PIVOT, feetX, feetY);
@@ -303,8 +345,15 @@ function drawPlayer(
   const barBottom = player.y - HEALTH_BAR.gap;
   drawBar(ctx, feetX, barBottom, player.healthPercent, healthColor(player));
   // Mientras dura el acelerón, una segunda barra encima que se va vaciando
-  if (player.boostPercent > 0) {
-    drawBar(ctx, feetX, barBottom - HEALTH_BAR.height - 2, player.boostPercent, COLORS.playerBoost);
+  // Encima, las barras que se van vaciando: el acelerón y la chupa secándose
+  let bottom = barBottom;
+  for (const [percent, color] of [
+    [player.boostPercent, COLORS.playerBoost],
+    [player.dryingPercent, COLORS.jacketDrying],
+  ] as const) {
+    if (percent <= 0) continue;
+    bottom -= HEALTH_BAR.height + 2;
+    drawBar(ctx, feetX, bottom, percent, color);
   }
 }
 

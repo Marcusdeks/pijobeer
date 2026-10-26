@@ -59,7 +59,7 @@ describe('traducciones', () => {
     ['en', en],
     ['fr', fr],
   ])(
-    '"%s" no escribe a mano los nombres propios: usa {{game}}, {{author}} o {{band}}',
+    '"%s" no escribe a mano los nombres propios: usa {{game}}, {{author}}, {{band}} o {{hero}}',
     (_name, locale) => {
       for (const key of reference) {
         for (const name of Object.values(BRAND)) {

@@ -60,8 +60,18 @@
     "nextLevel": "Siguiente nivel",
     "backToMenu": "Volver al menú",
     "bosses": {
-      "blonde": "BARRIL RUBIO PIJO",
-      "iron": "BARRIL DE HIERRO PIJO"
+      "wood": "BARRIL DE MADERA PIJO",
+      "iron": "BARRIL DE HIERRO PIJO",
+      "pijo_one": "PIJO ENEMIGO",
+      "pijo_other": "PIJOS ENEMIGOS"
+    },
+    "skipStory": "Saltar ➜",
+    "story": {
+      "jacketTutorial": "Toca la tecla {{key}} para protegerte de algunos disparos. No la mantengas mucho pulsada o tu chupa se empapará de esa birra pija.",
+      "level4Opening": "{{hero}}: Vaya, ya estamos saliendo del polígono. Aquí habrá aún más chusma pija.",
+      "pijosHero": "{{hero}}: ¡Eh! ¿Vosotros sois los que me habéis estado lanzando esas putas botellas?",
+      "pijosReply": "Pijos: *sollozan* ¡S-sí! ¡Deja de perseguirnos! ¡Lograremos nuestro objetivo aunque intentes pararnos! *rompen a llorar de puro temor*",
+      "pijosHint": "Ten cuidado: la chupa no protege de los botellazos."
     },
     "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
   },
@@ -100,6 +110,7 @@
     "title": "Controles",
     "move": "Movimiento",
     "shoot": "Disparar",
+    "shield": "Protegerse con la chupa (desde el nivel 3)",
     "pause": "Pausa"
   },
   "credits": {

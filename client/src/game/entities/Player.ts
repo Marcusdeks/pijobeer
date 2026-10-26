@@ -8,8 +8,20 @@
  * Es estado de juego como cualquier otro, por eso vive aquí y no en el
  * renderer: el renderer solo pregunta "¿qué frame dibujo?" (animationFrame).
  * Así la animación también se puede probar en tests sin dibujar nada.
+ *
+ * También lleva la CHUPA (ver JACKET en config.ts): manteniendo la B se tapa
+ * con ella y queda quieto; GameSession le avisa con blockShot() de cada
+ * chorro que para, y al tercero se empapa y tarda unos segundos en secarse.
  */
-import { ARENA, CAMERA, PICKUP_TYPES, PLAYER, PLAYER_BULLET } from '../config';
+import {
+  ARENA,
+  CAMERA,
+  JACKET,
+  PICKUP_TYPES,
+  PLAYER,
+  PLAYER_BULLET,
+  type GameAction,
+} from '../config';
 import { directionFromInput, type Direction } from '../direction';
 import { clamp, type Rect } from '../geometry';
 import type { InputState } from '../input/InputState';
@@ -22,6 +34,18 @@ const FULL_WIDTH: Playfield = { left: 0, right: ARENA.width };
 
 /** La única dirección que cuenta como "mirar hacia delante" (hacia el fondo del callejón). */
 const FORWARD: Direction = 'arriba';
+
+/** Lo que la partida le dice al jugador en cada paso (ver GameSession y rules.ts). */
+export interface PlayerStepOptions {
+  /** Suelo del callejón: el jugador no puede meterse en las paredes. */
+  field?: Playfield;
+  /** Pasos entre disparos según la dificultad. */
+  shootCooldown?: number;
+  /** Si la partida deja avanzar por el callejón ahora (contra el jefe, no). */
+  canAdvance?: boolean;
+  /** Si en este nivel se puede usar la chupa. */
+  jacketAllowed?: boolean;
+}
 
 export class Player implements Rect {
   readonly width = PLAYER.width;
@@ -48,6 +72,15 @@ export class Player implements Rect {
 
   /** Píxeles que avanza el callejón en este paso (0 = parado). Lo suma GameSession. */
   advanceSpeed = 0;
+
+  /** true mientras se tapa con la chupa: la espuma no le hace daño, pero no puede moverse ni disparar. */
+  isShielding = false;
+
+  /** Chorros que aún puede parar la chupa antes de empaparse. */
+  private blocksLeft: number = JACKET.maxBlocks;
+
+  /** Pasos que le quedan a la chupa para secarse (0 = seca, lista para usarla). */
+  private dryingSteps = 0;
 
   /** Pasos acumulados andando. Se reinicia al pararse, para empezar siempre el ciclo desde el principio. */
   private walkSteps = 0;
@@ -82,6 +115,11 @@ export class Player implements Rect {
     return (this.boostSteps / PICKUP_TYPES.speed.durationSteps) * 100;
   }
 
+  /** Porcentaje que le falta a la chupa para secarse (0 = seca). Lo usa el renderer para su barra. */
+  get dryingPercent(): number {
+    return (this.dryingSteps / JACKET.dryingSteps) * 100;
+  }
+
   /**
    * Columna de la hoja de sprites que toca dibujar ahora.
    * Quieto: siempre la pose neutra. Andando o avanzando por el callejón
@@ -95,21 +133,26 @@ export class Player implements Rect {
 
   /**
    * Avanza un paso: mueve según las teclas pulsadas, actualiza la animación
-   * y dispara si toca.
-   * @param field - suelo del callejón: el jugador no puede meterse en las paredes
-   * @param shootCooldown - pasos entre disparos según la dificultad (ver rules.ts)
-   * @param canAdvance - si la partida deja avanzar por el callejón ahora (contra el jefe, no)
+   * y dispara si toca. Tapado con la chupa, se queda quieto y no dispara.
    * @returns la bala disparada en este paso, o null si no ha disparado
    */
   update(
     input: InputState,
-    field: Playfield = FULL_WIDTH,
-    shootCooldown: number = PLAYER.shootCooldown,
-    canAdvance = false,
+    {
+      field = FULL_WIDTH,
+      shootCooldown = PLAYER.shootCooldown,
+      canAdvance = false,
+      jacketAllowed = false,
+    }: PlayerStepOptions = {},
   ): Bullet | null {
+    if (this.dryingSteps > 0) this.dryingSteps--;
+    this.isShielding = jacketAllowed && this.dryingSteps === 0 && input.isDown('shield');
+    // Con las manos en la chupa no se mueve ni dispara: como si no pulsara nada más
+    const isDown = (action: GameAction) => !this.isShielding && input.isDown(action);
+
     // -1, 0 o 1 en cada eje. Si se pulsan dos teclas opuestas a la vez se anulan.
-    const dx = Number(input.isDown('right')) - Number(input.isDown('left'));
-    const dy = Number(input.isDown('down')) - Number(input.isDown('up'));
+    const dx = Number(isDown('right')) - Number(isDown('left'));
+    const dy = Number(isDown('down')) - Number(isDown('up'));
 
     this.x += dx * PLAYER.speed;
     this.y += dy * PLAYER.speed;
@@ -118,13 +161,14 @@ export class Player implements Rect {
     this.x = clamp(this.x, field.left, field.right - this.width);
     this.y = clamp(this.y, PLAYER.minY, ARENA.height - this.height);
 
-    this.updateAnimation(dx, dy, canAdvance);
+    // Tapado tampoco avanza el callejón: está parado aunque mire hacia delante
+    this.updateAnimation(dx, dy, canAdvance && !this.isShielding);
 
     if (this.shootCooldown > 0) this.shootCooldown--;
     const boosted = this.boostSteps > 0;
     if (boosted) this.boostSteps--;
 
-    if (input.isDown('shoot') && this.shootCooldown === 0) {
+    if (isDown('shoot') && this.shootCooldown === 0) {
       // Con la lata de velocidad, la espera entre disparos se divide
       this.shootCooldown = boosted
         ? Math.round(shootCooldown / PICKUP_TYPES.speed.fireRateScale)
@@ -146,6 +190,18 @@ export class Player implements Rect {
   /** Suma vida, sin pasar del máximo. */
   heal(amount: number): void {
     this.health = Math.min(PLAYER.maxHealth, this.health + amount);
+  }
+
+  /**
+   * La chupa ha parado un chorro de espuma. Al llegar a JACKET.maxBlocks se
+   * empapa: se la quita (deja de proteger ya en este paso) y empieza a secarse.
+   */
+  blockShot(): void {
+    this.blocksLeft--;
+    if (this.blocksLeft > 0) return;
+    this.blocksLeft = JACKET.maxBlocks;
+    this.dryingSteps = JACKET.dryingSteps;
+    this.isShielding = false;
   }
 
   /** Empieza el disparo rápido. Otra lata mientras dura lo renueva, no lo acumula. */

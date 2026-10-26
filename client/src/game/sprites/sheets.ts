@@ -11,6 +11,7 @@
 import type { BossId, EnemyTypeId } from '@pijobeer/shared';
 import { ENEMY_TYPES, type PickupTypeId } from '../config';
 import alleysMeta from '../../assets/sprites/alleys.json';
+import minionMeta from '../../assets/sprites/barrel-minion.json';
 import bossMeta from '../../assets/sprites/bosses.json';
 import pickupMeta from '../../assets/sprites/pickups.json';
 import enemyMeta from '../../assets/sprites/enemy-bottles.json';
@@ -51,7 +52,19 @@ export const ENEMY_ANCHOR: Anchor = enemyMeta.anchor;
 
 /** Cada tipo de botella se dibuja con su color (ver ENEMY_TYPES en config.ts). */
 export function enemyFrame(type: EnemyTypeId, frame: number): SpriteFrame {
-  return gridFrame(enemyMeta, enemyMeta.variants.indexOf(ENEMY_TYPES[type].variant), frame);
+  const { variant } = ENEMY_TYPES[type];
+  return gridFrame(enemyMeta, variant ? enemyMeta.variants.indexOf(variant) : 0, frame);
+}
+
+// ------------------------------------------------------------------
+//  Barril pequeño (nivel 4): fila 0 normal, fila 1 destello blanco
+// ------------------------------------------------------------------
+
+/** Centro del barril dentro del frame. */
+export const MINION_ANCHOR: Anchor = minionMeta.anchor;
+
+export function minionFrame(flashing: boolean): SpriteFrame {
+  return gridFrame({ ...minionMeta, frames: 1 }, flashing ? 1 : 0, 0);
 }
 
 // ------------------------------------------------------------------
@@ -90,7 +103,7 @@ export function openerFrame(age: number, frameSteps: number): SpriteFrame {
 //  Jefes finales (una columna por jefe; fila 0 normal, fila 1 destello blanco)
 // ------------------------------------------------------------------
 
-/** Centro del barril dentro del frame. */
+/** Centro del jefe dentro del frame. */
 export const BOSS_ANCHOR: Anchor = bossMeta.anchor;
 
 export function bossFrame(id: BossId, flashing: boolean): SpriteFrame {

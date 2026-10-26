@@ -60,8 +60,18 @@
     "nextLevel": "Next level",
     "backToMenu": "Back to menu",
     "bosses": {
-      "blonde": "POSH BLONDE KEG",
-      "iron": "POSH IRON KEG"
+      "wood": "POSH WOODEN KEG",
+      "iron": "POSH IRON KEG",
+      "pijo_one": "POSH KID",
+      "pijo_other": "POSH KIDS"
+    },
+    "skipStory": "Skip ➜",
+    "story": {
+      "jacketTutorial": "Press the {{key}} key to shield yourself from some shots. Don't hold it too long or your jacket will get soaked in that posh beer.",
+      "level4Opening": "{{hero}}: Well, we're leaving the industrial estate. There'll be even more posh scum around here.",
+      "pijosHero": "{{hero}}: Hey! Are you the ones who've been throwing those fucking bottles at me?",
+      "pijosReply": "Posh kids: *sobbing* Y-yes! Stop chasing us! We'll reach our goal even if you try to stop us! *they burst into tears out of sheer terror*",
+      "pijosHint": "Careful: the jacket doesn't protect you from flying bottles."
     },
     "cheatsActive": "Admin cheats active: this game does not count for the ranking."
   },
@@ -100,6 +110,7 @@
     "title": "Controls",
     "move": "Movement",
     "shoot": "Shoot",
+    "shield": "Shield yourself with the jacket (from level 3)",
     "pause": "Pause"
   },
   "credits": {

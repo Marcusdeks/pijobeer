@@ -3,7 +3,9 @@
  *
  *   menú ──► (elegir nivel) ──► intro* ──► partida ─┬─► victoria ──► siguiente nivel / menú
  *                                                   ├─► game over ──► menú (automático)
- *                                                   └─► pausa ──► continuar / salir al menú
+ *                                                   ├─► pausa ──► continuar / salir al menú
+ *                                                   └─► texto de historia ──► sigue la partida
+ *                                                       (al empezar o antes de los jefes, ver story.ts)
  *    └──► (opciones: dificultad y música; se aplican al momento)
  *                                 * solo la primera vez (o si no se ha visto)
  *
@@ -23,25 +25,39 @@ import { VolumeSlider } from '../../audio/VolumeSlider';
 import coverImage from '../../assets/images/cover.jpg';
 import { GameCanvas, type GameCanvasHandle } from '../../components/GameCanvas/GameCanvas';
 import { GameOverlay } from '../../components/GameOverlay/GameOverlay';
+import { StoryOverlay } from '../../components/StoryOverlay/StoryOverlay';
 import { StarWarsCrawl } from '../../components/StarWarsCrawl/StarWarsCrawl';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
 import { useAuth } from '../../features/auth/useAuth';
+import {
+  hasSeenJacketTutorial,
+  markJacketTutorialSeen,
+} from '../../features/progress/jacketTutorial';
 import { useDifficulty } from '../../features/progress/useDifficulty';
 import { useProgress } from '../../features/progress/useProgress';
-import { GAME_OVER_DELAY_MS } from '../../game/config';
-import type { GameResult, GameStatus } from '../../game/GameSession';
+import { CONTROLS, GAME_OVER_DELAY_MS } from '../../game/config';
+import type { DialogMoment, GameResult, GameStatus } from '../../game/GameSession';
 import { LevelSelectDialog } from './LevelSelectDialog';
 import { OptionsDialog } from './OptionsDialog';
 import styles from './PlayPage.module.css';
+import { STORIES, storiesFor, type StoryId } from './story';
 
 type Screen =
   | { name: 'menu' }
   | { name: 'levelSelect' }
   | { name: 'options' }
   | { name: 'intro'; levelId: number }
-  /** runId cambia en cada partida: hace que React cree un GameCanvas nuevo desde cero. */
-  | { name: 'playing'; levelId: number; runId: number };
+  /**
+   * runId cambia en cada partida: hace que React cree un GameCanvas nuevo desde cero.
+   * stories: los textos de historia de esta partida, decididos al empezarla.
+   */
+  | {
+      name: 'playing';
+      levelId: number;
+      runId: number;
+      stories: Partial<Record<DialogMoment, StoryId>>;
+    };
 
 interface Notice {
   type: 'success' | 'error';
@@ -69,6 +85,8 @@ export function PlayPage() {
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
   const [gameStatus, setGameStatus] = useState<GameStatus>('running');
   const [victory, setVictory] = useState<Victory | null>(null);
+  /** Texto de historia que se está enseñando (con la partida parada). */
+  const [story, setStory] = useState<StoryId | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   /** Trucos de "juego admin" (solo para administradores; si no, undefined = partida normal). */
   const [modifiers, setModifiers] = useState<GameModifiers>();
@@ -111,8 +129,10 @@ export function PlayPage() {
     runCounter.current += 1;
     setGameStatus('running');
     setVictory(null);
+    setStory(null);
     setNotice(cheating ? { type: 'success', text: t('play.cheatsActive') } : null);
-    setScreen({ name: 'playing', levelId, runId: runCounter.current });
+    const stories = storiesFor(levelId, hasSeenJacketTutorial());
+    setScreen({ name: 'playing', levelId, runId: runCounter.current, stories });
   }
 
   function finishIntro(levelId: number) {
@@ -122,6 +142,23 @@ export function PlayPage() {
 
   function backToMenu() {
     setScreen({ name: 'menu' });
+  }
+
+  /** El motor se ha parado en un momento con texto: se enseña el que toque. */
+  const handleDialog = useCallback(
+    (moment: DialogMoment) => {
+      const id = screen.name === 'playing' ? screen.stories[moment] : undefined;
+      if (!id) return gameRef.current?.closeDialog();
+      // El aviso de la chupa solo sale la primera vez: se apunta en cuanto se ve
+      if (id === 'jacketTutorial') markJacketTutorialSeen();
+      setStory(id);
+    },
+    [screen],
+  );
+
+  function closeStory() {
+    setStory(null);
+    gameRef.current?.closeDialog();
   }
 
   /**
@@ -227,10 +264,24 @@ export function PlayPage() {
               levelId={screen.levelId}
               modifiers={modifiers}
               difficulty={difficulty}
+              dialogs={Object.keys(screen.stories) as DialogMoment[]}
               onStatusChange={setGameStatus}
+              onDialog={handleDialog}
               onVictory={handleVictory}
               onGameOver={handleGameOver}
             >
+              {gameStatus === 'dialog' && story && (
+                <StoryOverlay
+                  key={story}
+                  lines={STORIES[story].lines.map((line) =>
+                    t(line, { key: CONTROLS.shield.toUpperCase() }),
+                  )}
+                  durationMs={STORIES[story].durationMs}
+                  skipLabel={STORIES[story].skippable ? t('play.skipStory') : undefined}
+                  onClose={closeStory}
+                />
+              )}
+
               {gameStatus === 'paused' && (
                 <GameOverlay variant="pause" title={t('play.paused')} subtitle={<VolumeSlider />}>
                   <Button onClick={() => gameRef.current?.resume()}>{t('play.resume')}</Button>

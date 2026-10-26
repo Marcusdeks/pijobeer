@@ -1,21 +1,49 @@
 /**
- * JEFE FINAL: un barril de cerveza pija.
+ * JEFE FINAL: un barril de cerveza pija (madera o hierro) o un pijo.
  *
  *   1. ENTRADA: baja desde fuera de la pantalla hasta BOSS_COMMON.holdY. Mientras
- *      entra ni dispara ni se le puede dañar (aún no ha empezado el combate).
+ *      entra ni ataca ni se le puede dañar (aún no ha empezado el combate).
  *   2. COMBATE: se queda a esa altura (no avanza hacia el jugador), va de pared
- *      a pared y dispara en RÁFAGAS. Cada disparo es un abanico de chorros que
- *      puede apuntar al jugador (ver BOSS en config.ts).
- *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido, descansa
- *      menos y añade chorros al abanico (ver BOSS_ENRAGE).
+ *      a pared y ataca en RÁFAGAS (ver BOSS en config.ts):
+ *        - los barriles disparan abanicos de chorros que pueden apuntar al jugador;
+ *        - el pijo lanza botellas que van a por él (ver Enemy.thrownAt).
+ *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido y cambia su
+ *      ritmo de ataque (ver BOSS_ENRAGE y los enraged* de cada jefe).
  *
- * Se le gana bajándole la vida a 0: cada abrechapas que le acierta quita 1.
+ * Puede haber varios a la vez (en el nivel 4, dos pijos): cada uno empieza en
+ * su hueco del callejón y los vecinos salen en direcciones opuestas.
+ *
+ * Se le gana bajándole la vida a 0: cada abrechapas quita PLAYER_BULLET.damage.
  */
-import type { BossId } from '@pijobeer/shared';
-import { BOSS, BOSS_COMMON, BOSS_ENRAGE, ENEMY_BULLET } from '../config';
+import type { BossId, EnemyTypeId } from '@pijobeer/shared';
+import { BOSS, BOSS_COMMON, BOSS_ENRAGE, ENEMY_BULLET, PLAYER_BULLET } from '../config';
 import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
+import { Enemy, type RandomFn } from './Enemy';
+
+/** Lo que lanza un jefe en un paso: chorros de espuma y/o botellas. */
+export interface BossAttack {
+  bullets: Bullet[];
+  bottles: Enemy[];
+}
+
+/** Las botellas que lanza el pijo: de cualquier tipo, al azar. */
+const THROWN_TYPES: readonly EnemyTypeId[] = ['normal', 'fast', 'heavy'];
+
+const NO_ATTACK: BossAttack = { bullets: [], bottles: [] };
+
+export interface BossOptions {
+  /** Multiplicador de vida (dificultad y truco de admin; 1 = normal). */
+  healthScale?: number;
+  /** Posición entre los jefes que salen a la vez (0, 1...) y cuántos son. */
+  slot?: number;
+  count?: number;
+  /** Para elegir el tipo de las botellas lanzadas. */
+  random?: RandomFn;
+  /** Multiplicador de velocidad de las botellas lanzadas (el del nivel). */
+  bottleSpeedScale?: number;
+}
 
 export class Boss implements Rect {
   readonly width: number;
@@ -26,24 +54,29 @@ export class Boss implements Rect {
   y: number;
 
   private readonly stats: (typeof BOSS)[BossId];
+  private readonly random: RandomFn;
+  private readonly bottleSpeedScale: number;
   /** Hacia dónde se mueve: 1 derecha, -1 izquierda. */
-  private direction: 1 | -1 = 1;
-  /** Pasos hasta el siguiente disparo. */
+  private direction: 1 | -1;
+  /** Pasos hasta el siguiente ataque. */
   private fireCooldown: number;
-  /** Disparos que quedan en la ráfaga actual. */
+  /** Ataques que quedan en la ráfaga actual. */
   private burstLeft: number;
   /** Pasos que quedan de destello blanco tras recibir un impacto. */
   private flashSteps = 0;
   /** Pasos que quedan hasta poder volver a hacer daño por contacto. */
   private contactCooldown = 0;
 
-  /**
-   * @param healthScale - multiplicador de vida (truco de admin; 1 = normal)
-   */
   constructor(
     readonly id: BossId,
     private readonly field: Playfield,
-    healthScale = 1,
+    {
+      healthScale = 1,
+      slot = 0,
+      count = 1,
+      random = Math.random,
+      bottleSpeedScale = 1,
+    }: BossOptions = {},
   ) {
     this.stats = BOSS[id];
     this.width = this.stats.width;
@@ -52,9 +85,13 @@ export class Boss implements Rect {
     this.health = this.maxHealth;
     this.fireCooldown = this.stats.burstPause;
     this.burstLeft = this.stats.burstSize;
-    // Centrado y por encima del borde superior: entra bajando
-    this.x = (field.left + field.right) / 2 - this.width / 2;
+    this.random = random;
+    this.bottleSpeedScale = bottleSpeedScale;
+    // Repartidos a lo ancho (uno solo, centrado) y por encima del borde superior: entran bajando
+    const center = field.left + ((field.right - field.left) * (slot + 1)) / (count + 1);
+    this.x = center - this.width / 2;
     this.y = -this.height;
+    this.direction = slot % 2 === 0 ? 1 : -1;
   }
 
   get isEntering(): boolean {
@@ -79,47 +116,48 @@ export class Boss implements Rect {
     return (this.health / this.maxHealth) * 100;
   }
 
-  /** Punto por el que sale la espuma: el grifo, abajo en el centro. */
+  /** Punto por el que sale el ataque: abajo en el centro (el grifo, o las manos del pijo). */
   private get tap(): Point {
     return { x: this.x + this.width / 2, y: this.y + this.height };
   }
 
   /**
-   * Avanza un paso: entra o patrulla, y dispara cuando toca.
+   * Avanza un paso: entra o patrulla, y ataca cuando toca.
    * @param target - a dónde apuntar (el centro del jugador). Sin él, dispara hacia abajo.
-   * @returns las balas disparadas en este paso (varias si el abanico tiene varios chorros)
+   * @returns lo lanzado en este paso (varios chorros si el abanico tiene varios)
    */
-  update(target?: Point): Bullet[] {
+  update(target?: Point): BossAttack {
     if (this.flashSteps > 0) this.flashSteps--;
     if (this.contactCooldown > 0) this.contactCooldown--;
 
     if (this.isEntering) {
       this.y = Math.min(BOSS_COMMON.holdY, this.y + BOSS_COMMON.enterSpeed);
-      return [];
+      return NO_ATTACK;
     }
 
     this.patrol();
-    if (--this.fireCooldown > 0) return [];
+    if (--this.fireCooldown > 0) return NO_ATTACK;
 
-    // Ráfaga: dentro de ella, poca espera entre disparos; al acabarla, la pausa larga
+    // Ráfaga: dentro de ella, poca espera entre ataques; al acabarla, la pausa larga
     this.burstLeft--;
     if (this.burstLeft > 0) {
       this.fireCooldown = this.stats.burstGap;
     } else {
       this.burstLeft = this.stats.burstSize;
-      const pauseScale = this.isEnraged ? BOSS_ENRAGE.pauseScale : 1;
+      const pauseScale = this.isEnraged ? this.stats.enragedPauseScale : 1;
       this.fireCooldown = Math.round(this.stats.burstPause * pauseScale);
     }
-    return this.fan(target);
+    return this.attack(target);
   }
 
   /**
-   * Recibe un impacto. Mientras entra es invulnerable.
+   * Recibe un abrechapas. Mientras entra es invulnerable.
+   * @param damage - vida que quita (por defecto, la de un abrechapas)
    * @returns true si el impacto ha contado
    */
-  hit(): boolean {
+  hit(damage: number = PLAYER_BULLET.damage): boolean {
     if (this.isEntering || this.isDead) return false;
-    this.health--;
+    this.health = Math.max(0, this.health - damage);
     this.flashSteps = BOSS_COMMON.hitFlashSteps;
     return true;
   }
@@ -146,19 +184,28 @@ export class Boss implements Rect {
   }
 
   /**
-   * Un disparo: `streams` chorros repartidos por igual en un abanico de
-   * `spreadDeg` grados, centrado en la dirección del jugador (si apunta) o
-   * hacia abajo. Los ángulos se miden desde la vertical: 0 = recto hacia
-   * abajo, positivo = hacia la derecha.
+   * Un ataque: `streams` chorros (o botellas) repartidos por igual en un
+   * abanico de `spreadDeg` grados, centrado en la dirección del jugador (si
+   * apunta) o hacia abajo. Los ángulos se miden desde la vertical: 0 = recto
+   * hacia abajo, positivo = hacia la derecha.
    */
-  private fan(target?: Point): Bullet[] {
-    const { stats, isEnraged } = this;
+  private attack(target?: Point): BossAttack {
+    const { stats, isEnraged, tap } = this;
+
+    if (stats.attack === 'bottles') {
+      const aim = target ?? { x: tap.x, y: tap.y + 1 };
+      const bottles = Array.from({ length: stats.streams }, () => {
+        const type = THROWN_TYPES[Math.floor(this.random() * THROWN_TYPES.length)]!;
+        return Enemy.thrownAt(type, tap, aim, this.random, this.bottleSpeedScale);
+      });
+      return { bullets: [], bottles };
+    }
+
     const streams = stats.streams + (isEnraged ? stats.enragedExtraStreams : 0);
     const spread = stats.spreadDeg + (isEnraged ? stats.enragedExtraSpreadDeg : 0);
-    const { tap } = this;
-    const center = this.stats.aimed && target ? aimDegrees(tap, target, BOSS_COMMON.maxAimDeg) : 0;
+    const center = stats.aimed && target ? aimDegrees(tap, target, BOSS_COMMON.maxAimDeg) : 0;
 
-    return Array.from({ length: streams }, (_, i) => {
+    const bullets = Array.from({ length: streams }, (_, i) => {
       // Con 5 chorros y 60°: -30, -15, 0, 15, 30 grados alrededor del centro
       const offset = streams > 1 ? (i / (streams - 1) - 0.5) * spread : 0;
       const velocity = velocityAt(center + offset, BOSS_COMMON.bulletSpeed);
@@ -170,5 +217,6 @@ export class Boss implements Rect {
         velocity.x,
       );
     });
+    return { bullets, bottles: [] };
   }
 }

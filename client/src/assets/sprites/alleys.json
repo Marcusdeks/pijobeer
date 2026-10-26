@@ -16,6 +16,11 @@
       "height": 2416,
       "floorLeft": 120,
       "floorRight": 704
+    },
+    "4": {
+      "height": 2420,
+      "floorLeft": 124,
+      "floorRight": 692
     }
   }
 }

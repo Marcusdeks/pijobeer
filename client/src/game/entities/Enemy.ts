@@ -1,25 +1,31 @@
 /**
- * BOTELLA (enemigo).
+ * ENEMIGO que cae durante el nivel: botellas y el barril pequeño del nivel 4.
+ * También las botellas que lanzan los pijos (jefes del nivel 4).
  *
- * Bajan en línea recta, boca abajo, y disparan espuma cada cierto tiempo.
- * Su TIPO (normal, rápida o pesada) decide su velocidad, cada cuánto dispara
- * y su color: ver ENEMY_TYPES en config.ts.
+ * Su TIPO (ver ENEMY_TYPES en config.ts) decide su velocidad, su tamaño,
+ * cuántos impactos aguanta, cada cuánto dispara y si apunta al jugador.
  *
- * Cada disparo es una pequeña animación:
+ * Cómo se mueve:
+ *   - Lo normal: cae recto hacia abajo.
+ *   - Lanzada por un pijo (thrown): va a por el jugador girando poco a poco
+ *     (THROWN_BOTTLE), y dispara hacia donde va.
+ *
+ * Cada disparo de una botella es una pequeña animación:
  *
  *   cerrada (0) ─► salta la chapa (1) ─► explota la espuma (2) ─► gotea (3) ─► abierta (4) ─► cerrada (0)
  *                                        └─ aquí sale la bala
  *
  * La bala no sale al empezar la animación sino en la explosión: ver saltar
- * la chapa avisa al jugador y le da tiempo a esquivar.
+ * la chapa avisa al jugador y le da tiempo a esquivar. El barril no tiene
+ * chapa: dispara directamente, apuntando a donde está el jugador.
  *
- * Sus balas NO se guardan dentro de la botella: update() las devuelve y
- * GameSession las mete en una lista común, así siguen volando aunque la
- * botella muera.
+ * Sus balas NO se guardan dentro del enemigo: update() las devuelve y
+ * GameSession las mete en una lista común, así siguen volando aunque el
+ * enemigo muera.
  */
 import type { EnemyTypeId } from '@pijobeer/shared';
-import { ENEMY, ENEMY_BULLET, ENEMY_TYPES } from '../config';
-import type { Rect } from '../geometry';
+import { ARENA, BOSS_COMMON, ENEMY, ENEMY_BULLET, ENEMY_TYPES, THROWN_BOTTLE } from '../config';
+import { aimDegrees, clamp, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
 
@@ -30,14 +36,27 @@ export type RandomFn = () => number;
 const IDLE_FRAME = 0;
 /** Pasos que dura la animación de disparo completa. */
 const SHOT_STEPS = ENEMY.shootAnimation.length * ENEMY.shootFrameSteps;
+/** Pasos del destello blanco al recibir un impacto que no lo mata (barril). */
+const HIT_FLASH_STEPS = 4;
 
 export class Enemy implements Rect {
-  readonly width = ENEMY.width;
-  readonly height = ENEMY.height;
+  readonly width: number;
+  readonly height: number;
   /** false cuando lo han eliminado: se retira al final del paso. */
   alive = true;
+  /**
+   * Hacia dónde se mueve, en grados desde la vertical hacia ABAJO (0 = cae
+   * recto, positivo = hacia la derecha). Lo usa el renderer para girar las
+   * botellas lanzadas.
+   */
+  heading = 0;
 
+  private readonly stats: (typeof ENEMY_TYPES)[EnemyTypeId];
   private readonly speed: number;
+  /** Impactos que le quedan. */
+  private hitsLeft: number;
+  /** Pasos que quedan de destello blanco. */
+  private flashSteps = 0;
   /** Pasos que faltan para empezar el siguiente disparo. */
   private cooldown: number;
   /** Pasos desde que empezó la animación de disparo, o null si no está disparando. */
@@ -45,6 +64,7 @@ export class Enemy implements Rect {
 
   /**
    * @param speedScale - multiplicador de velocidad del nivel (y de los trucos de admin)
+   * @param thrown - true si la ha lanzado un pijo: va a por el jugador en vez de caer recta
    */
   constructor(
     public x: number,
@@ -52,20 +72,47 @@ export class Enemy implements Rect {
     readonly type: EnemyTypeId,
     random: RandomFn,
     speedScale = 1,
+    readonly thrown = false,
   ) {
-    this.speed = ENEMY_TYPES[type].speed * speedScale;
+    this.stats = ENEMY_TYPES[type];
+    this.width = this.stats.width;
+    this.height = this.stats.height;
+    this.hitsLeft = this.stats.hits;
+    this.speed = (thrown ? THROWN_BOTTLE.speed : this.stats.speed) * speedScale;
     // Primer disparo con retraso aleatorio, para que no disparen todas a la vez
     const spread = ENEMY.firstShotDelayMax - ENEMY.firstShotDelayMin;
     this.cooldown = ENEMY.firstShotDelayMin + Math.floor(random() * spread);
   }
 
   /**
-   * Crea una botella en una X aleatoria del suelo, justo por ENCIMA del borde
+   * Crea un enemigo en una X aleatoria del suelo, justo por ENCIMA del borde
    * superior (fuera de la vista), para que "entre" cayendo.
    */
   static spawn(type: EnemyTypeId, field: Playfield, random: RandomFn, speedScale = 1): Enemy {
-    const x = field.left + random() * (field.right - field.left - ENEMY.width);
-    return new Enemy(x, -ENEMY.height, type, random, speedScale);
+    const { width, height } = ENEMY_TYPES[type];
+    const x = field.left + random() * (field.right - field.left - width);
+    return new Enemy(x, -height, type, random, speedScale);
+  }
+
+  /** Botella lanzada por un pijo: sale de `from` ya apuntando al jugador. */
+  static thrownAt(
+    type: EnemyTypeId,
+    from: Point,
+    target: Point,
+    random: RandomFn,
+    speedScale = 1,
+  ): Enemy {
+    const { width, height } = ENEMY_TYPES[type];
+    const bottle = new Enemy(
+      from.x - width / 2,
+      from.y - height / 2,
+      type,
+      random,
+      speedScale,
+      true,
+    );
+    bottle.heading = aimDegrees(from, target, BOSS_COMMON.maxAimDeg);
+    return bottle;
   }
 
   /** Frame de la hoja que toca dibujar: el de la animación de disparo, o el de reposo. */
@@ -74,13 +121,59 @@ export class Enemy implements Rect {
     return ENEMY.shootAnimation[Math.floor(this.shotStep / ENEMY.shootFrameSteps)] ?? IDLE_FRAME;
   }
 
+  /** true durante el destello: el renderer dibuja la silueta blanca. */
+  get isFlashing(): boolean {
+    return this.flashSteps > 0;
+  }
+
+  /** Centro de la caja de colisión. */
+  get center(): Point {
+    return { x: this.x + this.width / 2, y: this.y + this.height / 2 };
+  }
+
   /**
-   * Avanza un paso: baja y gestiona el disparo.
+   * Recibe un abrechapas.
+   * @returns true si con este impacto ha muerto
+   */
+  hit(): boolean {
+    this.hitsLeft--;
+    if (this.hitsLeft > 0) {
+      this.flashSteps = HIT_FLASH_STEPS;
+      return false;
+    }
+    this.alive = false;
+    return true;
+  }
+
+  /**
+   * Avanza un paso: se mueve y gestiona el disparo.
+   * @param target - el centro del jugador (para apuntar y para que las lanzadas le persigan)
    * @returns la bala disparada en este paso, o null
    */
-  update(): Bullet | null {
-    this.y += this.speed;
+  update(target?: Point): Bullet | null {
+    if (this.flashSteps > 0) this.flashSteps--;
+    this.move(target);
+    return this.stats.variant === null ? this.updateDirectShot(target) : this.updateBottleShot();
+  }
 
+  /** true si ya ha salido de la pantalla por abajo o (las lanzadas) por un lado. */
+  isOutOfBounds(arenaHeight: number): boolean {
+    return this.y > arenaHeight || this.x + this.width < 0 || this.x > ARENA.width;
+  }
+
+  private move(target?: Point): void {
+    // Las lanzadas giran hacia el jugador mientras no le hayan pasado; luego siguen recto
+    if (this.thrown && target && this.center.y < target.y) {
+      const wanted = aimDegrees(this.center, target, BOSS_COMMON.maxAimDeg);
+      this.heading += clamp(wanted - this.heading, -THROWN_BOTTLE.turnDeg, THROWN_BOTTLE.turnDeg);
+    }
+    const velocity = velocityAt(this.heading, this.speed);
+    this.x += velocity.x;
+    this.y += velocity.y;
+  }
+
+  /** Botellas: la animación de la chapa y la espuma en el frame de la explosión. */
+  private updateBottleShot(): Bullet | null {
     if (this.shotStep === null) {
       if (--this.cooldown <= 0) this.shotStep = 0; // empieza la animación de disparo
       return null;
@@ -90,24 +183,36 @@ export class Enemy implements Rect {
     if (++this.shotStep >= SHOT_STEPS) {
       // Fin de la animación: vuelve a estar cerrada y espera al siguiente disparo
       this.shotStep = null;
-      this.cooldown = ENEMY_TYPES[this.type].shootCooldown;
+      this.cooldown = this.stats.shootCooldown;
       return null;
     }
 
     // La bala sale justo en el paso en que se entra en el frame de la espuma
     const fires = frameBefore !== ENEMY.fireOnFrame && this.animationFrame === ENEMY.fireOnFrame;
-    return fires ? this.createBullet() : null;
+    return fires ? this.createBullet(this.heading) : null;
   }
 
-  /** true si ha bajado del todo sin que le disparen. */
-  isOutOfBounds(arenaHeight: number): boolean {
-    return this.y > arenaHeight;
+  /** Barril: sin animación; al acabar la espera dispara hacia el jugador. */
+  private updateDirectShot(target?: Point): Bullet | null {
+    if (--this.cooldown > 0) return null;
+    this.cooldown = this.stats.shootCooldown;
+    const degrees = target ? aimDegrees(this.muzzle(0), target, BOSS_COMMON.maxAimDeg) : 0;
+    return this.createBullet(degrees);
   }
 
-  /** La espuma sale por el cuello (abajo, al estar boca abajo), un poco separada de él. */
-  private createBullet(): Bullet {
-    const x = this.x + this.width / 2 - ENEMY_BULLET.width / 2;
-    const y = this.y + this.height + ENEMY.bulletGap;
-    return new Bullet(x, y, ENEMY_BULLET.speed, ENEMY_BULLET);
+  /**
+   * Por dónde sale la espuma: por el cuello (o la base del barril), en el lado
+   * hacia el que se dispara y un poco separada, para que no nazca dentro.
+   */
+  private muzzle(degrees: number): Point {
+    const offset = velocityAt(degrees, this.height / 2 + ENEMY.bulletGap);
+    return { x: this.center.x + offset.x, y: this.center.y + offset.y };
+  }
+
+  /** Espuma en la dirección indicada (0 = recta hacia abajo). */
+  private createBullet(degrees: number): Bullet {
+    const { x, y } = this.muzzle(degrees);
+    const velocity = velocityAt(degrees, ENEMY_BULLET.speed);
+    return new Bullet(x - ENEMY_BULLET.width / 2, y, velocity.y, ENEMY_BULLET, velocity.x);
   }
 }

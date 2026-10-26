@@ -32,6 +32,7 @@ export function ControlsPage() {
   const rows = [
     { keys: movementKeys, action: t('controls.move') },
     { keys: keyLabel(CONTROLS.shoot), action: t('controls.shoot') },
+    { keys: keyLabel(CONTROLS.shield), action: t('controls.shield') },
     { keys: keyLabel(CONTROLS.pause), action: t('controls.pause') },
   ];
 

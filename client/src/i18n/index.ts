@@ -14,8 +14,8 @@
  *     <h2>{t('home.title')}</h2>
  *     <p>{t('play.level', { level: 2 })}</p>   // "Nivel 2"
  *
- * Los NOMBRES PROPIOS (juego, autor, grupo) no se escriben en los JSON: se
- * ponen como {{game}}, {{author}} o {{band}} y se rellenan solos con BRAND
+ * Los NOMBRES PROPIOS (juego, autor, grupo, protagonista) no se escriben en los JSON: se
+ * ponen como {{game}}, {{author}}, {{band}} o {{hero}} y se rellenan solos con BRAND
  * (ver brand.ts), sin pasarlos en cada t().
  *
  * Para AÑADIR UN IDIOMA: crea locales/xx.json copiando es.json, tradúcelo,

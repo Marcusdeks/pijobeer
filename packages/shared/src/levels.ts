@@ -15,16 +15,22 @@
  * Para AÑADIR UN NIVEL: añade un objeto al final. MAX_LEVEL se calcula solo.
  */
 
-/** Jefes finales disponibles (su comportamiento está en client/src/game/config.ts). */
-export type BossId = 'blonde' | 'iron';
+/**
+ * Jefes finales disponibles (su comportamiento está en client/src/game/config.ts).
+ * Los barriles disparan espuma; el pijo lanza botellas teledirigidas.
+ */
+export type BossId = 'wood' | 'iron' | 'pijo';
 
-/** Tipos de botella (sus estadísticas están en client/src/game/config.ts). */
-export type EnemyTypeId = 'normal' | 'fast' | 'heavy';
+/**
+ * Tipos de enemigo que caen durante el nivel (sus estadísticas están en
+ * client/src/game/config.ts): tres botellas y el barril pequeño del nivel 4.
+ */
+export type EnemyTypeId = 'normal' | 'fast' | 'heavy' | 'barrel';
 
 export interface LevelDefinition {
   readonly id: number;
   /** Callejón del fondo (art/alleys/alley-N.png). Cada nivel tiene el suyo. */
-  readonly alley: 1 | 2 | 3;
+  readonly alley: 1 | 2 | 3 | 4;
   /**
    * Botellas que hay que eliminar. Sin jefe, al conseguirlo se gana el nivel.
    * Con jefe, al conseguirlo dejan de salir botellas y aparece el jefe.
@@ -37,12 +43,18 @@ export interface LevelDefinition {
    * quieto esquivando no basta para llegar al jefe.
    */
   readonly distanceToComplete: number;
-  readonly boss: BossId | null;
+  /**
+   * Jefes finales que aparecen A LA VEZ al cumplir el objetivo (vacío = nivel
+   * sin jefe). Se gana al derrotarlos a todos.
+   */
+  readonly bosses: readonly BossId[];
+  /** Si el jugador puede protegerse con la chupa (tecla B) en este nivel. */
+  readonly jacket: boolean;
   /** Pasos entre la aparición de una botella y la siguiente (60 pasos = 1 s). */
   readonly spawnInterval: number;
   /** Multiplicador de la velocidad de caída de las botellas. */
   readonly enemySpeed: number;
-  /** Peso de cada tipo de botella al aparecer (no hace falta que sumen 1). */
+  /** Peso de cada tipo de enemigo al aparecer (no hace falta que sumen 1). */
   readonly enemyMix: Readonly<Partial<Record<EnemyTypeId, number>>>;
 }
 
@@ -52,7 +64,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     alley: 1,
     killsToComplete: 36,
     distanceToComplete: 0,
-    boss: null,
+    bosses: [],
+    jacket: false,
     spawnInterval: 90,
     enemySpeed: 1,
     enemyMix: { normal: 1 },
@@ -63,7 +76,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     killsToComplete: 50,
     // 30 s avanzando por el callejón (60 px/s, ver CAMERA en el cliente)
     distanceToComplete: 1800,
-    boss: 'blonde',
+    bosses: ['wood'],
+    jacket: false,
     spawnInterval: 70,
     enemySpeed: 1.15,
     enemyMix: { normal: 5, fast: 3, heavy: 2 },
@@ -74,10 +88,26 @@ export const LEVELS: readonly LevelDefinition[] = [
     killsToComplete: 60,
     // 40 s avanzando por el callejón
     distanceToComplete: 2400,
-    boss: 'iron',
+    bosses: ['iron'],
+    // Desde aquí, la chupa (el aviso de cómo usarla sale antes del jefe, la primera vez)
+    jacket: true,
     spawnInterval: 55,
     enemySpeed: 1.3,
     enemyMix: { normal: 3, fast: 4, heavy: 3 },
+  },
+  {
+    id: 4,
+    alley: 4,
+    killsToComplete: 70,
+    // 50 s avanzando por el callejón
+    distanceToComplete: 3000,
+    // Dos pijos a la vez, que lanzan botellas teledirigidas
+    bosses: ['pijo', 'pijo'],
+    jacket: true,
+    spawnInterval: 48,
+    enemySpeed: 1.4,
+    // 1 de cada 25 es un barril pequeño (4 %): unos 3 por nivel
+    enemyMix: { normal: 7, fast: 9, heavy: 8, barrel: 1 },
   },
 ];
 

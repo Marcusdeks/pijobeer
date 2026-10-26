@@ -5,22 +5,24 @@
  * UN paso (1/60 s): mover, hacer aparecer enemigos, resolver colisiones,
  * retirar lo que sobra y comprobar si la partida ha terminado.
  *
- * Estados:   running ⇄ paused     running ─► victory     running ─► over
- * ("victory" y "over" son finales: la partida ya no avanza.)
+ * Estados:   running ⇄ paused     running ⇄ dialog     running ─► victory     running ─► over
+ * ("victory" y "over" son finales: la partida ya no avanza. En "dialog" la
+ * partida está parada mientras React enseña un texto: ver DialogMoment.)
  *
  * Latas: cada cierto tiempo (según la dificultad) cae una lata. La verde
  * cura y la de leopardo acelera al jugador durante unos segundos.
  *
  * Cómo se supera un nivel (además hay que recorrer el callejón que pida el nivel):
  *   - Sin jefe: eliminando las botellas que piden las reglas.
- *   - Con jefe: al eliminarlas dejan de salir botellas y entra el jefe; se
- *     gana al derrotarlo.
+ *   - Con jefes: al eliminarlas entran los jefes del nivel (en el 4, dos a la
+ *     vez) y las botellas siguen cayendo más despacio; se gana al derrotarlos.
  *
  * No dibuja nada (eso es renderer.ts) ni sabe de React. Avisa de lo que pasa
  * con eventos (callbacks), y React decide qué menús enseñar o qué guardar.
  */
 import {
   BOSS_POINTS,
+  ENEMY_POINTS,
   POINTS_PER_KILL,
   type DifficultyId,
   type GameModifiers,
@@ -35,7 +37,15 @@ import { intersects } from './geometry';
 import type { InputState } from './input/InputState';
 import { resolveRules, type GameRules } from './rules';
 
-export type GameStatus = 'running' | 'paused' | 'victory' | 'over';
+export type GameStatus = 'running' | 'paused' | 'dialog' | 'victory' | 'over';
+
+/**
+ * Momentos en los que la partida se puede parar para enseñar un texto:
+ *   opening       nada más empezar
+ *   beforeBosses  justo antes de que entren los jefes
+ * Qué texto sale (y si sale) lo decide React; el motor solo se para y avisa.
+ */
+export type DialogMoment = 'opening' | 'beforeBosses';
 
 export interface GameResult {
   level: number;
@@ -46,7 +56,9 @@ export interface GameResult {
 export interface GameEvents {
   /** Cambio de estado (para enseñar u ocultar los menús de pausa y victoria). */
   onStatusChange?: (status: GameStatus) => void;
-  /** Ha aparecido el jefe final (p. ej. para cambiar la música). */
+  /** La partida se ha parado para enseñar un texto; sigue al llamar a closeDialog(). */
+  onDialog?: (moment: DialogMoment) => void;
+  /** Han aparecido los jefes finales (p. ej. para cambiar la música). */
   onBossAppear?: () => void;
   /** Nivel superado. Solo se emite una vez. */
   onVictory?: (result: GameResult) => void;
@@ -60,6 +72,8 @@ export interface GameSessionOptions {
   modifiers?: GameModifiers;
   /** Dificultad elegida en el menú (por defecto, normal). */
   difficulty?: DifficultyId;
+  /** En qué momentos parar la partida para enseñar un texto (por defecto, en ninguno). */
+  dialogs?: readonly DialogMoment[];
   events?: GameEvents;
   /** Generador aleatorio. Por defecto Math.random; los tests pasan uno predecible. */
   random?: RandomFn;
@@ -80,16 +94,20 @@ export class GameSession {
   /** Viven aquí y no en cada enemigo: siguen volando aunque su enemigo muera. */
   enemyBullets: Bullet[] = [];
   pickups: Pickup[] = [];
-  /** Jefe en pantalla, o null si aún no ha aparecido (o el nivel no tiene). */
-  boss: Boss | null = null;
+  /** Jefes en pantalla (vacío si aún no han aparecido o el nivel no tiene). */
+  bosses: Boss[] = [];
   kills = 0;
-  /** Pasos jugados (sin contar pausas). Marca el ritmo de aparición de botellas y latas. */
+  /** Pasos jugados (sin contar pausas ni textos). Marca el ritmo de aparición de botellas y latas. */
   steps = 0;
   /** Píxeles que ha avanzado el callejón (ver CAMERA en config.ts). */
   backgroundDistance = 0;
 
   private currentStatus: GameStatus = 'running';
-  private bossDefeated = false;
+  /** Ya han entrado los jefes (aunque luego se les derrote y desaparezcan). */
+  private bossesSpawned = false;
+  /** Puntos de los enemigos eliminados y de los jefes derrotados, sin multiplicar. */
+  private earnedPoints = 0;
+  private readonly pendingDialogs: Set<DialogMoment>;
   private readonly events: GameEvents;
   private readonly random: RandomFn;
 
@@ -97,10 +115,12 @@ export class GameSession {
     levelId,
     modifiers,
     difficulty,
+    dialogs = [],
     events = {},
     random = Math.random,
   }: GameSessionOptions) {
     this.rules = resolveRules(levelId, modifiers, difficulty);
+    this.pendingDialogs = new Set(dialogs);
     this.events = events;
     this.random = random;
   }
@@ -114,13 +134,12 @@ export class GameSession {
   }
 
   /**
-   * Puntos de las botellas eliminadas más el premio del jefe, si se ha
-   * derrotado, por el multiplicador de la dificultad. Se redondea a un
-   * múltiplo de POINTS_PER_KILL porque el servidor rechaza cualquier otra cifra.
+   * Puntos de los enemigos eliminados y de los jefes derrotados, por el
+   * multiplicador de la dificultad. Se redondea a un múltiplo de
+   * POINTS_PER_KILL porque el servidor rechaza cualquier otra cifra.
    */
   get points(): number {
-    const bonus = this.bossDefeated && this.level.boss ? BOSS_POINTS[this.level.boss] : 0;
-    const raw = (this.kills * POINTS_PER_KILL + bonus) * this.rules.pointsScale;
+    const raw = this.earnedPoints * this.rules.pointsScale;
     return Math.round(raw / POINTS_PER_KILL) * POINTS_PER_KILL;
   }
 
@@ -132,6 +151,11 @@ export class GameSession {
   get waveCompleted(): boolean {
     const { killsToComplete, distanceToComplete } = this.rules;
     return this.kills >= killsToComplete && this.backgroundDistance >= distanceToComplete;
+  }
+
+  /** true si el nivel tiene jefes, ya han entrado y no queda ninguno. */
+  get bossesDefeated(): boolean {
+    return this.bossesSpawned && this.bosses.length === 0;
   }
 
   pause(): void {
@@ -147,9 +171,15 @@ export class GameSession {
     else this.resume();
   }
 
-  /** Avanza la simulación un paso. En pausa o terminada, no cambia nada. */
+  /** Cierra el texto que estaba enseñando React y la partida sigue. */
+  closeDialog(): void {
+    if (this.currentStatus === 'dialog') this.setStatus('running');
+  }
+
+  /** Avanza la simulación un paso. En pausa, con un texto o terminada, no cambia nada. */
   step(input: InputState): void {
     if (this.currentStatus !== 'running') return;
+    if (this.openDialog('opening')) return;
     this.steps++;
 
     this.moveEverything(input);
@@ -168,23 +198,41 @@ export class GameSession {
 
   // ------------------------------------------------------------------
 
+  /**
+   * Si hay un texto pendiente para este momento, para la partida y avisa.
+   * Cada momento se enseña una sola vez por partida.
+   * @returns true si se ha parado
+   */
+  private openDialog(moment: DialogMoment): boolean {
+    if (!this.pendingDialogs.delete(moment)) return false;
+    this.setStatus('dialog');
+    this.events.onDialog?.(moment);
+    return true;
+  }
+
   private moveEverything(input: InputState): void {
-    // Contra el jefe no se avanza: el combate es en el sitio
-    const canAdvance = this.boss === null;
-    const shot = this.player.update(input, this.rules.field, this.rules.shootCooldown, canAdvance);
+    const { player, rules } = this;
+    const shot = player.update(input, {
+      field: rules.field,
+      shootCooldown: rules.shootCooldown,
+      // Contra los jefes no se avanza: el combate es en el sitio
+      canAdvance: !this.bossesSpawned,
+      jacketAllowed: this.level.jacket,
+    });
     if (shot) this.playerBullets.push(shot);
-    const advance = this.player.advanceSpeed;
+    const advance = player.advanceSpeed;
     this.backgroundDistance += advance;
 
+    // Barriles, jefes y botellas lanzadas apuntan al centro del jugador
+    const target = { x: player.x + player.width / 2, y: player.y + player.height / 2 };
     for (const enemy of this.enemies) {
-      const enemyShot = enemy.update();
+      const enemyShot = enemy.update(target);
       if (enemyShot) this.enemyBullets.push(enemyShot);
     }
-    // El jefe apunta al centro del jugador
-    if (this.boss) {
-      const { player } = this;
-      const target = { x: player.x + player.width / 2, y: player.y + player.height / 2 };
-      this.enemyBullets.push(...this.boss.update(target));
+    for (const boss of this.bosses) {
+      const { bullets, bottles } = boss.update(target);
+      this.enemyBullets.push(...bullets);
+      this.enemies.push(...bottles);
     }
 
     for (const pickup of this.pickups) pickup.update();
@@ -200,30 +248,48 @@ export class GameSession {
   }
 
   /**
-   * Botellas al ritmo del nivel. Cumplido el objetivo de un nivel con jefe,
-   * aparece el jefe (una vez) y las botellas siguen cayendo, pero a menor
-   * ritmo (BOSS_COMMON.minionSpawnFactor), para que el combate no dé respiro.
+   * Botellas al ritmo del nivel. Cumplido el objetivo de un nivel con jefes,
+   * entran los jefes (una vez, tras su texto si lo hay) y las botellas siguen
+   * cayendo, pero a menor ritmo (BOSS_COMMON.minionSpawnFactor), para que el
+   * combate no dé respiro.
    */
   private spawn(): void {
-    const { level, field, spawnInterval, enemySpeed, bossHealth } = this.rules;
+    const { level, spawnInterval, enemySpeed } = this.rules;
     let interval = spawnInterval;
 
-    if (level.boss && this.waveCompleted) {
-      if (this.bossDefeated) return;
-      if (!this.boss) {
-        this.boss = new Boss(level.boss, field, bossHealth);
-        this.events.onBossAppear?.();
+    if (level.bosses.length > 0 && this.waveCompleted) {
+      if (this.bossesDefeated) return;
+      if (!this.bossesSpawned) {
+        if (this.openDialog('beforeBosses')) return;
+        this.spawnBosses();
       }
       interval = spawnInterval * BOSS_COMMON.minionSpawnFactor;
     }
 
     if (this.steps % interval === 0) {
       const type = this.rules.pickEnemyType(this.random);
-      this.enemies.push(Enemy.spawn(type, field, this.random, enemySpeed));
+      this.enemies.push(Enemy.spawn(type, this.rules.field, this.random, enemySpeed));
     }
   }
 
-  /** Una lata cada pickupInterval pasos, también durante el combate con el jefe (ahí es cuando más falta hace). */
+  private spawnBosses(): void {
+    const { level, field, bossHealth, enemySpeed } = this.rules;
+    const count = level.bosses.length;
+    this.bosses = level.bosses.map(
+      (id, slot) =>
+        new Boss(id, field, {
+          healthScale: bossHealth,
+          slot,
+          count,
+          random: this.random,
+          bottleSpeedScale: enemySpeed,
+        }),
+    );
+    this.bossesSpawned = true;
+    this.events.onBossAppear?.();
+  }
+
+  /** Una lata cada pickupInterval pasos, también durante el combate con los jefes (ahí es cuando más falta hace). */
   private spawnPickup(): void {
     if (this.steps % this.rules.pickupInterval !== 0) return;
     const type: PickupTypeId = this.random() < 0.5 ? 'health' : 'speed';
@@ -231,31 +297,36 @@ export class GameSession {
   }
 
   private resolveCollisions(): void {
-    const { player, boss } = this;
+    const { player } = this;
 
     for (const bullet of this.playerBullets) {
-      // Abrechapas contra botellas: muere de un disparo
+      // Abrechapas contra enemigos: las botellas mueren de uno, el barril aguanta más
       for (const enemy of this.enemies) {
         if (bullet.alive && enemy.alive && intersects(bullet, enemy)) {
-          bullet.alive = enemy.alive = false;
-          this.kills++;
+          bullet.alive = false;
+          if (enemy.hit()) this.countKill(enemy);
         }
       }
-      // Contra el jefe: la bala se rompe aunque él aún esté entrando (y sea invulnerable)
-      if (boss && bullet.alive && intersects(bullet, boss)) {
-        bullet.alive = false;
-        boss.hit();
+      // Contra los jefes: la bala se rompe aunque aún estén entrando (y sean invulnerables)
+      for (const boss of this.bosses) {
+        if (bullet.alive && intersects(bullet, boss)) {
+          bullet.alive = false;
+          boss.hit();
+        }
       }
     }
 
+    // La espuma la para la chupa (hasta que se empapa); si no, hace daño
     for (const bullet of this.enemyBullets) {
       if (bullet.alive && intersects(bullet, player)) {
         bullet.alive = false;
-        this.damagePlayer(ENEMY.bulletDamage);
+        if (player.isShielding) player.blockShot();
+        else this.damagePlayer(ENEMY.bulletDamage);
       }
     }
 
-    // Choque con una botella: más daño, y la botella muere (así no repite daño en cada paso)
+    // Choque con un enemigo: más daño, y el enemigo muere (así no repite daño en
+    // cada paso). La chupa no protege de los botellazos.
     for (const enemy of this.enemies) {
       if (enemy.alive && intersects(enemy, player)) {
         enemy.alive = false;
@@ -271,15 +342,22 @@ export class GameSession {
       }
     }
 
-    // Choque con el jefe: quita vida, con un tiempo de espera entre golpe y golpe
-    if (boss && intersects(boss, player) && boss.tryContactDamage()) {
-      this.damagePlayer(BOSS_COMMON.contactDamage);
+    // Choque con un jefe: quita vida, con un tiempo de espera entre golpe y golpe
+    for (const boss of this.bosses) {
+      if (intersects(boss, player) && boss.tryContactDamage()) {
+        this.damagePlayer(BOSS_COMMON.contactDamage);
+      }
     }
 
-    if (boss?.isDead) {
-      this.bossDefeated = true;
-      this.boss = null;
+    for (const boss of this.bosses) {
+      if (boss.isDead) this.earnedPoints += BOSS_POINTS[boss.id];
     }
+    this.bosses = this.bosses.filter((boss) => !boss.isDead);
+  }
+
+  private countKill(enemy: Enemy): void {
+    this.kills++;
+    this.earnedPoints += ENEMY_POINTS[enemy.type];
   }
 
   private collect(type: PickupTypeId): void {
@@ -297,7 +375,7 @@ export class GameSession {
    * gana y se pierde la última vida, se le da la victoria al jugador.
    */
   private checkEnd(): void {
-    const won = this.level.boss ? this.bossDefeated : this.waveCompleted;
+    const won = this.level.bosses.length > 0 ? this.bossesDefeated : this.waveCompleted;
     if (won) {
       this.setStatus('victory');
       this.events.onVictory?.(this.result);

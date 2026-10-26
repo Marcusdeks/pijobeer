@@ -5,6 +5,7 @@ import {
   BOSS_POINTS,
   DEFAULT_GAME_MODIFIERS,
   DIFFICULTIES,
+  ENEMY_POINTS,
   getLevel,
   POINTS_PER_KILL,
   type GameModifiers,
@@ -17,6 +18,7 @@ import {
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
+  JACKET,
   PICKUP,
   PICKUP_TYPES,
   PLAYER,
@@ -183,7 +185,7 @@ describe('aparición de botellas y progresión', () => {
     game.kills = getLevel(2).killsToComplete;
     game.backgroundDistance = getLevel(2).distanceToComplete;
     game.step(fakeInput());
-    expect(game.boss).not.toBeNull();
+    expect(game.bosses).toHaveLength(1);
 
     const reached = game.backgroundDistance;
     run(game, 10, fakeInput('up'));
@@ -195,11 +197,11 @@ describe('aparición de botellas y progresión', () => {
     const game = session(2);
     game.kills = getLevel(2).killsToComplete;
     game.step(fakeInput());
-    expect(game.boss).toBeNull();
+    expect(game.bosses).toHaveLength(0);
 
     game.backgroundDistance = getLevel(2).distanceToComplete;
     game.step(fakeInput());
-    expect(game.boss).not.toBeNull();
+    expect(game.bosses).toHaveLength(1);
   });
 
   it('si un admin fija las botellas a eliminar, no hace falta recorrer el callejón', () => {
@@ -264,12 +266,12 @@ describe('jefes finales', () => {
     game.kills = getLevel(2).killsToComplete;
     game.backgroundDistance = getLevel(2).distanceToComplete;
     run(game, BOSS_ENTRY_STEPS);
-    return { game, boss: game.boss!, onBossAppear, onVictory };
+    return { game, boss: game.bosses[0]!, onBossAppear, onVictory };
   }
 
   it('al cumplir el objetivo entra el jefe (sin ganar aún)', () => {
     const { boss, onBossAppear, onVictory } = bossFight();
-    expect(boss.id).toBe('blonde');
+    expect(boss.id).toBe('wood');
     expect(onBossAppear).toHaveBeenCalledTimes(1);
     expect(onVictory).not.toHaveBeenCalled();
   });
@@ -302,7 +304,7 @@ describe('jefes finales', () => {
 
   it('al derrotarlo se gana el nivel, con su premio sumado a los puntos', () => {
     const { game, boss, onVictory } = bossFight();
-    for (let i = 0; i < BOSS.blonde.health && game.status === 'running'; i++) {
+    for (let i = 0; i < BOSS.wood.health && game.status === 'running'; i++) {
       game.enemyBullets = [];
       game.playerBullets.push(
         new Bullet(
@@ -314,12 +316,14 @@ describe('jefes finales', () => {
       );
       game.step(fakeInput());
     }
-    const kills = getLevel(2).killsToComplete;
+    // Las botellas del objetivo se han puesto a mano (sin puntos): solo cuentan las
+    // que hayan caído de verdad durante el combate, más el premio del jefe
+    const forced = getLevel(2).killsToComplete;
     expect(game.status).toBe('victory');
     expect(onVictory).toHaveBeenCalledWith({
       level: 2,
-      kills,
-      points: kills * POINTS_PER_KILL + BOSS_POINTS.blonde,
+      kills: game.kills,
+      points: (game.kills - forced) * POINTS_PER_KILL + BOSS_POINTS.wood,
     });
   });
 });
@@ -346,7 +350,12 @@ describe('dificultad', () => {
     const normal = session(1);
     const hard = session(1, { difficulty: 'hard' });
     const easy = session(1, { difficulty: 'easy' });
-    for (const game of [normal, hard, easy]) game.kills = 3;
+    for (const game of [normal, hard, easy]) {
+      for (let i = 0; i < 3; i++) {
+        addSureKill(game);
+        game.step(fakeInput());
+      }
+    }
     expect(hard.points).toBe(normal.points * DIFFICULTIES.hard.points);
     expect(easy.points % POINTS_PER_KILL).toBe(0);
   });
@@ -476,5 +485,144 @@ describe('trucos de administrador', () => {
       return game.enemies.length;
     };
     expect(count(2)).toBeGreaterThan(count(1));
+  });
+});
+
+describe('la chupa en la partida', () => {
+  /** Un chorro de espuma justo encima del jugador: le da en el siguiente paso. */
+  function addFoamOnPlayer(game: GameSession) {
+    const { x, y } = game.player;
+    game.enemyBullets.push(new Bullet(x + 10, y + 10, 0, ENEMY_BULLET));
+  }
+
+  it('desde el nivel 3, manteniendo la B, para la espuma; al tercer chorro se empapa', () => {
+    const game = session(3);
+    for (let i = 0; i < JACKET.maxBlocks; i++) {
+      game.enemies = [];
+      addFoamOnPlayer(game);
+      game.step(fakeInput('shield'));
+      expect(game.player.health).toBe(PLAYER.maxHealth);
+    }
+    // Empapada: el siguiente chorro ya hace daño aunque siga pulsando la B
+    game.enemies = [];
+    addFoamOnPlayer(game);
+    game.step(fakeInput('shield'));
+    expect(game.player.health).toBe(PLAYER.maxHealth - ENEMY.bulletDamage);
+  });
+
+  it('en los niveles 1 y 2 la B no hace nada', () => {
+    const game = session(2);
+    addFoamOnPlayer(game);
+    game.step(fakeInput('shield'));
+    expect(game.player.isShielding).toBe(false);
+    expect(game.player.health).toBe(PLAYER.maxHealth - ENEMY.bulletDamage);
+  });
+
+  it('no protege de los botellazos', () => {
+    const game = session(4);
+    game.step(fakeInput('shield'));
+    game.enemies.push(new Enemy(game.player.x, game.player.y, 'normal', fixedRandom));
+    game.step(fakeInput('shield'));
+    expect(game.player.isShielding).toBe(true);
+    expect(game.player.health).toBe(PLAYER.maxHealth - ENEMY.contactDamage);
+  });
+});
+
+describe('textos de historia', () => {
+  it('al empezar, la partida se para hasta que se cierra el texto', () => {
+    const onDialog = vi.fn();
+    const game = session(4, { dialogs: ['opening'], events: { onDialog } });
+    run(game, 30, fakeInput('right'));
+    expect(game.status).toBe('dialog');
+    expect(onDialog).toHaveBeenCalledWith('opening');
+    expect(game.steps).toBe(0);
+
+    game.togglePause(); // la P no hace nada mientras se lee
+    expect(game.status).toBe('dialog');
+
+    game.closeDialog();
+    game.step(fakeInput());
+    expect(game.status).toBe('running');
+    expect(game.steps).toBe(1);
+    expect(onDialog).toHaveBeenCalledTimes(1); // cada texto, una sola vez
+  });
+
+  it('antes de los jefes, la partida se para y entran al cerrar el texto', () => {
+    const onDialog = vi.fn();
+    const game = session(3, { dialogs: ['beforeBosses'], events: { onDialog } });
+    game.kills = getLevel(3).killsToComplete;
+    game.backgroundDistance = getLevel(3).distanceToComplete;
+    game.step(fakeInput());
+    expect(game.status).toBe('dialog');
+    expect(onDialog).toHaveBeenCalledWith('beforeBosses');
+    expect(game.bosses).toHaveLength(0);
+
+    game.closeDialog();
+    game.step(fakeInput());
+    expect(game.bosses).toHaveLength(1);
+  });
+
+  it('sin textos pedidos, no se para nunca', () => {
+    const game = session(4);
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    game.step(fakeInput());
+    expect(game.status).toBe('running');
+  });
+});
+
+describe('nivel 4', () => {
+  it('salen barriles pequeños, pocos (un 4 %), que dan más puntos', () => {
+    const { pickEnemyType } = session(4).rules;
+    const rolls = 1000;
+    let barrels = 0;
+    for (let i = 0; i < rolls; i++) if (pickEnemyType(() => i / rolls) === 'barrel') barrels++;
+    expect(barrels / rolls).toBeCloseTo(0.04, 2);
+
+    const game = session(4, { modifiers: withModifiers({ invincible: true }) });
+    game.enemies.push(new Enemy(300, 100, 'barrel', fixedRandom));
+    for (let i = 0; i < ENEMY_TYPES.barrel.hits; i++) {
+      game.playerBullets.push(new Bullet(305, 130, 0, PLAYER_BULLET));
+      game.step(fakeInput('left'));
+    }
+    expect(game.kills).toBe(1);
+    expect(game.points).toBe(ENEMY_POINTS.barrel);
+  });
+
+  it('al final salen dos pijos; se gana al derrotar a los dos y cuentan los dos', () => {
+    const onVictory = vi.fn();
+    const game = session(4, {
+      events: { onVictory },
+      modifiers: withModifiers({ invincible: true }),
+    });
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    run(game, BOSS_ENTRY_STEPS);
+    expect(game.bosses.map((boss) => boss.id)).toEqual(['pijo', 'pijo']);
+
+    const [first, second] = game.bosses;
+    while (!first!.isDead) first!.hit();
+    game.step(fakeInput());
+    expect(game.bosses).toEqual([second]);
+    expect(game.status).toBe('running');
+
+    while (!second!.isDead) second!.hit();
+    game.step(fakeInput());
+    expect(game.status).toBe('victory');
+    expect(game.points).toBe(2 * BOSS_POINTS.pijo);
+    expect(onVictory).toHaveBeenCalledTimes(1);
+  });
+
+  it('los pijos lanzan botellas que van a por el jugador', () => {
+    const game = session(4, { modifiers: withModifiers({ invincible: true }) });
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    // Antes de que la botella llegue al jugador (y se rompa contra él)
+    let thrown = false;
+    for (let i = 0; i < BOSS_ENTRY_STEPS + BOSS.pijo.burstPause * 2 && !thrown; i++) {
+      game.step(fakeInput());
+      thrown = game.enemies.some((enemy) => enemy.thrown);
+    }
+    expect(thrown).toBe(true);
   });
 });
