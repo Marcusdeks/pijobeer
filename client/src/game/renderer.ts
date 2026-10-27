@@ -38,6 +38,8 @@ import {
   openerFrame,
   PICKUP_ANCHOR,
   pickupFrame,
+  pijoFrame,
+  PIJO_ANCHOR,
   type Anchor,
 } from './sprites/sheets';
 
@@ -52,6 +54,8 @@ export interface RenderAssets {
   foamSheet: HTMLImageElement | null;
   openerSheet: HTMLImageElement | null;
   bossSheet: HTMLImageElement | null;
+  /** Pijo (jefe del nivel 4), con sus poses de andar y de lanzar. */
+  pijoSheet: HTMLImageElement | null;
   pickupSheet: HTMLImageElement | null;
   /** Barril pequeño del nivel 4. */
   minionSheet: HTMLImageElement | null;
@@ -101,7 +105,7 @@ export function renderGame(
   for (const bullet of session.enemyBullets) drawFoam(ctx, bullet, assets.foamSheet);
   for (const pickup of session.pickups) drawPickup(ctx, pickup, assets.pickupSheet);
   for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets);
-  for (const boss of session.bosses) drawBoss(ctx, boss, assets.bossSheet);
+  for (const boss of session.bosses) drawBoss(ctx, boss, assets);
   drawPlayer(ctx, session.player, assets);
   for (const bullet of session.playerBullets) drawOpener(ctx, bullet, assets.openerSheet);
 
@@ -178,11 +182,21 @@ function drawScrollingLayer(
   }
 }
 
-/** Jefe: centrado en su caja de colisión; en blanco durante el destello de impacto. */
-function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, sheet: HTMLImageElement | null) {
-  if (!sheet) return fillRect(ctx, boss, COLORS.enemy);
+/**
+ * Jefe, en blanco durante el destello de impacto. Los barriles, centrados en
+ * su caja de colisión; el pijo, de pie sobre la base de su caja (como el
+ * jugador) y con la pose que toque: andando o lanzando.
+ */
+function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, assets: RenderAssets) {
+  const centerX = boss.x + boss.width / 2;
+  if (boss.id === 'pijo') {
+    if (!assets.pijoSheet) return fillRect(ctx, boss, COLORS.enemy);
+    const frame = pijoFrame(boss.pose, boss.isFlashing);
+    return drawFrame(ctx, assets.pijoSheet, frame, PIJO_ANCHOR, centerX, boss.y + boss.height);
+  }
+  if (!assets.bossSheet) return fillRect(ctx, boss, COLORS.enemy);
   const frame = bossFrame(boss.id, boss.isFlashing);
-  drawFrame(ctx, sheet, frame, BOSS_ANCHOR, boss.x + boss.width / 2, boss.y + boss.height / 2);
+  drawFrame(ctx, assets.bossSheet, frame, BOSS_ANCHOR, centerX, boss.y + boss.height / 2);
 }
 
 /**

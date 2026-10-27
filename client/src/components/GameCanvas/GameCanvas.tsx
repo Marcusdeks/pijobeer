@@ -31,6 +31,7 @@ import foamSheetUrl from '../../assets/sprites/bullet-foam.png';
 import openerSheetUrl from '../../assets/sprites/bullet-opener.png';
 import enemySheetUrl from '../../assets/sprites/enemy-bottles.png';
 import pickupSheetUrl from '../../assets/sprites/pickups.png';
+import pijoSheetUrl from '../../assets/sprites/pijo.png';
 import jacketSheetUrl from '../../assets/sprites/player-jacket.png';
 import playerSheetUrl from '../../assets/sprites/player.png';
 import { ARENA } from '../../game/config';
@@ -83,6 +84,7 @@ function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
     foamSheet: foamSheetUrl,
     openerSheet: openerSheetUrl,
     bossSheet: bossSheetUrl,
+    pijoSheet: pijoSheetUrl,
     pickupSheet: pickupSheetUrl,
     minionSheet: minionSheetUrl,
     jacketSheet: jacketSheetUrl,
@@ -169,6 +171,7 @@ export function GameCanvas({
       foamSheet: null,
       openerSheet: null,
       bossSheet: null,
+      pijoSheet: null,
       pickupSheet: null,
       minionSheet: null,
       jacketSheet: null,

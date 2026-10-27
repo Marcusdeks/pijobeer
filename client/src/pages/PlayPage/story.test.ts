@@ -10,8 +10,12 @@ describe('textos de historia', () => {
     expect(storiesFor(3, true)).toEqual({});
   });
 
-  it('el nivel 4 siempre tiene su texto al empezar y el de los pijos', () => {
-    const expected = { opening: 'level4Opening', beforeBosses: 'pijosIntro' };
+  it('el nivel 4 siempre tiene su texto al empezar y los de los pijos (antes y después)', () => {
+    const expected = {
+      opening: 'level4Opening',
+      beforeBosses: 'pijosIntro',
+      afterBosses: 'pijosDefeated',
+    };
     expect(storiesFor(4, false)).toEqual(expected);
     expect(storiesFor(4, true)).toEqual(expected);
   });

@@ -9,16 +9,19 @@
  *   durationMs  cuánto se queda en pantalla antes de seguir solo
  *   skippable   si tiene botón para saltarlo
  */
+import { FIRST_JACKET_LEVEL } from '@pijobeer/shared';
 import type { DialogMoment } from '../../game/GameSession';
 
-export type StoryId = 'jacketTutorial' | 'level4Opening' | 'pijosIntro';
+export type StoryId = 'jacketTutorial' | 'level4Opening' | 'pijosIntro' | 'pijosDefeated';
 
 type StoryLineKey =
   | 'play.story.jacketTutorial'
   | 'play.story.level4Opening'
   | 'play.story.pijosHero'
   | 'play.story.pijosReply'
-  | 'play.story.pijosHint';
+  | 'play.story.pijosHint'
+  | 'play.story.pijosDefeatedHero'
+  | 'play.story.pijosDefeatedReply';
 
 export interface Story {
   lines: readonly StoryLineKey[];
@@ -35,10 +38,14 @@ export const STORIES: Record<StoryId, Story> = {
     durationMs: 14000,
     skippable: true,
   },
+  /** Al derrotar a los pijos: anuncian al que viene después. */
+  pijosDefeated: {
+    lines: ['play.story.pijosDefeatedHero', 'play.story.pijosDefeatedReply'],
+    durationMs: 10000,
+    skippable: true,
+  },
 };
 
-/** Nivel en el que se aprende a usar la chupa (el primero en que se puede). */
-const JACKET_TUTORIAL_LEVEL = 3;
 const PIJOS_LEVEL = 4;
 
 /**
@@ -49,10 +56,12 @@ export function storiesFor(
   levelId: number,
   jacketTutorialSeen: boolean,
 ): Partial<Record<DialogMoment, StoryId>> {
-  if (levelId === JACKET_TUTORIAL_LEVEL && !jacketTutorialSeen) {
+  if (levelId === FIRST_JACKET_LEVEL && !jacketTutorialSeen) {
     return { beforeBosses: 'jacketTutorial' };
   }
   // El nivel 4 los enseña siempre, con botón para saltarlos
-  if (levelId === PIJOS_LEVEL) return { opening: 'level4Opening', beforeBosses: 'pijosIntro' };
+  if (levelId === PIJOS_LEVEL) {
+    return { opening: 'level4Opening', beforeBosses: 'pijosIntro', afterBosses: 'pijosDefeated' };
+  }
   return {};
 }

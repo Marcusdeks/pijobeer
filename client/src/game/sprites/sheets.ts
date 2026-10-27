@@ -13,6 +13,7 @@ import { ENEMY_TYPES, type PickupTypeId } from '../config';
 import alleysMeta from '../../assets/sprites/alleys.json';
 import minionMeta from '../../assets/sprites/barrel-minion.json';
 import bossMeta from '../../assets/sprites/bosses.json';
+import pijoMeta from '../../assets/sprites/pijo.json';
 import pickupMeta from '../../assets/sprites/pickups.json';
 import enemyMeta from '../../assets/sprites/enemy-bottles.json';
 import foamMeta from '../../assets/sprites/bullet-foam.json';
@@ -100,13 +101,13 @@ export function openerFrame(age: number, frameSteps: number): SpriteFrame {
 }
 
 // ------------------------------------------------------------------
-//  Jefes finales (una columna por jefe; fila 0 normal, fila 1 destello blanco)
+//  Barriles jefe (una columna por jefe; fila 0 normal, fila 1 destello blanco)
 // ------------------------------------------------------------------
 
-/** Centro del jefe dentro del frame. */
+/** Centro del barril dentro del frame. */
 export const BOSS_ANCHOR: Anchor = bossMeta.anchor;
 
-export function bossFrame(id: BossId, flashing: boolean): SpriteFrame {
+export function bossFrame(id: Exclude<BossId, 'pijo'>, flashing: boolean): SpriteFrame {
   const column = bossMeta.bosses.indexOf(id);
   return {
     sx: column * bossMeta.frameWidth,
@@ -114,6 +115,20 @@ export function bossFrame(id: BossId, flashing: boolean): SpriteFrame {
     width: bossMeta.frameWidth,
     height: bossMeta.frameHeight,
   };
+}
+
+// ------------------------------------------------------------------
+//  Pijo (una columna por pose; fila 0 normal, fila 1 destello blanco)
+// ------------------------------------------------------------------
+
+/** Los pies del pijo dentro del frame (se apoyan en la base de su caja, como el jugador). */
+export const PIJO_ANCHOR: Anchor = pijoMeta.anchor;
+
+/** Columna de cada pose en la hoja (ver PIJO en scripts/sprites/bosses.mjs). */
+const PIJO_POSE_COLUMN = { 0: 0, 1: 1, windup: 2, throw: 3 } as const;
+
+export function pijoFrame(pose: keyof typeof PIJO_POSE_COLUMN, flashing: boolean): SpriteFrame {
+  return gridFrame(pijoMeta, flashing ? 1 : 0, PIJO_POSE_COLUMN[pose]);
 }
 
 // ------------------------------------------------------------------

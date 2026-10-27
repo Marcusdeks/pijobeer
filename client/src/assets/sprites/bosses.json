@@ -2,7 +2,7 @@
   "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
   "frameWidth": 96,
   "frameHeight": 112,
-  "bosses": ["wood", "iron", "pijo"],
+  "bosses": ["wood", "iron"],
   "anchor": {
     "x": 48,
     "y": 56
@@ -15,10 +15,6 @@
     "iron": {
       "width": 80,
       "height": 104
-    },
-    "pijo": {
-      "width": 60,
-      "height": 96
     }
   }
 }

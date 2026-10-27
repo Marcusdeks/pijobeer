@@ -32,6 +32,8 @@ export interface GameRules {
   /** Pasos entre disparo y disparo del jugador. */
   shootCooldown: number;
   spawnInterval: number;
+  /** Enemigos durante el combate con los jefes, con el ritmo ajustado igual que spawnInterval. */
+  bossFightEnemy: { type: EnemyTypeId; spawnInterval: number } | null;
   /** Multiplicador final de la velocidad de las botellas (nivel × truco). */
   enemySpeed: number;
   bossHealth: number;
@@ -58,6 +60,9 @@ export function resolveRules(
 ): GameRules {
   const level = getLevel(levelId);
   const difficulty = DIFFICULTIES[difficultyId];
+  // La dificultad y el truco de ritmo afectan igual a todo lo que aparece
+  const spawnScale = modifiers.spawnRate * difficulty.spawnRate;
+  const intervalFor = (base: number) => Math.max(MIN_SPAWN_INTERVAL, Math.round(base / spawnScale));
 
   return {
     level,
@@ -66,10 +71,11 @@ export function resolveRules(
     // Si un admin fija las botellas, ese es el objetivo entero: así puede probar el jefe sin esperar
     distanceToComplete: modifiers.killsToComplete === null ? level.distanceToComplete : 0,
     shootCooldown: Math.round(PLAYER.shootCooldown / difficulty.fireRate),
-    spawnInterval: Math.max(
-      MIN_SPAWN_INTERVAL,
-      Math.round(level.spawnInterval / (modifiers.spawnRate * difficulty.spawnRate)),
-    ),
+    spawnInterval: intervalFor(level.spawnInterval),
+    bossFightEnemy: level.bossFightEnemy && {
+      type: level.bossFightEnemy.type,
+      spawnInterval: intervalFor(level.bossFightEnemy.spawnInterval),
+    },
     enemySpeed: level.enemySpeed * modifiers.enemySpeed * difficulty.enemySpeed,
     bossHealth: modifiers.bossHealth * difficulty.bossHealth,
     invincible: modifiers.invincible,

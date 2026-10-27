@@ -71,7 +71,9 @@
       "level4Opening": "{{hero}}: Vaya, ya estamos saliendo del polígono. Aquí habrá aún más chusma pija.",
       "pijosHero": "{{hero}}: ¡Eh! ¿Vosotros sois los que me habéis estado lanzando esas putas botellas?",
       "pijosReply": "Pijos: *sollozan* ¡S-sí! ¡Deja de perseguirnos! ¡Lograremos nuestro objetivo aunque intentes pararnos! *rompen a llorar de puro temor*",
-      "pijosHint": "Ten cuidado: la chupa no protege de los botellazos."
+      "pijosHint": "Ten cuidado: la chupa no protege de los botellazos.",
+      "pijosDefeatedHero": "{{hero}}: Si vosotros estáis aquí, ¿quién es el imbécil que lanza barriles?",
+      "pijosDefeatedReply": "Pijos: *lloran como nenazas* ¡Es nuestro primo más fuertote! ¡Verás cómo él te da la paliza de tu vida, escoria!"
     },
     "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
   },
@@ -110,7 +112,7 @@
     "title": "Controles",
     "move": "Movimiento",
     "shoot": "Disparar",
-    "shield": "Protegerse con la chupa (desde el nivel 3)",
+    "shield": "Protegerse con la chupa (a partir del jefe del nivel 3)",
     "pause": "Pausa"
   },
   "credits": {

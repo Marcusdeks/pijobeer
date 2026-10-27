@@ -15,7 +15,8 @@
  * Cómo se supera un nivel (además hay que recorrer el callejón que pida el nivel):
  *   - Sin jefe: eliminando las botellas que piden las reglas.
  *   - Con jefes: al eliminarlas entran los jefes del nivel (en el 4, dos a la
- *     vez) y las botellas siguen cayendo más despacio; se gana al derrotarlos.
+ *     vez) y dejan de caer botellas (en el 4 siguen llegando barriles
+ *     pequeños: bossFightEnemy); se gana al derrotarlos.
  *
  * No dibuja nada (eso es renderer.ts) ni sabe de React. Avisa de lo que pasa
  * con eventos (callbacks), y React decide qué menús enseñar o qué guardar.
@@ -25,6 +26,7 @@ import {
   ENEMY_POINTS,
   POINTS_PER_KILL,
   type DifficultyId,
+  type EnemyTypeId,
   type GameModifiers,
 } from '@pijobeer/shared';
 import { ARENA, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
@@ -43,9 +45,10 @@ export type GameStatus = 'running' | 'paused' | 'dialog' | 'victory' | 'over';
  * Momentos en los que la partida se puede parar para enseñar un texto:
  *   opening       nada más empezar
  *   beforeBosses  justo antes de que entren los jefes
+ *   afterBosses   al derrotarlos, antes de dar la victoria
  * Qué texto sale (y si sale) lo decide React; el motor solo se para y avisa.
  */
-export type DialogMoment = 'opening' | 'beforeBosses';
+export type DialogMoment = 'opening' | 'beforeBosses' | 'afterBosses';
 
 export interface GameResult {
   level: number;
@@ -158,6 +161,12 @@ export class GameSession {
     return this.bossesSpawned && this.bosses.length === 0;
   }
 
+  /** Si ahora se puede usar la chupa: según el nivel, siempre o solo contra los jefes. */
+  get jacketAllowed(): boolean {
+    const { jacket } = this.level;
+    return jacket === 'always' || (jacket === 'bosses' && this.bossesSpawned);
+  }
+
   pause(): void {
     if (this.currentStatus === 'running') this.setStatus('paused');
   }
@@ -217,7 +226,7 @@ export class GameSession {
       shootCooldown: rules.shootCooldown,
       // Contra los jefes no se avanza: el combate es en el sitio
       canAdvance: !this.bossesSpawned,
-      jacketAllowed: this.level.jacket,
+      jacketAllowed: this.jacketAllowed,
     });
     if (shot) this.playerBullets.push(shot);
     const advance = player.advanceSpeed;
@@ -249,27 +258,27 @@ export class GameSession {
 
   /**
    * Botellas al ritmo del nivel. Cumplido el objetivo de un nivel con jefes,
-   * entran los jefes (una vez, tras su texto si lo hay) y las botellas siguen
-   * cayendo, pero a menor ritmo (BOSS_COMMON.minionSpawnFactor), para que el
-   * combate no dé respiro.
+   * entran los jefes (una vez, tras su texto si lo hay) y dejan de caer
+   * botellas: el combate es contra ellos, lo que lancen y, si el nivel lo
+   * pide (bossFightEnemy), algún enemigo suelto de un tipo concreto.
    */
   private spawn(): void {
-    const { level, spawnInterval, enemySpeed } = this.rules;
-    let interval = spawnInterval;
+    const { level, spawnInterval, bossFightEnemy } = this.rules;
 
     if (level.bosses.length > 0 && this.waveCompleted) {
-      if (this.bossesDefeated) return;
-      if (!this.bossesSpawned) {
-        if (this.openDialog('beforeBosses')) return;
-        this.spawnBosses();
+      if (!this.bossesSpawned && !this.openDialog('beforeBosses')) this.spawnBosses();
+      if (this.bossesSpawned && bossFightEnemy && this.steps % bossFightEnemy.spawnInterval === 0) {
+        this.spawnEnemy(bossFightEnemy.type);
       }
-      interval = spawnInterval * BOSS_COMMON.minionSpawnFactor;
+      return;
     }
 
-    if (this.steps % interval === 0) {
-      const type = this.rules.pickEnemyType(this.random);
-      this.enemies.push(Enemy.spawn(type, this.rules.field, this.random, enemySpeed));
-    }
+    if (this.steps % spawnInterval === 0) this.spawnEnemy(this.rules.pickEnemyType(this.random));
+  }
+
+  private spawnEnemy(type: EnemyTypeId): void {
+    const { field, enemySpeed } = this.rules;
+    this.enemies.push(Enemy.spawn(type, field, this.random, enemySpeed));
   }
 
   private spawnBosses(): void {
@@ -372,10 +381,12 @@ export class GameSession {
 
   /**
    * ¿Fin de partida? La victoria se comprueba antes: si en el mismo paso se
-   * gana y se pierde la última vida, se le da la victoria al jugador.
+   * gana y se pierde la última vida, se le da la victoria al jugador. Si hay
+   * texto tras los jefes, la victoria llega al cerrarlo (en el siguiente paso).
    */
   private checkEnd(): void {
     const won = this.level.bosses.length > 0 ? this.bossesDefeated : this.waveCompleted;
+    if (won && this.openDialog('afterBosses')) return;
     if (won) {
       this.setStatus('victory');
       this.events.onVictory?.(this.result);

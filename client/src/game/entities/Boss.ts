@@ -4,14 +4,16 @@
  *   1. ENTRADA: baja desde fuera de la pantalla hasta BOSS_COMMON.holdY. Mientras
  *      entra ni ataca ni se le puede dañar (aún no ha empezado el combate).
  *   2. COMBATE: se queda a esa altura (no avanza hacia el jugador), va de pared
- *      a pared y ataca en RÁFAGAS (ver BOSS en config.ts):
+ *      a pared y ataca en RÁFAGAS (ver BOSS en config.ts). Mientras ataca se
+ *      para (ver isAttacking):
  *        - los barriles disparan abanicos de chorros que pueden apuntar al jugador;
- *        - el pijo lanza botellas que van a por él (ver Enemy.thrownAt).
+ *        - el pijo lanza botellas hacia donde está él (ver Enemy.thrownAt).
  *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido y cambia su
  *      ritmo de ataque (ver BOSS_ENRAGE y los enraged* de cada jefe).
  *
  * Puede haber varios a la vez (en el nivel 4, dos pijos): cada uno empieza en
- * su hueco del callejón y los vecinos salen en direcciones opuestas.
+ * su hueco del callejón, los vecinos salen en direcciones opuestas y atacan
+ * por turnos (cada uno empieza con su parte de la pausa de retraso).
  *
  * Se le gana bajándole la vida a 0: cada abrechapas quita PLAYER_BULLET.damage.
  */
@@ -66,6 +68,10 @@ export class Boss implements Rect {
   private flashSteps = 0;
   /** Pasos que quedan hasta poder volver a hacer daño por contacto. */
   private contactCooldown = 0;
+  /** Pasos que le quedan quieto tras acabar una ráfaga (recoverSteps). */
+  private recoverSteps = 0;
+  /** Pasos que lleva andando: marcan el frame de la animación del pijo. */
+  private walkSteps = 0;
 
   constructor(
     readonly id: BossId,
@@ -83,7 +89,8 @@ export class Boss implements Rect {
     this.height = this.stats.height;
     this.maxHealth = Math.max(1, Math.round(this.stats.health * healthScale));
     this.health = this.maxHealth;
-    this.fireCooldown = this.stats.burstPause;
+    // Por turnos: con dos jefes, el segundo ataca a mitad de la pausa del primero
+    this.fireCooldown = this.stats.burstPause + Math.round((this.stats.burstPause * slot) / count);
     this.burstLeft = this.stats.burstSize;
     this.random = random;
     this.bottleSpeedScale = bottleSpeedScale;
@@ -116,6 +123,29 @@ export class Boss implements Rect {
     return (this.health / this.maxHealth) * 100;
   }
 
+  /**
+   * true mientras ataca, y entonces no se mueve: desde windupSteps pasos antes
+   * de la ráfaga (cogiendo impulso) hasta recoverSteps pasos después.
+   */
+  get isAttacking(): boolean {
+    if (this.isEntering) return false;
+    const inBurst = this.burstLeft < this.stats.burstSize;
+    const windingUp = this.fireCooldown <= this.stats.windupSteps;
+    return inBurst || windingUp || this.recoverSteps > 0;
+  }
+
+  /**
+   * Pose que toca dibujar (la usa el renderer con la hoja del pijo):
+   *   'windup' brazo arriba con la botella, a punto de lanzarla
+   *   'throw'  brazo estirado, recién lanzada
+   *   0 o 1    los dos pasos al andar de lado
+   */
+  get pose(): 'windup' | 'throw' | 0 | 1 {
+    if (this.recoverSteps > 0) return 'throw';
+    if (this.isAttacking) return 'windup';
+    return Math.floor(this.walkSteps / BOSS_COMMON.walkFrameSteps) % 2 === 0 ? 0 : 1;
+  }
+
   /** Punto por el que sale el ataque: abajo en el centro (el grifo, o las manos del pijo). */
   private get tap(): Point {
     return { x: this.x + this.width / 2, y: this.y + this.height };
@@ -135,8 +165,12 @@ export class Boss implements Rect {
       return NO_ATTACK;
     }
 
-    this.patrol();
-    if (--this.fireCooldown > 0) return NO_ATTACK;
+    // Primero corre el tiempo y después se decide si anda: así en el paso en
+    // que ataca (fireCooldown llega a 0) ya está quieto
+    this.fireCooldown--;
+    if (this.recoverSteps > 0) this.recoverSteps--;
+    if (!this.isAttacking) this.patrol();
+    if (this.fireCooldown > 0) return NO_ATTACK;
 
     // Ráfaga: dentro de ella, poca espera entre ataques; al acabarla, la pausa larga
     this.burstLeft--;
@@ -144,6 +178,7 @@ export class Boss implements Rect {
       this.fireCooldown = this.stats.burstGap;
     } else {
       this.burstLeft = this.stats.burstSize;
+      this.recoverSteps = this.stats.recoverSteps;
       const pauseScale = this.isEnraged ? this.stats.enragedPauseScale : 1;
       this.fireCooldown = Math.round(this.stats.burstPause * pauseScale);
     }
@@ -174,6 +209,7 @@ export class Boss implements Rect {
 
   /** De lado a lado, dando la vuelta al llegar a una pared. Con furia, más rápido. */
   private patrol(): void {
+    this.walkSteps++;
     const speed = this.stats.speed * (this.isEnraged ? BOSS_ENRAGE.speedScale : 1);
     this.x += this.direction * speed;
     const maxX = this.field.right - this.width;

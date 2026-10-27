@@ -5,9 +5,14 @@
  * que usa el juego. En el original estaban escritas a mano y la página decía
  * "C: Disparar" cuando el juego disparaba con la V. Ahora es imposible que
  * se desincronicen: si cambias una tecla en config.ts, esta página cambia sola.
+ *
+ * La tecla de la chupa no sale hasta que el jugador desbloquea el nivel en el
+ * que se estrena: así no se le adelanta algo que aún no ha visto en el juego.
  */
+import { FIRST_JACKET_LEVEL } from '@pijobeer/shared';
 import { useTranslation } from 'react-i18next';
 import { Panel } from '../components/ui/Panel';
+import { useProgress } from '../features/progress/useProgress';
 import { CONTROLS } from '../game/config';
 import styles from './ControlsPage.module.css';
 
@@ -25,6 +30,7 @@ function keyLabel(key: string): string {
 
 export function ControlsPage() {
   const { t } = useTranslation();
+  const { isLevelUnlocked } = useProgress();
   const movementKeys = [CONTROLS.up, CONTROLS.left, CONTROLS.down, CONTROLS.right]
     .map(keyLabel)
     .join('');
@@ -32,7 +38,9 @@ export function ControlsPage() {
   const rows = [
     { keys: movementKeys, action: t('controls.move') },
     { keys: keyLabel(CONTROLS.shoot), action: t('controls.shoot') },
-    { keys: keyLabel(CONTROLS.shield), action: t('controls.shield') },
+    ...(isLevelUnlocked(FIRST_JACKET_LEVEL)
+      ? [{ keys: keyLabel(CONTROLS.shield), action: t('controls.shield') }]
+      : []),
     { keys: keyLabel(CONTROLS.pause), action: t('controls.pause') },
   ];
 

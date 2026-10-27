@@ -11,7 +11,7 @@
  *
  * También lleva la CHUPA (ver JACKET en config.ts): manteniendo la B se tapa
  * con ella y queda quieto; GameSession le avisa con blockShot() de cada
- * chorro que para, y al tercero se empapa y tarda unos segundos en secarse.
+ * chorro que para, y al tercero seguido se empapa y tarda un poco en secarse.
  */
 import {
   ARENA,
@@ -78,6 +78,9 @@ export class Player implements Rect {
 
   /** Chorros que aún puede parar la chupa antes de empaparse. */
   private blocksLeft: number = JACKET.maxBlocks;
+
+  /** Pasos desde el último chorro parado (para saber si el siguiente va "seguido"). */
+  private stepsSinceBlock = 0;
 
   /** Pasos que le quedan a la chupa para secarse (0 = seca, lista para usarla). */
   private dryingSteps = 0;
@@ -146,6 +149,8 @@ export class Player implements Rect {
     }: PlayerStepOptions = {},
   ): Bullet | null {
     if (this.dryingSteps > 0) this.dryingSteps--;
+    // Un rato sin que le dé ningún chorro: los siguientes ya no cuentan como seguidos
+    if (++this.stepsSinceBlock >= JACKET.resetSteps) this.blocksLeft = JACKET.maxBlocks;
     this.isShielding = jacketAllowed && this.dryingSteps === 0 && input.isDown('shield');
     // Con las manos en la chupa no se mueve ni dispara: como si no pulsara nada más
     const isDown = (action: GameAction) => !this.isShielding && input.isDown(action);
@@ -193,10 +198,12 @@ export class Player implements Rect {
   }
 
   /**
-   * La chupa ha parado un chorro de espuma. Al llegar a JACKET.maxBlocks se
-   * empapa: se la quita (deja de proteger ya en este paso) y empieza a secarse.
+   * La chupa ha parado un chorro de espuma. Al llegar a JACKET.maxBlocks
+   * seguidos se empapa: se la quita (deja de proteger ya en este paso) y
+   * empieza a secarse.
    */
   blockShot(): void {
+    this.stepsSinceBlock = 0;
     this.blocksLeft--;
     if (this.blocksLeft > 0) return;
     this.blocksLeft = JACKET.maxBlocks;

@@ -71,7 +71,9 @@
       "level4Opening": "{{hero}}: Well, we're leaving the industrial estate. There'll be even more posh scum around here.",
       "pijosHero": "{{hero}}: Hey! Are you the ones who've been throwing those fucking bottles at me?",
       "pijosReply": "Posh kids: *sobbing* Y-yes! Stop chasing us! We'll reach our goal even if you try to stop us! *they burst into tears out of sheer terror*",
-      "pijosHint": "Careful: the jacket doesn't protect you from flying bottles."
+      "pijosHint": "Careful: the jacket doesn't protect you from flying bottles.",
+      "pijosDefeatedHero": "{{hero}}: If you're here, who's the idiot throwing barrels?",
+      "pijosDefeatedReply": "Posh kids: *crying like babies* It's our big strong cousin! He'll give you the beating of your life, scum!"
     },
     "cheatsActive": "Admin cheats active: this game does not count for the ranking."
   },
@@ -110,7 +112,7 @@
     "title": "Controls",
     "move": "Movement",
     "shoot": "Shoot",
-    "shield": "Shield yourself with the jacket (from level 3)",
+    "shield": "Shield yourself with the jacket (from the level 3 boss onwards)",
     "pause": "Pause"
   },
   "credits": {

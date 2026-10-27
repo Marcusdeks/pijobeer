@@ -76,13 +76,18 @@ export const PLAYER = {
  * el callejón no avanza. Solo para la ESPUMA: los botellazos (chocar con una
  * botella o con un jefe) hacen daño igual.
  *
- * Tras parar maxBlocks chorros se empapa y se la quita: no vuelve a servir
- * hasta que pasen dryingSteps pasos (una barra azul lo indica).
+ * Se puede usar siempre, salvo si para maxBlocks chorros SEGUIDOS: entonces
+ * se empapa, se la quita y no vuelve a servir hasta que pasen dryingSteps
+ * pasos (una barra azul lo indica). Cuentan como seguidos mientras no pase
+ * más de resetSteps sin que le dé ninguno: así un chorro suelto de vez en
+ * cuando no la empapa nunca, pero una ráfaga entera sí.
  */
 export const JACKET = {
   maxBlocks: 3,
-  /** 300 pasos = 5 s secándose. */
-  dryingSteps: 300,
+  /** 120 pasos = 2 s secándose. */
+  dryingSteps: 120,
+  /** 60 pasos = 1 s sin recibir ningún chorro y la cuenta vuelve a empezar. */
+  resetSteps: 60,
 } as const;
 
 /**
@@ -96,12 +101,6 @@ export const ENEMY = {
    */
   width: 20,
   height: 46,
-  /**
-   * El primer disparo de cada botella llega tras un retraso aleatorio entre
-   * estos dos valores. Si no, todas dispararían sincronizadas.
-   */
-  firstShotDelayMin: 60,
-  firstShotDelayMax: 120,
   /**
    * Animación de disparo: frames de la hoja que se reproducen al disparar
    * (1 salta la chapa · 2 explota la espuma · 3 gotea · 4 abierta). Fuera
@@ -126,6 +125,9 @@ export const ENEMY = {
 /** Caja de colisión de cualquier botella (ver ENEMY). */
 const BOTTLE_BOX = { width: ENEMY.width, height: ENEMY.height } as const;
 
+/** Las botellas disparan por primera vez entre 1 y 2 s después de aparecer. */
+const BOTTLE_FIRST_SHOT = [60, 120] as const;
+
 /**
  * TIPOS DE ENEMIGO. Cada nivel decide en qué proporción salen (enemyMix en
  * packages/shared/src/levels.ts). El dibujo indica el tipo, para que el
@@ -134,26 +136,57 @@ const BOTTLE_BOX = { width: ENEMY.width, height: ENEMY.height } as const;
  *   speed         píxeles por paso de caída (antes del multiplicador del nivel)
  *   shootCooldown pasos de espera entre el final de un disparo y el siguiente
  *   hits          abrechapas que aguanta (los puntos de cada uno, en ENEMY_POINTS)
+ *   firstShot     [mín, máx] pasos hasta el primer disparo; se sortea un valor entre
+ *                 los dos para que no disparen todos a la vez
  *   aimed         true = dispara hacia donde está el jugador; false = recto hacia abajo
  *   variant       color en la hoja de botellas (null = no es una botella)
  *   width/height  caja de colisión
  */
 export const ENEMY_TYPES = {
   /** La de siempre. */
-  normal: { speed: 2, shootCooldown: 90, hits: 1, aimed: false, variant: 'pink', ...BOTTLE_BOX },
+  normal: {
+    speed: 2,
+    shootCooldown: 90,
+    firstShot: BOTTLE_FIRST_SHOT,
+    hits: 1,
+    aimed: false,
+    variant: 'pink',
+    ...BOTTLE_BOX,
+  },
   /** Rápida: baja más deprisa, dispara como la normal. */
-  fast: { speed: 3.2, shootCooldown: 90, hits: 1, aimed: false, variant: 'gold', ...BOTTLE_BOX },
-  /** Pesada: lenta, pero dispara el doble (espera menos de la mitad entre disparos). */
-  heavy: { speed: 1.3, shootCooldown: 33, hits: 1, aimed: false, variant: 'dark', ...BOTTLE_BOX },
+  fast: {
+    speed: 3.2,
+    shootCooldown: 90,
+    firstShot: BOTTLE_FIRST_SHOT,
+    hits: 1,
+    aimed: false,
+    variant: 'gold',
+    ...BOTTLE_BOX,
+  },
   /**
-   * Barril pequeño (nivel 4): a la velocidad de la pesada, aguanta 3 impactos y
-   * apunta al jugador. Dispara menos que una botella porque no hay que esquivar
-   * solo su espuma: también hay que gastar tres disparos en él.
+   * Pesada: lenta, pero dispara mucho más. Con la animación de disparo (24
+   * pasos) y 10 de espera, hace unos 1,8 disparos por segundo (la normal, 0,5).
+   */
+  heavy: {
+    speed: 1.3,
+    shootCooldown: 10,
+    firstShot: BOTTLE_FIRST_SHOT,
+    hits: 1,
+    aimed: false,
+    variant: 'dark',
+    ...BOTTLE_BOX,
+  },
+  /**
+   * Barril pequeño (nivel 4): el más lento de todos, aguanta 3 impactos y
+   * apunta al jugador. Al ir tan despacio pasa mucho rato en pantalla, así que
+   * es una amenaza constante: un disparo apuntado cada 75 pasos (1,25 s), y
+   * el primero nada más entrar en pantalla (entre 0,25 y 0,5 s).
    * Caja: el dibujo (barrel-minion.json, 34x44) sin los bordes redondeados.
    */
   barrel: {
-    speed: 1.3,
-    shootCooldown: 150,
+    speed: 0.7,
+    shootCooldown: 75,
+    firstShot: [15, 30],
     hits: 3,
     aimed: true,
     variant: null,
@@ -165,6 +198,7 @@ export const ENEMY_TYPES = {
   {
     speed: number;
     shootCooldown: number;
+    firstShot: readonly [number, number];
     hits: number;
     aimed: boolean;
     variant: string | null;
@@ -175,16 +209,21 @@ export const ENEMY_TYPES = {
 
 /**
  * BOTELLAS LANZADAS por los pijos (jefes del nivel 4). Son botellas normales
- * de un tipo al azar (disparan como su tipo, hacia donde van), pero en vez
- * de caer rectas van a por el jugador girando poco a poco: con un giro
- * máximo por paso pequeño, un cambio de dirección a tiempo basta para
- * esquivarlas. Cuando ya han pasado al jugador dejan de girar y siguen recto.
+ * de un tipo al azar (disparan como su tipo, hacia donde van), pero en vez de
+ * caer rectas salen en línea recta hacia donde ESTABA el jugador al lanzarlas:
+ * no le persiguen (una botella no cambia de rumbo en el aire), así que
+ * moverse a tiempo basta para esquivarlas.
  */
 export const THROWN_BOTTLE = {
-  /** Píxeles por paso. */
-  speed: 3,
-  /** Grados que puede girar como mucho en cada paso. */
-  turnDeg: 1.2,
+  /** Píxeles por paso (más rápidas que cualquier botella que cae). */
+  speed: 5,
+  /**
+   * Pasos hasta que empieza su primer disparo: le salta la chapa a los 3
+   * pasos y la espuma sale 12 después (ver ENEMY.fireOnFrame), a los 0,25 s
+   * de lanzarla. Si esperase como una botella normal, a esta velocidad
+   * llegaría al jugador sin haber disparado nunca.
+   */
+  firstShot: 3,
 } as const;
 
 /**
@@ -194,7 +233,11 @@ export const THROWN_BOTTLE = {
  * seguidos (separados burstGap pasos) y después una pausa de burstPause pasos.
  * Se les gana bajándoles la vida a 0 (cada abrechapas quita PLAYER_BULLET.damage).
  *
- *   attack      'foam' = chorros de espuma; 'bottles' = lanza botellas teledirigidas
+ * Mientras atacan NO se mueven: se paran windupSteps pasos antes de la ráfaga
+ * (el pijo coge impulso), durante toda ella y recoverSteps pasos después.
+ * Ese rato quietos es el momento de acertarles.
+ *
+ *   attack      'foam' = chorros de espuma; 'bottles' = lanza botellas
  *   streams     cuántos chorros (o botellas) salen en cada ataque
  *   spreadDeg   apertura total del abanico, en grados (0 = todos juntos)
  *   aimed       true = el abanico apunta al jugador; false = hacia abajo
@@ -219,6 +262,8 @@ interface BossStats {
   enragedExtraStreams: number;
   enragedExtraSpreadDeg: number;
   enragedPauseScale: number;
+  windupSteps: number;
+  recoverSteps: number;
 }
 
 export const BOSS = {
@@ -245,6 +290,8 @@ export const BOSS = {
      * 92 pasos en vez de una cada 46 (24 + 45 × 0,5).
      */
     enragedPauseScale: 1.5,
+    windupSteps: 0,
+    recoverSteps: 0,
   },
   /**
    * Hierro: abanico que apunta al jugador. Pocos chorros y bien separados
@@ -267,27 +314,33 @@ export const BOSS = {
     enragedExtraStreams: 1,
     enragedExtraSpreadDeg: 20,
     enragedPauseScale: 0.5,
+    windupSteps: 0,
+    recoverSteps: 0,
   },
   /**
-   * Pijo (nivel 4, salen dos): lanza una botella teledirigida cada 2 s, de un
-   * tipo al azar. Con furia, una cada segundo.
+   * Pijo (nivel 4, salen dos): lanza una botella cada 1,5 s, de un tipo al
+   * azar. Con furia, una cada 0,75 s. Mide lo mismo que el protagonista.
+   * Los dos se alternan: el segundo empieza con media pausa de retraso.
    */
   pijo: {
     attack: 'bottles',
     health: 100,
-    /** Caja de colisión (el dibujo mide 60x96; se recortan los brazos). */
-    width: 44,
-    height: 88,
+    /** Caja de colisión: la misma que la del jugador (ver PLAYER). */
+    width: 30,
+    height: 64,
     speed: 2,
     burstSize: 1,
     burstGap: 1,
-    burstPause: 120,
+    burstPause: 90,
     streams: 1,
     spreadDeg: 0,
     aimed: true,
     enragedExtraStreams: 0,
     enragedExtraSpreadDeg: 0,
     enragedPauseScale: 0.5,
+    /** Brazo arriba con la botella (aviso de que va a lanzar) y brazo estirado tras lanzarla. */
+    windupSteps: 20,
+    recoverSteps: 15,
   },
 } as const satisfies Record<BossId, BossStats>;
 
@@ -315,17 +368,14 @@ export const BOSS_COMMON = {
    * imposibles de esquivar.
    */
   maxAimDeg: 55,
-  /**
-   * Durante el combate siguen cayendo botellas, pero más despacio: el ritmo
-   * del nivel multiplicado por este número (2 = la mitad de botellas).
-   */
-  minionSpawnFactor: 2,
   /** Vida que quita al jugador si se le acerca demasiado. */
   contactDamage: 20,
   /** Pasos sin volver a hacer daño por contacto (si no, quitaría 20 de vida en cada paso). */
   contactCooldown: 45,
   /** Pasos que dura el destello blanco al recibir un impacto. */
   hitFlashSteps: 4,
+  /** Pasos por frame al andar de lado (el pijo alterna sus dos pasos). */
+  walkFrameSteps: 12,
 } as const;
 
 /**

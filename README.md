@@ -140,17 +140,18 @@ Todo el arte fuente llega igual (dibujos sobre fondo magenta, a tamaños distint
 por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comunes están en
 `scripts/sprites/lib.mjs` y cada hoja tiene su módulo:
 
-| Hoja                | Arte fuente        | Frames                                                                | Ancla              |
-| ------------------- | ------------------ | --------------------------------------------------------------------- | ------------------ |
-| `player.png`        | `art/player/`      | 8 direcciones × (neutro, paso, neutro, paso)                          | pies (32, 69)      |
-| `player-jacket.png` | `art/player/`      | 1 (tapándose con la chupa, de espaldas)                               | pies (32, 69)      |
-| `enemy-bottles.png` | `art/enemies/`     | 3 colores × 5 (cerrada → chapa → espuma → …)                          | base de la botella |
-| `bullet-foam.png`   | `art/projectiles/` | 2 cortos (salida) + 3 largos (en bucle)                               | cabeza del chorro  |
-| `bullet-opener.png` | `art/projectiles/` | 4 (llamas en bucle)                                                   | aro del abrechapas |
-| `bosses.png`        | `art/bosses/`      | 3 jefes (madera, hierro, pijo) × (normal, destello blanco al recibir) | centro del jefe    |
-| `barrel-minion.png` | `art/bosses/`      | barril pequeño (el de madera reducido) × (normal, destello)           | centro del barril  |
-| `pickups.png`       | `art/pickups/`     | 2 latas (vida, velocidad), sin animación                              | centro de la lata  |
-| `alley-N-*.webp`    | `art/alleys/`      | suelo + paredes de cada callejón (parallax)                           | —                  |
+| Hoja                | Arte fuente        | Frames                                                                 | Ancla              |
+| ------------------- | ------------------ | ---------------------------------------------------------------------- | ------------------ |
+| `player.png`        | `art/player/`      | 8 direcciones × (neutro, paso, neutro, paso)                           | pies (32, 69)      |
+| `player-jacket.png` | `art/player/`      | 1 (tapándose con la chupa, de espaldas)                                | pies (32, 69)      |
+| `enemy-bottles.png` | `art/enemies/`     | 3 colores × 5 (cerrada → chapa → espuma → …)                           | base de la botella |
+| `bullet-foam.png`   | `art/projectiles/` | 2 cortos (salida) + 3 largos (en bucle)                                | cabeza del chorro  |
+| `bullet-opener.png` | `art/projectiles/` | 4 (llamas en bucle)                                                    | aro del abrechapas |
+| `bosses.png`        | `art/bosses/`      | 2 barriles jefe (madera, hierro) × (normal, destello blanco)           | centro del jefe    |
+| `pijo.png`          | `art/bosses/`      | 4 poses (2 pasos de lado, brazo arriba, lanzando) × (normal, destello) | pies (36, 78)      |
+| `barrel-minion.png` | `art/bosses/`      | barril pequeño (el de madera reducido) × (normal, destello)            | centro del barril  |
+| `pickups.png`       | `art/pickups/`     | 2 latas (vida, velocidad), sin animación                               | centro de la lata  |
+| `alley-N-*.webp`    | `art/alleys/`      | suelo + paredes de cada callejón (parallax)                            | —                  |
 
 - **`player.json`** lo escribes tú y es la fuente de verdad del jugador (tamaño de frame, filas, pivote,
   velocidad). Los demás `.json` los **genera** el script: no se editan a mano.
@@ -168,22 +169,24 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 | 1     | 36 botellas                      | 1,5 s               | ×1        | normales                           | —                                                                  |
 | 2     | 50 botellas + 1800 px recorridos | 1,2 s               | ×1,15     | normales, rápidas, pesadas         | Barril de madera (80 de vida, ráfagas de 5 apuntadas)              |
 | 3     | 60 botellas + 2400 px recorridos | 0,9 s               | ×1,3      | más rápidas y pesadas              | Barril de hierro (140 de vida, ráfagas de 3 abanicos de 3 chorros) |
-| 4     | 70 enemigos + 3000 px recorridos | 0,8 s               | ×1,4      | las tres + barriles pequeños (4 %) | Dos pijos (100 de vida cada uno, lanzan botellas teledirigidas)    |
+| 4     | 70 enemigos + 3000 px recorridos | 0,8 s               | ×1,4      | las tres + barriles pequeños (4 %) | Dos pijos (100 de vida cada uno, lanzan botellas cada 1,5 s)       |
 
 La distancia (`distanceToComplete`) no se le enseña al jugador: son 30, 40 y 50 s mirando hacia delante,
 así que pasarse el nivel mirando a los lados no basta para llegar al jefe. Si un admin fija las botellas
 a eliminar con sus trucos, la distancia deja de contar (para poder probar el jefe sin esperar).
 
 - **Tipos de enemigo** (`ENEMY_TYPES` en `game/config.ts`; puntos en `ENEMY_POINTS`): el dibujo indica el tipo.
-  Rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara el doble). En el nivel 4,
-  además, **barriles de madera pequeños**: van a la velocidad de la negra, aguantan 3 impactos (destellan en
-  blanco con cada uno), apuntan al jugador y dan 50 puntos en vez de 10.
+  Rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara más del triple). En el
+  nivel 4, además, **barriles de madera pequeños**: los más lentos de todos (0,7), aguantan 3 impactos
+  (destellan en blanco con cada uno), disparan apuntando al jugador nada más entrar y luego cada 1,25 s, y dan 50 puntos en vez de 10.
 - **Disparos**: el jugador dispara siempre recto hacia arriba y las botellas recto hacia abajo. Los jefes y
   los barriles pequeños apuntan a donde está el jugador **en el momento del disparo**; la espuma sigue recta,
   sin perseguirle. Cada abrechapas quita **5 de vida** a un jefe (`PLAYER_BULLET.damage`).
-- **La chupa** (tecla **B**, niveles 3 y 4; `JACKET` en `game/config.ts`): manteniéndola, el jugador se tapa y
-  la espuma no le hace daño, pero no puede moverse ni disparar. Para **3 chorros** y se empapa: tarda **5 s** en
-  secarse (barra azul). No protege de los botellazos (chocar con una botella o con un jefe).
+- **La chupa** (tecla **B**; `JACKET` en `game/config.ts`): en el nivel 3 solo contra el jefe y en el 4 durante
+  todo el nivel (`jacket` en `levels.ts`). Manteniéndola, el jugador se tapa y la espuma no le hace daño, pero
+  no puede moverse ni disparar. Si para **3 chorros seguidos** (sin pasar 1 s entre uno y otro) se empapa y
+  tarda **2 s** en secarse (barra azul). No protege de los botellazos (chocar con una botella o con un jefe).
+  La página de Controles no enseña la B hasta que se desbloquea el nivel 3.
 - **Callejones**: uno por nivel, en bucle, como una **cinta de correr** (`CAMERA` en `game/config.ts`):
 
   | Situación                                    | Avance del callejón (px/paso) |
@@ -200,14 +203,18 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
   aleja con el suelo); parado, cada cosa cae a su ritmo. Las paredes son el límite de la zona jugable
   (`game/playfield.ts`; la medida sale del propio arte al generar los sprites).
 
-- **Jefes**: al cumplir el objetivo entran los jefes del nivel (en el 4, dos a la vez) y las botellas siguen
-  cayendo a la mitad de ritmo. Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al
-  jugador: los barriles con chorros de espuma; los **pijos**, lanzando botellas de cualquier tipo que van a por
-  él girando poco a poco (`THROWN_BOTTLE`) y que disparan hacia donde van. Cuando les queda un 20 % de vida
-  entran en **furia** (barra rosa) y van más rápido:
+- **Jefes**: al cumplir el objetivo entran los jefes del nivel (en el 4, dos a la vez) y **dejan de caer
+  botellas** (en el 4 sigue llegando un barril pequeño cada 6 s: `bossFightEnemy` en `levels.ts`). Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al jugador: los
+  barriles con chorros de espuma; los **pijos** (del tamaño del protagonista), lanzando botellas de cualquier
+  tipo que salen rectas y rápidas hacia donde estaba el jugador (`THROWN_BOTTLE`), sin perseguirle, y que
+  disparan hacia donde van a los 0,25 s de lanzarlas. Los dos pijos se **alternan**: uno lanza a mitad de
+  la pausa del otro. **Mientras atacan no se mueven**: los barriles se paran durante la ráfaga y el
+  pijo, además, levanta el brazo con la botella un tercio de segundo antes de lanzarla (y se queda con el
+  brazo estirado un momento después). Cuando les queda un 20 % de vida entran en **furia** (barra rosa) y van
+  más rápido:
   - Madera: 2 chorros más por disparo, pero la **mitad de ráfagas** (del mismo tamaño).
   - Hierro: 1 chorro más y menos pausa, siempre con más de 20° entre chorro y chorro para poder esquivarlos.
-  - Pijos: una botella cada segundo en vez de cada dos.
+  - Pijos: una botella cada 0,75 s en vez de cada 1,5 s.
 
   Con varios jefes, la barra es la vida que les queda entre todos. Se gana al vaciarla. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
 
@@ -236,7 +243,7 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
   solos al cabo de unos segundos.
   - Nivel 3, justo antes del jefe y **solo la primera vez** (se recuerda en el navegador): cómo usar la chupa.
   - Nivel 4, siempre y con botón para saltarlos: el de Marcus al empezar y el diálogo con los pijos antes
-    de que aparezcan.
+    de que aparezcan y otro al derrotarlos (antes de la victoria), que anuncia al "primo más fuertote".
 
   El motor solo sabe "pararse" en esos momentos (`DialogMoment` en `GameSession`); qué texto toca lo decide
   la página.

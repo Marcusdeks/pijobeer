@@ -276,19 +276,15 @@ describe('jefes finales', () => {
     expect(onVictory).not.toHaveBeenCalled();
   });
 
-  it('durante el combate siguen cayendo botellas, pero a menor ritmo', () => {
+  it('durante el combate dejan de caer botellas (el nivel 2 no tiene enemigos de combate)', () => {
     const { game } = bossFight();
-    const { spawnInterval } = getLevel(2);
     game.enemies = [];
-    let spawned = 0;
-    for (let i = 0; i < spawnInterval * BOSS_COMMON.minionSpawnFactor; i++) {
+    for (let i = 0; i < getLevel(2).spawnInterval * 3; i++) {
       // Sin balas del jefe: aquí solo se cuentan las botellas, no se busca morir
       game.enemyBullets = [];
-      const before = game.enemies.length;
       game.step(fakeInput());
-      if (game.enemies.length > before) spawned++;
     }
-    expect(spawned).toBe(1);
+    expect(game.enemies).toHaveLength(0);
   });
 
   it('su contacto quita vida una vez y espera antes de volver a hacerlo', () => {
@@ -495,8 +491,23 @@ describe('la chupa en la partida', () => {
     game.enemyBullets.push(new Bullet(x + 10, y + 10, 0, ENEMY_BULLET));
   }
 
-  it('desde el nivel 3, manteniendo la B, para la espuma; al tercer chorro se empapa', () => {
+  it('en el nivel 3 solo sirve contra el jefe: antes, la B no hace nada', () => {
     const game = session(3);
+    addFoamOnPlayer(game);
+    game.step(fakeInput('shield'));
+    expect(game.player.isShielding).toBe(false);
+    expect(game.player.health).toBe(PLAYER.maxHealth - ENEMY.bulletDamage);
+
+    game.kills = getLevel(3).killsToComplete;
+    game.backgroundDistance = getLevel(3).distanceToComplete;
+    game.step(fakeInput()); // entra el jefe
+    expect(game.jacketAllowed).toBe(true);
+    game.step(fakeInput('shield'));
+    expect(game.player.isShielding).toBe(true);
+  });
+
+  it('en el nivel 4, manteniendo la B, para la espuma; al tercer chorro seguido se empapa', () => {
+    const game = session(4);
     for (let i = 0; i < JACKET.maxBlocks; i++) {
       game.enemies = [];
       addFoamOnPlayer(game);
@@ -613,7 +624,46 @@ describe('nivel 4', () => {
     expect(onVictory).toHaveBeenCalledTimes(1);
   });
 
-  it('los pijos lanzan botellas que van a por el jugador', () => {
+  it('contra los pijos siguen llegando barriles pequeños (y nada más)', () => {
+    const game = session(4, { modifiers: withModifiers({ invincible: true }) });
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    game.step(fakeInput()); // entran los pijos
+    const interval = game.rules.bossFightEnemy!.spawnInterval;
+    const spawned: string[] = [];
+    for (let i = 0; i < interval * 2; i++) {
+      const before = new Set(game.enemies);
+      game.step(fakeInput('left'));
+      for (const enemy of game.enemies)
+        if (!before.has(enemy) && !enemy.thrown) spawned.push(enemy.type);
+    }
+    expect(spawned).toEqual(['barrel', 'barrel']);
+  });
+
+  it('al derrotar a los pijos, la partida se para con su texto y la victoria llega al cerrarlo', () => {
+    const onDialog = vi.fn();
+    const onVictory = vi.fn();
+    const game = session(4, {
+      dialogs: ['afterBosses'],
+      events: { onDialog, onVictory },
+      modifiers: withModifiers({ invincible: true }),
+    });
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    run(game, BOSS_ENTRY_STEPS);
+    for (const boss of game.bosses) while (!boss.isDead) boss.hit();
+    game.step(fakeInput());
+    expect(game.status).toBe('dialog');
+    expect(onDialog).toHaveBeenCalledWith('afterBosses');
+    expect(onVictory).not.toHaveBeenCalled();
+
+    game.closeDialog();
+    game.step(fakeInput());
+    expect(game.status).toBe('victory');
+    expect(onVictory).toHaveBeenCalledTimes(1);
+  });
+
+  it('los pijos lanzan botellas hacia el jugador', () => {
     const game = session(4, { modifiers: withModifiers({ invincible: true }) });
     game.kills = getLevel(4).killsToComplete;
     game.backgroundDistance = getLevel(4).distanceToComplete;

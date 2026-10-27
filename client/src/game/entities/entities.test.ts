@@ -102,6 +102,24 @@ describe('Player', () => {
     expect(player.isShielding).toBe(true); // ya seca
   });
 
+  it('solo se empapa con chorros seguidos: 1 s sin recibir ninguno y la cuenta vuelve a empezar', () => {
+    const player = new Player(400, 400);
+    const shield = () => player.update(fakeInput('shield'), { jacketAllowed: true });
+    shield();
+    // Muchos chorros sueltos, separados más de resetSteps: nunca se empapa
+    for (let i = 0; i < JACKET.maxBlocks * 3; i++) {
+      player.blockShot();
+      for (let step = 0; step < JACKET.resetSteps; step++) shield();
+      expect(player.isShielding).toBe(true);
+    }
+    // Los mismos, seguidos: al tercero se empapa
+    for (let i = 0; i < JACKET.maxBlocks; i++) {
+      player.blockShot();
+      shield();
+    }
+    expect(player.isShielding).toBe(false);
+  });
+
   it('la vida no baja de 0', () => {
     const player = Player.spawn();
     player.takeDamage(PLAYER.maxHealth + 50);
@@ -156,23 +174,44 @@ describe('Enemy (botella)', () => {
     expect(bullet.velocityY).toBeGreaterThan(0);
   });
 
-  it('el barril va a la velocidad de la botella pesada', () => {
-    expect(ENEMY_TYPES.barrel.speed).toBe(ENEMY_TYPES.heavy.speed);
+  it('el barril es el enemigo más lento y dispara el doble que antes (cada 75 pasos)', () => {
+    const others = (['normal', 'fast', 'heavy'] as const).map((type) => ENEMY_TYPES[type].speed);
+    expect(ENEMY_TYPES.barrel.speed).toBeLessThan(Math.min(...others));
+
+    const barrel = new Enemy(100, 0, 'barrel', fixedRandom);
+    stepUntilShot(barrel);
+    expect(stepUntilShot(barrel).step).toBe(ENEMY_TYPES.barrel.shootCooldown);
+    expect(ENEMY_TYPES.barrel.shootCooldown).toBe(75);
   });
 
-  it('la botella lanzada gira poco a poco hacia el jugador y, al pasarle, sigue recta', () => {
-    const target = { x: 600, y: 450 };
-    const bottle = Enemy.thrownAt('normal', { x: 400, y: 100 }, { x: 400, y: 450 }, fixedRandom);
-    expect(bottle.heading).toBe(0);
+  it('el barril dispara por primera vez nada más entrar (0,25-0,5 s)', () => {
+    const [min, max] = ENEMY_TYPES.barrel.firstShot;
+    for (const r of [0, 0.999]) {
+      const { step } = stepUntilShot(new Enemy(100, 0, 'barrel', () => r));
+      expect(step).toBeGreaterThanOrEqual(min);
+      expect(step).toBeLessThanOrEqual(max);
+    }
+  });
 
-    bottle.update(target);
-    expect(bottle.heading).toBeCloseTo(THROWN_BOTTLE.turnDeg); // gira, pero solo un poco
-    for (let i = 0; i < 300 && bottle.center.y < target.y; i++) bottle.update(target);
-    expect(bottle.heading).toBeGreaterThan(0);
+  it('la botella lanzada dispara enseguida (a los 0,25 s), hacia donde va', () => {
+    const bottle = Enemy.thrownAt('heavy', { x: 400, y: 100 }, { x: 600, y: 450 }, fixedRandom);
+    const { bullet, step } = stepUntilShot(bottle);
+    expect(step).toBeLessThanOrEqual(16);
+    expect(bullet.velocityX).toBeGreaterThan(0);
+  });
 
+  it('la botella lanzada va recta hacia donde estaba el jugador: no le persigue', () => {
+    const from = { x: 400, y: 100 };
+    const bottle = Enemy.thrownAt('normal', from, { x: 600, y: 450 }, fixedRandom);
     const heading = bottle.heading;
-    bottle.update({ x: 0, y: 450 }); // ya le ha pasado: no vuelve a por él
+    expect(heading).toBeGreaterThan(0); // hacia la derecha, donde estaba
+
+    const start = bottle.center;
+    bottle.update({ x: 0, y: 450 }); // el jugador se ha ido a la izquierda
     expect(bottle.heading).toBe(heading);
+    const moved = Math.hypot(bottle.center.x - start.x, bottle.center.y - start.y);
+    expect(moved).toBeCloseTo(THROWN_BOTTLE.speed);
+    expect(bottle.center.x).toBeGreaterThan(start.x);
   });
 
   it('cada tipo baja a su velocidad, multiplicada por la del nivel', () => {
@@ -186,13 +225,13 @@ describe('Enemy (botella)', () => {
     expect(fall('normal', 1.5)).toBe(ENEMY_TYPES.normal.speed * 1.5);
   });
 
-  it('la pesada dispara el doble de seguido que la normal', () => {
+  it('la pesada dispara mucho más seguido que la normal (más del triple)', () => {
     const gap = (type: 'normal' | 'heavy') => {
       const enemy = new Enemy(100, 0, type, fixedRandom);
       stepUntilShot(enemy);
       return stepUntilShot(enemy).step;
     };
-    expect(gap('heavy')).toBeLessThanOrEqual(gap('normal') / 2 + 1);
+    expect(gap('heavy')).toBeLessThan(gap('normal') / 3);
   });
 
   it('aparece siempre sobre el suelo, nunca en las paredes', () => {
@@ -341,12 +380,66 @@ describe('Boss (jefe final)', () => {
     expect(minGap(angles(boss))).toBeGreaterThanOrEqual(20);
   });
 
-  it('el pijo no dispara espuma: lanza botellas que van a por el jugador', () => {
+  it('no se mueve mientras ataca: quieto durante la ráfaga y anda en la pausa', () => {
+    for (const id of ['wood', 'iron', 'pijo'] as const) {
+      const boss = arrived(id);
+      let moved = 0;
+      let attacked = 0;
+      for (let step = 0; step < 600; step++) {
+        const x = boss.x;
+        const { bullets, bottles } = boss.update();
+        if (bullets.length || bottles.length) {
+          attacked++;
+          expect(boss.x).toBe(x);
+        }
+        if (boss.isAttacking) expect(boss.x).toBe(x);
+        else if (boss.x !== x) moved++;
+      }
+      expect(attacked).toBeGreaterThan(0);
+      expect(moved).toBeGreaterThan(0);
+    }
+  });
+
+  it('el pijo coge impulso con el brazo arriba, lanza y vuelve a andar', () => {
+    const boss = arrived('pijo');
+    const { windupSteps, recoverSteps } = BOSS.pijo;
+    const poses: string[] = [];
+    let attack = boss.update();
+    poses.push(String(boss.pose));
+    while (!attack.bottles.length) {
+      attack = boss.update();
+      poses.push(String(boss.pose));
+    }
+    // Antes de lanzar: andando (poses 0 y 1) y luego windupSteps pasos con el brazo arriba
+    const windup = poses.slice(-windupSteps - 1, -1);
+    expect(windup.every((pose) => pose === 'windup')).toBe(true);
+    expect(poses.slice(0, -windupSteps - 1).every((pose) => pose === '0' || pose === '1')).toBe(
+      true,
+    );
+    // Al lanzar: brazo estirado recoverSteps pasos, y vuelve a andar
+    expect(poses.at(-1)).toBe('throw');
+    for (let i = 1; i < recoverSteps; i++) expect(boss.update() && boss.pose).toBe('throw');
+    boss.update();
+    expect([0, 1]).toContain(boss.pose);
+  });
+
+  it('el pijo no dispara espuma: lanza botellas hacia el jugador', () => {
     const { bullets, bottles } = nextAttack(arrived('pijo'), { x: 400, y: 450 });
     expect(bullets).toHaveLength(0);
     expect(bottles).toHaveLength(1);
     expect(bottles[0]!.thrown).toBe(true);
     expect(['normal', 'fast', 'heavy']).toContain(bottles[0]!.type);
+  });
+
+  it('dos pijos atacan por turnos: el segundo, a mitad de la pausa del primero', () => {
+    const pijos = [0, 1].map((slot) => new Boss('pijo', field, { slot, count: 2 }));
+    const firstAttack = pijos.map((boss) => {
+      for (let step = 1; step < 1000; step++) {
+        if (boss.update().bottles.length) return step;
+      }
+      throw new Error('No ha lanzado');
+    });
+    expect(firstAttack[1]! - firstAttack[0]!).toBe(BOSS.pijo.burstPause / 2);
   });
 
   it('dos jefes a la vez empiezan separados y salen en direcciones opuestas', () => {

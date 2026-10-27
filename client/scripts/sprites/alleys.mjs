@@ -31,8 +31,8 @@ const ALLEYS = [
   { id: 1, file: 'alley-1.png', wallLeft: 0.14, wallRight: 0.875 },
   { id: 2, file: 'alley-2.png', wallLeft: 0.155, wallRight: 0.86 },
   { id: 3, file: 'alley-3.png', wallLeft: 0.145, wallRight: 0.885 },
-  // Nivel 4: ya fuera del polígono; a los lados hay fachadas en vez de muros de ladrillo
-  { id: 4, file: 'alley-4.png', wallLeft: 0.15, wallRight: 0.87 },
+  // Nivel 4: calle de ciudad (ya fuera del polígono), con aceras y fachadas a los lados
+  { id: 4, file: 'alley-4.png', wallLeft: 0.15, wallRight: 0.84 },
 ];
 
 /**
@@ -90,8 +90,10 @@ export async function buildAlleySheets() {
  * tramo vertical más alto de cada tira.
  */
 async function findStrips(file) {
+  // Lo transparente (márgenes que traen algunas imágenes) se pinta de negro:
+  // así cuenta como marco y no se cuela en la primera o la última tira
   const { data, info } = await sharp(file)
-    .removeAlpha()
+    .flatten({ background: '#000000' })
     .raw()
     .toBuffer({ resolveWithObject: true });
   const { width: W, height: H, channels: C } = info;

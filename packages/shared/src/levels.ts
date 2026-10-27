@@ -17,7 +17,7 @@
 
 /**
  * Jefes finales disponibles (su comportamiento está en client/src/game/config.ts).
- * Los barriles disparan espuma; el pijo lanza botellas teledirigidas.
+ * Los barriles disparan espuma; el pijo lanza botellas hacia el jugador.
  */
 export type BossId = 'wood' | 'iron' | 'pijo';
 
@@ -48,8 +48,13 @@ export interface LevelDefinition {
    * sin jefe). Se gana al derrotarlos a todos.
    */
   readonly bosses: readonly BossId[];
-  /** Si el jugador puede protegerse con la chupa (tecla B) en este nivel. */
-  readonly jacket: boolean;
+  /**
+   * Enemigos que siguen saliendo DURANTE el combate con los jefes (null = ninguno):
+   * de qué tipo y cada cuántos pasos.
+   */
+  readonly bossFightEnemy: { readonly type: EnemyTypeId; readonly spawnInterval: number } | null;
+  /** Desde cuándo puede protegerse el jugador con la chupa (tecla B) en este nivel. */
+  readonly jacket: JacketAvailability;
   /** Pasos entre la aparición de una botella y la siguiente (60 pasos = 1 s). */
   readonly spawnInterval: number;
   /** Multiplicador de la velocidad de caída de las botellas. */
@@ -58,6 +63,14 @@ export interface LevelDefinition {
   readonly enemyMix: Readonly<Partial<Record<EnemyTypeId, number>>>;
 }
 
+/**
+ * Cuándo se puede usar la chupa en un nivel:
+ *   never   nunca
+ *   bosses  solo contra los jefes (en el nivel 3, donde se aprende a usarla)
+ *   always  durante todo el nivel
+ */
+export type JacketAvailability = 'never' | 'bosses' | 'always';
+
 export const LEVELS: readonly LevelDefinition[] = [
   {
     id: 1,
@@ -65,7 +78,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     killsToComplete: 36,
     distanceToComplete: 0,
     bosses: [],
-    jacket: false,
+    bossFightEnemy: null,
+    jacket: 'never',
     spawnInterval: 90,
     enemySpeed: 1,
     enemyMix: { normal: 1 },
@@ -77,7 +91,8 @@ export const LEVELS: readonly LevelDefinition[] = [
     // 30 s avanzando por el callejón (60 px/s, ver CAMERA en el cliente)
     distanceToComplete: 1800,
     bosses: ['wood'],
-    jacket: false,
+    bossFightEnemy: null,
+    jacket: 'never',
     spawnInterval: 70,
     enemySpeed: 1.15,
     enemyMix: { normal: 5, fast: 3, heavy: 2 },
@@ -89,8 +104,9 @@ export const LEVELS: readonly LevelDefinition[] = [
     // 40 s avanzando por el callejón
     distanceToComplete: 2400,
     bosses: ['iron'],
-    // Desde aquí, la chupa (el aviso de cómo usarla sale antes del jefe, la primera vez)
-    jacket: true,
+    bossFightEnemy: null,
+    // La chupa se estrena contra el jefe (el aviso de cómo usarla sale justo antes, la primera vez)
+    jacket: 'bosses',
     spawnInterval: 55,
     enemySpeed: 1.3,
     enemyMix: { normal: 3, fast: 4, heavy: 3 },
@@ -101,9 +117,11 @@ export const LEVELS: readonly LevelDefinition[] = [
     killsToComplete: 70,
     // 50 s avanzando por el callejón
     distanceToComplete: 3000,
-    // Dos pijos a la vez, que lanzan botellas teledirigidas
+    // Dos pijos a la vez, que lanzan botellas hacia donde está el jugador
     bosses: ['pijo', 'pijo'],
-    jacket: true,
+    // Mientras, siguen llegando barriles pequeños: uno cada 6 s
+    bossFightEnemy: { type: 'barrel', spawnInterval: 360 },
+    jacket: 'always',
     spawnInterval: 48,
     enemySpeed: 1.4,
     // 1 de cada 25 es un barril pequeño (4 %): unos 3 por nivel
@@ -116,6 +134,13 @@ export const MAX_LEVEL = LEVELS.length;
 
 /** Nivel con el que empieza cualquier jugador. */
 export const FIRST_LEVEL = 1;
+
+/**
+ * Primer nivel en el que se puede usar la chupa (donde se aprende). Se deriva
+ * de LEVELS: si la chupa se adelanta o se retrasa, el aviso y la página de
+ * Controles cambian solos.
+ */
+export const FIRST_JACKET_LEVEL = LEVELS.find((level) => level.jacket !== 'never')!.id;
 
 /**
  * Devuelve la definición de un nivel.

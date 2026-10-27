@@ -71,7 +71,9 @@
       "level4Opening": "{{hero}} : Tiens, on sort enfin de la zone industrielle. Ici, il y aura encore plus de racaille bourge.",
       "pijosHero": "{{hero}} : Hé ! C'est vous qui m'avez balancé ces putains de bouteilles ?",
       "pijosReply": "Bourges : *sanglotent* O-oui ! Arrête de nous poursuivre ! On atteindra notre but même si tu essaies de nous arrêter ! *ils fondent en larmes de pure terreur*",
-      "pijosHint": "Attention : le blouson ne protège pas des bouteilles lancées."
+      "pijosHint": "Attention : le blouson ne protège pas des bouteilles lancées.",
+      "pijosDefeatedHero": "{{hero}} : Si vous êtes ici, qui est le crétin qui lance des tonneaux ?",
+      "pijosDefeatedReply": "Bourges : *pleurent comme des mauviettes* C'est notre cousin le plus costaud ! Tu vas voir, il va te mettre la raclée de ta vie, minable !"
     },
     "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
   },
@@ -110,7 +112,7 @@
     "title": "Commandes",
     "move": "Déplacement",
     "shoot": "Tirer",
-    "shield": "Se protéger avec le blouson (dès le niveau 3)",
+    "shield": "Se protéger avec le blouson (à partir du boss du niveau 3)",
     "pause": "Pause"
   },
   "credits": {
