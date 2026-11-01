@@ -119,8 +119,9 @@ export const LEVELS: readonly LevelDefinition[] = [
     distanceToComplete: 3000,
     // Dos pijos a la vez, que lanzan botellas hacia donde está el jugador
     bosses: ['pijo', 'pijo'],
-    // Mientras, siguen llegando barriles pequeños: uno cada 6 s
-    bossFightEnemy: { type: 'barrel', spawnInterval: 360 },
+    // Mientras, siguen llegando barriles pequeños: uno cada 9 s en Normal
+    // (11,25 s en Fácil y 7,5 s en Difícil, por el spawnRate de la dificultad)
+    bossFightEnemy: { type: 'barrel', spawnInterval: 540 },
     jacket: 'always',
     spawnInterval: 48,
     enemySpeed: 1.4,

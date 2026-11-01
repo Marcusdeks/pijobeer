@@ -18,7 +18,7 @@ import {
   type GameModifiers,
   type LevelDefinition,
 } from '@pijobeer/shared';
-import { PICKUP, PICKUP_TYPES, PLAYER } from './config';
+import { MIN_SPAWN_INTERVAL, PICKUP, PICKUP_TYPES, PLAYER } from './config';
 import type { RandomFn } from './entities/Enemy';
 import { playfieldFor, type Playfield } from './playfield';
 
@@ -49,9 +49,6 @@ export interface GameRules {
   /** Elige al azar el tipo de la siguiente botella, según la mezcla del nivel. */
   pickEnemyType: (random: RandomFn) => EnemyTypeId;
 }
-
-/** Nunca sale más de una botella cada este número de pasos, aunque un truco lo pida. */
-const MIN_SPAWN_INTERVAL = 10;
 
 export function resolveRules(
   levelId: number,

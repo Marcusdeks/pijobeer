@@ -3,7 +3,7 @@
  */
 import request from 'supertest';
 import { beforeEach, describe, expect, it } from 'vitest';
-import { MAX_LEVEL } from '@pijobeer/shared';
+import { MAX_LEVEL, maxPointsFor } from '@pijobeer/shared';
 import { buildTestApp } from './helpers/test-app';
 
 describe('perfil, progreso y puntuaciones', () => {
@@ -31,6 +31,7 @@ describe('perfil, progreso y puntuaciones', () => {
     it.each([
       ['patch', '/api/users/me'],
       ['patch', '/api/users/me/progress'],
+      ['post', '/api/scores/start'],
       ['post', '/api/scores'],
       ['get', '/api/scores/me'],
     ] as const)('%s %s responde 401 sin sesión', async (method, url) => {
@@ -112,18 +113,89 @@ describe('perfil, progreso y puntuaciones', () => {
   });
 
   describe('/api/scores', () => {
+    /** Un ticket de partida recién pedido, para el nivel indicado. */
+    async function startGame(browser: ReturnType<typeof request.agent>, level = 1) {
+      const res = await browser.post('/api/scores/start').send({ level }).expect(201);
+      return res.body.ticket as string;
+    }
+
+    /** Juega "por la API": pide el ticket, deja pasar el tiempo y manda los puntos. */
+    async function playGame(
+      browser: ReturnType<typeof request.agent>,
+      { level = 1, points = 100, seconds = 600 } = {},
+    ) {
+      const ticket = await startGame(browser, level);
+      ctx.advanceClock(seconds);
+      return browser.post('/api/scores').send({ ticket, points });
+    }
+
     it('rechaza puntuaciones imposibles (no múltiplo de los puntos por enemigo)', async () => {
       const browser = await loggedInAs('pepe');
-      await browser.post('/api/scores').send({ points: 15, level: 1 }).expect(400);
+      const res = await playGame(browser, { points: 15 });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('VALIDATION_ERROR');
+    });
+
+    it('no deja empezar un nivel que aún no se ha desbloqueado', async () => {
+      const browser = await loggedInAs('pepe');
+      const res = await browser.post('/api/scores/start').send({ level: 2 }).expect(403);
+      expect(res.body.error.code).toBe('LEVEL_LOCKED');
+
+      await browser.patch('/api/users/me/progress').send({ maxLevel: 2 }).expect(200);
+      await startGame(browser, 2);
+    });
+
+    it('sin un ticket auténtico y propio no se guarda nada', async () => {
+      const pepe = await loggedInAs('pepe');
+      const juan = await loggedInAs('juan');
+      const ticketDePepe = await startGame(pepe);
+      ctx.advanceClock(600);
+
+      for (const [browser, ticket] of [
+        [pepe, 'esto-no-es-un-ticket'],
+        [pepe, ticketDePepe.slice(0, -2) + 'xx'], // firma manipulada
+        [juan, ticketDePepe], // el de otro jugador
+      ] as const) {
+        const res = await browser.post('/api/scores').send({ ticket, points: 100 }).expect(400);
+        expect(res.body.error.code).toBe('GAME_TICKET_INVALID');
+      }
+      expect(ctx.scores.rows).toHaveLength(0);
+    });
+
+    it('rechaza más puntos de los que da tiempo a conseguir', async () => {
+      const browser = await loggedInAs('pepe');
+      const max = maxPointsFor(1, 30);
+
+      const tooMany = await playGame(browser, { points: max + 10, seconds: 30 });
+      expect(tooMany.status).toBe(400);
+      expect(tooMany.body.error.code).toBe('SCORE_NOT_POSSIBLE');
+
+      await playGame(browser, { points: max, seconds: 30 }).then((res) =>
+        expect(res.status).toBe(201),
+      );
+    });
+
+    it('el nivel guardado es el del ticket', async () => {
+      const browser = await loggedInAs('pepe');
+      await browser.patch('/api/users/me/progress').send({ maxLevel: 2 }).expect(200);
+      await playGame(browser, { level: 2 }).then((res) => expect(res.status).toBe(201));
+      expect(ctx.scores.rows[0]!.level).toBe(2);
+    });
+
+    it('el ticket caduca a las 3 horas', async () => {
+      const browser = await loggedInAs('pepe');
+      const res = await playGame(browser, { seconds: 3 * 60 * 60 + 1 });
+      expect(res.status).toBe(400);
+      expect(res.body.error.code).toBe('GAME_TICKET_INVALID');
     });
 
     it('el ranking muestra el récord de cada jugador, ordenado', async () => {
       const pepe = await loggedInAs('pepe');
       const juan = await loggedInAs('juan');
 
-      await pepe.post('/api/scores').send({ points: 100, level: 1 }).expect(201);
-      await pepe.post('/api/scores').send({ points: 300, level: 2 }).expect(201);
-      await juan.post('/api/scores').send({ points: 200, level: 1 }).expect(201);
+      await playGame(pepe, { points: 100 }).then((res) => expect(res.status).toBe(201));
+      await playGame(pepe, { points: 300 }).then((res) => expect(res.status).toBe(201));
+      await playGame(juan, { points: 200 }).then((res) => expect(res.status).toBe(201));
 
       const res = await request(ctx.app).get('/api/scores/ranking').expect(200);
       expect(res.body.ranking).toEqual([
@@ -134,8 +206,8 @@ describe('perfil, progreso y puntuaciones', () => {
 
     it('"mis partidas" devuelve resumen y partidas de mayor a menor', async () => {
       const pepe = await loggedInAs('pepe');
-      await pepe.post('/api/scores').send({ points: 100, level: 1 }).expect(201);
-      await pepe.post('/api/scores').send({ points: 300, level: 2 }).expect(201);
+      await playGame(pepe, { points: 100 }).then((res) => expect(res.status).toBe(201));
+      await playGame(pepe, { points: 300 }).then((res) => expect(res.status).toBe(201));
 
       const res = await pepe.get('/api/scores/me').expect(200);
       expect(res.body).toMatchObject({ bestScore: 300, gamesPlayed: 2 });

@@ -57,6 +57,20 @@ describe('/api/admin', () => {
     expect(user.gameModifiers).toMatchObject({ killsToComplete: 2, invincible: true });
   });
 
+  it('las partidas con trucos activos no se guardan en el ranking', async () => {
+    const { browser } = await loggedInAs('jefe', { admin: true });
+    await browser.put('/api/admin/modifiers').send({ invincible: true }).expect(200);
+
+    const { body } = await browser.post('/api/scores/start').send({ level: 1 }).expect(201);
+    ctx.advanceClock(600);
+    const res = await browser
+      .post('/api/scores')
+      .send({ ticket: body.ticket, points: 100 })
+      .expect(403);
+    expect(res.body.error.code).toBe('CHEATS_ACTIVE');
+    expect(ctx.scores.rows).toHaveLength(0);
+  });
+
   it('rechaza valores fuera de rango y campos que no existen', async () => {
     const { browser } = await loggedInAs('jefe', { admin: true });
     await browser.put('/api/admin/modifiers').send({ enemySpeed: 50 }).expect(400);

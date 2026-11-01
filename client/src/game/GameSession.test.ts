@@ -260,19 +260,18 @@ describe('fin de partida', () => {
 describe('jefes finales', () => {
   /** Partida del nivel 2 con el jefe ya colocado arriba. */
   function bossFight() {
-    const onBossAppear = vi.fn();
     const onVictory = vi.fn();
-    const game = session(2, { events: { onBossAppear, onVictory } });
+    const game = session(2, { events: { onVictory } });
     game.kills = getLevel(2).killsToComplete;
     game.backgroundDistance = getLevel(2).distanceToComplete;
     run(game, BOSS_ENTRY_STEPS);
-    return { game, boss: game.bosses[0]!, onBossAppear, onVictory };
+    return { game, boss: game.bosses[0]!, onVictory };
   }
 
   it('al cumplir el objetivo entra el jefe (sin ganar aún)', () => {
-    const { boss, onBossAppear, onVictory } = bossFight();
+    const { game, boss, onVictory } = bossFight();
+    expect(game.bosses).toHaveLength(1);
     expect(boss.id).toBe('wood');
-    expect(onBossAppear).toHaveBeenCalledTimes(1);
     expect(onVictory).not.toHaveBeenCalled();
   });
 
@@ -661,6 +660,28 @@ describe('nivel 4', () => {
     game.step(fakeInput());
     expect(game.status).toBe('victory');
     expect(onVictory).toHaveBeenCalledTimes(1);
+  });
+
+  it('los pijos se turnan también con furia: nunca lanzan a la vez', () => {
+    const game = session(4, { modifiers: withModifiers({ invincible: true }) });
+    game.kills = getLevel(4).killsToComplete;
+    game.backgroundDistance = getLevel(4).distanceToComplete;
+    run(game, BOSS_ENTRY_STEPS);
+    // Con furia los dos tienen la misma pausa: es cuando antes se sincronizaban
+    for (const boss of game.bosses) while (!boss.isEnraged) boss.hit();
+
+    const throwSteps: number[] = [];
+    for (let step = 0; step < 900; step++) {
+      const before = new Set(game.enemies);
+      game.step(fakeInput('left'));
+      const thrown = game.enemies.filter((enemy) => !before.has(enemy) && enemy.thrown).length;
+      expect(thrown).toBeLessThanOrEqual(1);
+      if (thrown > 0) throwSteps.push(step);
+    }
+    const gaps = throwSteps.slice(1).map((step, i) => step - throwSteps[i]!);
+    const enragedPause = Math.round(BOSS.pijo.burstPause * BOSS.pijo.enragedPauseScale);
+    expect(throwSteps.length).toBeGreaterThan(10);
+    expect(Math.min(...gaps)).toBeGreaterThanOrEqual(Math.round(enragedPause / 2));
   });
 
   it('los pijos lanzan botellas hacia el jugador', () => {

@@ -42,7 +42,7 @@ export function VerifyEmailPage() {
     alreadySent.current = true;
 
     authApi
-      .verifyEmail(token)
+      .verifyEmail({ token })
       .then(({ username }) => setState({ status: 'success', username }))
       .catch((err: unknown) => setState({ status: 'error', message: errorMessage(err) }));
   }, [token, errorMessage]);

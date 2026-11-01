@@ -3,7 +3,8 @@
  *
  * Si quieres que el juego sea más fácil, más difícil o más rápido, este es
  * el ÚNICO archivo que hay que tocar. Ningún otro archivo del motor tiene
- * números "mágicos" escritos a mano.
+ * números "mágicos" escritos a mano (solo los tamaños de letra y pequeños
+ * ajustes de posición de los textos, que son maquetación de renderer.ts).
  *
  * UNIDADES: las velocidades están en píxeles POR PASO de simulación y los
  * tiempos en PASOS. El motor ejecuta exactamente 60 pasos por segundo (ver
@@ -14,8 +15,21 @@
  */
 import type { BossId, EnemyTypeId } from '@pijobeer/shared';
 
-/** Pasos de simulación por segundo. No depende de los Hz del monitor. */
-export const SIMULATION_STEPS_PER_SECOND = 60;
+/**
+ * Pasos de simulación por segundo (60). No depende de los Hz del monitor. Vive en
+ * el paquete compartido porque el servidor también lo usa (antitrampas).
+ */
+export { SIMULATION_STEPS_PER_SECOND } from '@pijobeer/shared';
+
+/**
+ * Nunca sale más de una botella (o lata) cada este número de pasos, aunque la
+ * dificultad o un truco de admin pidan un ritmo mayor: así la pantalla no se
+ * llena de golpe y el juego no se atasca.
+ */
+export const MIN_SPAWN_INTERVAL = 10;
+
+/** Pasos del destello blanco de un enemigo (barril pequeño o jefe) al recibir un impacto que no lo mata. */
+export const HIT_FLASH_STEPS = 4;
 
 /** Tamaño lógico del área de juego, en píxeles. */
 export const ARENA = {
@@ -114,6 +128,13 @@ export const ENEMY = {
    * de la chapa (frame anterior) avisa al jugador de que viene un disparo.
    */
   fireOnFrame: 2,
+  /**
+   * Cuánto se concentran en el centro al aparecer (es donde suele moverse el
+   * jugador): la posición es la MEDIA de este número de sorteos. 1 = repartidas
+   * por igual en todo el ancho; 2 = en forma de triángulo, sobre todo por el
+   * centro y pocas pegadas a las paredes; cuanto más alto, más al centro.
+   */
+  spawnCenterBias: 2,
   /** Distancia entre el cuello de la botella y la bala al salir, para que no nazca dentro de la botella. */
   bulletGap: 6,
   /** Vida que quita una bala enemiga. */
@@ -224,6 +245,8 @@ export const THROWN_BOTTLE = {
    * llegaría al jugador sin haber disparado nunca.
    */
   firstShot: 3,
+  /** De qué tipos pueden ser (se elige uno al azar en cada lanzamiento). */
+  types: ['normal', 'fast', 'heavy'] satisfies EnemyTypeId[],
 } as const;
 
 /**
@@ -266,9 +289,34 @@ interface BossStats {
   recoverSteps: number;
 }
 
+/**
+ * PERFIL BASE de los jefes: los valores NEUTROS, los de "esta capacidad no la
+ * tiene" (un solo chorro, sin abanico, sin apuntar, sin ráfagas, la furia no
+ * cambia su ataque y no se para antes ni después de atacar).
+ *
+ * Cada jefe empieza copiándolo (...BOSS_BASE) y escribe encima solo lo que le
+ * hace distinto. Así cada valor está en un único sitio: si un jefe no lo
+ * menciona, tiene el neutro. Lo que no tiene un valor neutro con sentido
+ * (ataque, vida, tamaño, velocidad y pausa) no está aquí: TypeScript obliga a
+ * que cada jefe lo escriba.
+ */
+const BOSS_BASE = {
+  burstSize: 1,
+  burstGap: 0,
+  streams: 1,
+  spreadDeg: 0,
+  aimed: false,
+  enragedExtraStreams: 0,
+  enragedExtraSpreadDeg: 0,
+  enragedPauseScale: 1,
+  windupSteps: 0,
+  recoverSteps: 0,
+} as const satisfies Partial<BossStats>;
+
 export const BOSS = {
   /** Madera: apunta al jugador. Quedarse quieto es recibir toda la ráfaga. */
   wood: {
+    ...BOSS_BASE,
     attack: 'foam',
     health: 80,
     /** Caja de colisión (el dibujo mide 80x104; se recortan los bordes redondeados). */
@@ -279,8 +327,6 @@ export const BOSS = {
     burstSize: 5,
     burstGap: 6,
     burstPause: 45,
-    streams: 1,
-    spreadDeg: 0,
     aimed: true,
     enragedExtraStreams: 2,
     enragedExtraSpreadDeg: 30,
@@ -290,8 +336,6 @@ export const BOSS = {
      * 92 pasos en vez de una cada 46 (24 + 45 × 0,5).
      */
     enragedPauseScale: 1.5,
-    windupSteps: 0,
-    recoverSteps: 0,
   },
   /**
    * Hierro: abanico que apunta al jugador. Pocos chorros y bien separados
@@ -299,6 +343,7 @@ export const BOSS = {
    * dificultad está en su vida y en no parar de moverse, no en un muro de espuma.
    */
   iron: {
+    ...BOSS_BASE,
     attack: 'foam',
     health: 140,
     width: 70,
@@ -314,29 +359,22 @@ export const BOSS = {
     enragedExtraStreams: 1,
     enragedExtraSpreadDeg: 20,
     enragedPauseScale: 0.5,
-    windupSteps: 0,
-    recoverSteps: 0,
   },
   /**
-   * Pijo (nivel 4, salen dos): lanza una botella cada 1,5 s, de un tipo al
-   * azar. Con furia, una cada 0,75 s. Mide lo mismo que el protagonista.
-   * Los dos se alternan: el segundo empieza con media pausa de retraso.
+   * Pijo (nivel 4, salen dos): lanza una botella cada 1,8 s, de un tipo al
+   * azar. Con furia, una cada 0,9 s. Mide lo mismo que el protagonista.
+   * Los dos se turnan (ver Boss.waitTurn): nunca lanzan a la vez.
    */
   pijo: {
+    ...BOSS_BASE,
     attack: 'bottles',
     health: 100,
     /** Caja de colisión: la misma que la del jugador (ver PLAYER). */
     width: 30,
     height: 64,
     speed: 2,
-    burstSize: 1,
-    burstGap: 1,
-    burstPause: 90,
-    streams: 1,
-    spreadDeg: 0,
+    burstPause: 108,
     aimed: true,
-    enragedExtraStreams: 0,
-    enragedExtraSpreadDeg: 0,
     enragedPauseScale: 0.5,
     /** Brazo arriba con la botella (aviso de que va a lanzar) y brazo estirado tras lanzarla. */
     windupSteps: 20,
@@ -372,8 +410,6 @@ export const BOSS_COMMON = {
   contactDamage: 20,
   /** Pasos sin volver a hacer daño por contacto (si no, quitaría 20 de vida en cada paso). */
   contactCooldown: 45,
-  /** Pasos que dura el destello blanco al recibir un impacto. */
-  hitFlashSteps: 4,
   /** Pasos por frame al andar de lado (el pijo alterna sus dos pasos). */
   walkFrameSteps: 12,
 } as const;
@@ -393,6 +429,8 @@ export const PICKUP = {
   fallSpeed: 1.2,
   /** Pasos entre lata y lata en dificultad normal (900 = 15 s). */
   spawnInterval: 900,
+  /** Probabilidad de que la lata sea la verde (cura); si no, la de leopardo (velocidad). */
+  healthChance: 0.5,
 } as const;
 
 export const PICKUP_TYPES = {
@@ -461,11 +499,26 @@ export const ENEMY_BULLET = {
   frameSteps: 5,
 } as const;
 
+/**
+ * BARRAS que se dibujan en el canvas (tamaños en píxeles).
+ *   player  sobre la cabeza del jugador: la de vida y, apiladas encima, las del
+ *           acelerón y la chupa secándose (separadas stackGap)
+ *   boss    la de los jefes, arriba en el centro
+ *   border  grosor del marco oscuro que rodea cada barra
+ */
+export const HUD_BARS = {
+  player: { width: 36, height: 4, gap: 6, stackGap: 2, border: 1 },
+  boss: { width: 320, height: 10, top: 48, border: 2 },
+  /** % de vida desde el que la barra del jugador es verde, y desde el que es amarilla (por debajo, roja). */
+  healthyAt: 75,
+  hurtAt: 25,
+} as const;
+
 /** Paleta de colores del canvas. */
 export const COLORS = {
-  playerHealthy: '#00ff00', // vida >= 75 %
-  playerHurt: '#ffff00', // vida >= 25 %
-  playerCritical: '#ff0000', // vida < 25 %
+  playerHealthy: '#00ff00', // vida >= HUD_BARS.healthyAt
+  playerHurt: '#ffff00', // vida >= HUD_BARS.hurtAt
+  playerCritical: '#ff0000', // el resto
   /** Barra del acelerón de la lata de velocidad. */
   playerBoost: '#ffc400',
   /** Barra de la chupa mientras se seca. */
@@ -481,6 +534,9 @@ export const COLORS = {
   bossHealth: '#ff3b3b',
   /** Barra del jefe en fase de furia. */
   bossEnraged: '#ff00c8',
+  /** Marco oscuro de las barras del jugador y de los jefes. */
+  playerBarFrame: 'rgba(0, 0, 0, 0.6)',
+  bossBarFrame: 'rgba(0, 0, 0, 0.7)',
   /** Fondo mientras se descarga la imagen del callejón. */
   background: '#1a1418',
 } as const;

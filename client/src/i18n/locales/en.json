@@ -208,7 +208,11 @@
     "USERNAME_TAKEN": "That username is already taken.",
     "NOTHING_TO_UPDATE": "You haven't changed anything.",
     "PASSWORDS_DO_NOT_MATCH": "The new passwords do not match.",
-    "FORBIDDEN": "This section is for administrators only."
+    "FORBIDDEN": "This section is for administrators only.",
+    "LEVEL_LOCKED": "You have not unlocked that level yet.",
+    "GAME_TICKET_INVALID": "This game is not valid: please start it again.",
+    "SCORE_NOT_POSSIBLE": "That score is not possible in the time you have played.",
+    "CHEATS_ACTIVE": "Games with admin cheats do not count for the ranking."
   },
   "music": {
     "mute": "Mute music",

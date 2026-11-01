@@ -29,7 +29,7 @@ import {
   type EnemyTypeId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, ENEMY, type PickupTypeId } from './config';
+import { ARENA, BOSS_COMMON, ENEMY, PICKUP, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
@@ -61,8 +61,6 @@ export interface GameEvents {
   onStatusChange?: (status: GameStatus) => void;
   /** La partida se ha parado para enseñar un texto; sigue al llamar a closeDialog(). */
   onDialog?: (moment: DialogMoment) => void;
-  /** Han aparecido los jefes finales (p. ej. para cambiar la música). */
-  onBossAppear?: () => void;
   /** Nivel superado. Solo se emite una vez. */
   onVictory?: (result: GameResult) => void;
   /** Sin vida. Solo se emite una vez. */
@@ -238,11 +236,18 @@ export class GameSession {
       const enemyShot = enemy.update(target);
       if (enemyShot) this.enemyBullets.push(enemyShot);
     }
-    for (const boss of this.bosses) {
+    this.bosses.forEach((boss, index) => {
       const { bullets, bottles } = boss.update(target);
       this.enemyBullets.push(...bullets);
       this.enemies.push(...bottles);
-    }
+      if (bullets.length === 0 && bottles.length === 0) return;
+      // Por turnos: quien ataca hace esperar a los demás (ver Boss.waitTurn). Los
+      // que aún no se han movido en este paso descontarán uno al hacerlo: con +1
+      // esperan lo mismo que el resto, y nunca atacan en el mismo paso
+      this.bosses.forEach((other, otherIndex) => {
+        if (other !== boss) other.waitTurn(boss.turnGap + (otherIndex > index ? 1 : 0));
+      });
+    });
 
     for (const pickup of this.pickups) pickup.update();
     for (const bullet of this.playerBullets) bullet.update();
@@ -295,13 +300,12 @@ export class GameSession {
         }),
     );
     this.bossesSpawned = true;
-    this.events.onBossAppear?.();
   }
 
   /** Una lata cada pickupInterval pasos, también durante el combate con los jefes (ahí es cuando más falta hace). */
   private spawnPickup(): void {
     if (this.steps % this.rules.pickupInterval !== 0) return;
-    const type: PickupTypeId = this.random() < 0.5 ? 'health' : 'speed';
+    const type: PickupTypeId = this.random() < PICKUP.healthChance ? 'health' : 'speed';
     this.pickups.push(Pickup.spawn(type, this.rules.field, this.random));
   }
 

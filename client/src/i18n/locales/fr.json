@@ -208,7 +208,11 @@
     "USERNAME_TAKEN": "Ce nom d'utilisateur est déjà pris.",
     "NOTHING_TO_UPDATE": "Tu n'as rien modifié.",
     "PASSWORDS_DO_NOT_MATCH": "Les nouveaux mots de passe ne correspondent pas.",
-    "FORBIDDEN": "Cette section est réservée aux administrateurs."
+    "FORBIDDEN": "Cette section est réservée aux administrateurs.",
+    "LEVEL_LOCKED": "Tu n'as pas encore débloqué ce niveau.",
+    "GAME_TICKET_INVALID": "Cette partie n'est pas valide : recommence-la.",
+    "SCORE_NOT_POSSIBLE": "Ce score est impossible dans le temps que tu as joué.",
+    "CHEATS_ACTIVE": "Les parties avec des astuces d'admin ne comptent pas pour le classement."
   },
   "music": {
     "mute": "Couper la musique",

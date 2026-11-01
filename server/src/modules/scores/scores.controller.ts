@@ -2,13 +2,19 @@
  * CONTROLADOR DE PUNTUACIONES.
  */
 import type { Request, Response } from 'express';
-import type { MyScoresResponse, RankingResponse } from '@pijobeer/shared';
+import type { MyScoresResponse, RankingResponse, StartGameResponse } from '@pijobeer/shared';
 import { getAuthUserId } from '../../http/middlewares/authenticate';
 import type { ScoresService } from './scores.service';
-import type { SubmitScoreInput } from './scores.schemas';
+import type { StartGameInput, SubmitScoreInput } from './scores.schemas';
 
 export class ScoresController {
   constructor(private readonly scores: ScoresService) {}
+
+  /** POST /api/scores/start -> 201 con el ticket de la partida. */
+  start = async (req: Request, res: Response<StartGameResponse>): Promise<void> => {
+    const ticket = await this.scores.start(getAuthUserId(req), req.body as StartGameInput);
+    res.status(201).json({ ticket });
+  };
 
   /** POST /api/scores -> 201. El jugador sale de la sesión: nadie puede puntuar a nombre de otro. */
   submit = async (req: Request, res: Response): Promise<void> => {

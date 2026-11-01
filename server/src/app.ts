@@ -27,6 +27,7 @@ import { createAuthRouter } from './modules/auth/auth.routes';
 import { AuthService } from './modules/auth/auth.service';
 import type { PasswordHasher } from './modules/auth/password-hasher';
 import type { TokenService } from './modules/auth/token.service';
+import type { GameTicketService } from './modules/scores/game-ticket.service';
 import type { ScoreRepository } from './modules/scores/score.repository';
 import { ScoresController } from './modules/scores/scores.controller';
 import { createScoresRouter } from './modules/scores/scores.routes';
@@ -41,6 +42,10 @@ export interface AppDependencies {
   scoreRepository: ScoreRepository;
   passwordHasher: PasswordHasher;
   tokenService: TokenService;
+  /** Tickets de partida del antitrampas (ver scores.service.ts). */
+  gameTicketService: GameTicketService;
+  /** Reloj (Date.now en producción; uno falso en los tests para simular que pasa el tiempo). */
+  clock: () => number;
   mailer: Mailer;
   /** Comprueba que la BBDD responde (para /api/health). */
   checkDatabase: () => Promise<void>;
@@ -69,7 +74,12 @@ export function createApp(deps: AppDependencies): Express {
     { clientUrl: config.clientUrl, exposeVerificationUrl: config.exposeVerificationUrl },
   );
   const usersService = new UsersService(deps.userRepository, deps.passwordHasher);
-  const scoresService = new ScoresService(deps.scoreRepository);
+  const scoresService = new ScoresService(
+    deps.scoreRepository,
+    deps.userRepository,
+    deps.gameTicketService,
+    deps.clock,
+  );
   const adminService = new AdminService(deps.userRepository);
 
   const authController = new AuthController(authService);

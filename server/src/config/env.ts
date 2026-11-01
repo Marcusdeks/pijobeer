@@ -48,4 +48,3 @@ export const env = parsed.data;
 
 /** Atajos de lectura habitual. */
 export const isProduction = env.NODE_ENV === 'production';
-export const isTest = env.NODE_ENV === 'test';

@@ -15,11 +15,14 @@ import type {
   RankingResponse,
   RegisterRequest,
   RegisterResponse,
+  StartGameRequest,
+  StartGameResponse,
   SubmitScoreRequest,
   UpdateProfileRequest,
   UpdateProfileResponse,
   UpdateProgressRequest,
   UserResponse,
+  VerifyEmailRequest,
   VerifyEmailResponse,
 } from '@pijobeer/shared';
 import { request } from './http';
@@ -29,8 +32,8 @@ export const authApi = {
   login: (data: LoginRequest) => request<UserResponse>('POST', '/auth/login', data),
   register: (data: RegisterRequest) => request<RegisterResponse>('POST', '/auth/register', data),
   logout: () => request('POST', '/auth/logout'),
-  verifyEmail: (token: string) =>
-    request<VerifyEmailResponse>('POST', '/auth/verify-email', { token }),
+  verifyEmail: (data: VerifyEmailRequest) =>
+    request<VerifyEmailResponse>('POST', '/auth/verify-email', data),
 };
 
 export const usersApi = {
@@ -48,6 +51,8 @@ export const adminApi = {
 };
 
 export const scoresApi = {
+  /** Pide el ticket de una partida que empieza (sin él, el servidor no acepta la puntuación). */
+  start: (data: StartGameRequest) => request<StartGameResponse>('POST', '/scores/start', data),
   submit: (data: SubmitScoreRequest) => request('POST', '/scores', data),
   ranking: () => request<RankingResponse>('GET', '/scores/ranking'),
   mine: () => request<MyScoresResponse>('GET', '/scores/me'),

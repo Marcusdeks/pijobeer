@@ -34,6 +34,10 @@ export function ModifiersPanel({ modifiers, onChange }: ModifiersPanelProps) {
     try {
       const res = await adminApi.updateModifiers(next);
       onChange(res.modifiers);
+      // El formulario pasa a mostrar lo que ha quedado guardado. useState solo
+      // lee `modifiers` al montarse, así que sin esto "Restablecer" guardaba los
+      // valores por defecto pero las casillas seguían con los trucos antiguos
+      setDraft(res.modifiers);
       setMessage({ type: 'success', text: t('admin.saved') });
     } catch (err) {
       setMessage({ type: 'error', text: errorMessage(err) });

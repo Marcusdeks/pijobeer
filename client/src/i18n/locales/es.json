@@ -208,7 +208,11 @@
     "USERNAME_TAKEN": "Ese nombre de usuario ya está cogido.",
     "NOTHING_TO_UPDATE": "No has cambiado nada.",
     "PASSWORDS_DO_NOT_MATCH": "Las contraseñas nuevas no coinciden.",
-    "FORBIDDEN": "Esta sección es solo para administradores."
+    "FORBIDDEN": "Esta sección es solo para administradores.",
+    "LEVEL_LOCKED": "Todavía no has desbloqueado ese nivel.",
+    "GAME_TICKET_INVALID": "Esta partida no es válida: vuelve a empezarla.",
+    "SCORE_NOT_POSSIBLE": "Esa puntuación no es posible en el tiempo que has jugado.",
+    "CHEATS_ACTIVE": "Las partidas con trucos de admin no cuentan para el ranking."
   },
   "music": {
     "mute": "Silenciar música",

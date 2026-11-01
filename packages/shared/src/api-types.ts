@@ -109,9 +109,26 @@ export interface UpdateProgressRequest {
 //  Puntuaciones  (/api/scores)
 // ============================================================
 
-export interface SubmitScoreRequest {
-  points: number;
+/**
+ * POST /api/scores/start: al empezar una partida se pide un ticket. El
+ * servidor apunta dentro el jugador, el nivel y la hora, y lo firma.
+ */
+export interface StartGameRequest {
   level: number;
+}
+
+export interface StartGameResponse {
+  /** Ticket firmado (JWT): el navegador lo guarda y lo devuelve al acabar. */
+  ticket: string;
+}
+
+/**
+ * POST /api/scores: el resultado de la partida. El nivel no se manda: va
+ * dentro del ticket, que el jugador no puede cambiar sin romper la firma.
+ */
+export interface SubmitScoreRequest {
+  ticket: string;
+  points: number;
 }
 
 export interface RankingEntry {

@@ -129,6 +129,24 @@ describe('Player', () => {
 });
 
 describe('Enemy (botella)', () => {
+  it('aparecen sobre todo por el centro, donde suele moverse el jugador', () => {
+    const field = playfieldFor(getLevel(1));
+    const third = (field.right - field.left) / 3;
+    // Aleatorio repetible (generador congruencial): variado, pero siempre igual
+    let seed = 1;
+    const random = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+    let center = 0;
+    const total = 3000;
+    for (let i = 0; i < total; i++) {
+      const bottle = Enemy.spawn('normal', field, random);
+      const middle = bottle.x + bottle.width / 2;
+      if (middle > field.left + third && middle < field.right - third) center++;
+    }
+    // Repartidas por igual, al tercio central iría 1 de cada 3; con el triángulo, más de la mitad
+    expect(center / total).toBeGreaterThan(0.5);
+  });
+
   /** Avanza una botella hasta que dispare; devuelve la bala y el paso. */
   function stepUntilShot(enemy: Enemy, maxSteps = 500) {
     for (let step = 1; step <= maxSteps; step++) {

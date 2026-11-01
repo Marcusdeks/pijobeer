@@ -80,6 +80,13 @@ export function PlayPage() {
   const [difficulty, setDifficulty] = useDifficulty();
   const gameRef = useRef<GameCanvasHandle>(null);
   const runCounter = useRef(0);
+  /**
+   * Ticket de la partida en curso (ver scoresApi.start): el servidor lo exige
+   * para guardar la puntuación y con él mide cuánto ha durado. Es una promesa
+   * porque se pide al empezar y la partida no espera a que llegue; null = no
+   * hay (sin cuenta, con trucos o si falló la petición).
+   */
+  const ticketRef = useRef<Promise<string | null>>(Promise.resolve(null));
   const stageRef = useRef<HTMLDivElement>(null);
 
   const [screen, setScreen] = useState<Screen>({ name: 'menu' });
@@ -127,6 +134,13 @@ export function PlayPage() {
 
   function play(levelId: number) {
     runCounter.current += 1;
+    ticketRef.current =
+      user && !cheating
+        ? scoresApi.start({ level: levelId }).then(
+            (res) => res.ticket,
+            () => null,
+          )
+        : Promise.resolve(null);
     setGameStatus('running');
     setVictory(null);
     setStory(null);
@@ -168,8 +182,11 @@ export function PlayPage() {
   const saveScore = useCallback(
     (result: GameResult) => {
       if (!user || cheating) return;
-      scoresApi
-        .submit({ points: result.points, level: result.level })
+      ticketRef.current
+        .then((ticket) => {
+          if (!ticket) throw new Error('Partida sin ticket');
+          return scoresApi.submit({ ticket, points: result.points });
+        })
         .then(() =>
           setNotice({ type: 'success', text: t('play.scoreSaved', { points: result.points }) }),
         )

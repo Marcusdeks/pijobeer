@@ -15,6 +15,7 @@ import type {
   ScoreRecord,
   ScoreRepository,
 } from '../../src/modules/scores/score.repository';
+import { JwtGameTicketService } from '../../src/modules/scores/game-ticket.service';
 import type { CreateUserData, UserEntity } from '../../src/modules/users/user.entity';
 import type { UserRepository } from '../../src/modules/users/user.repository';
 
@@ -150,9 +151,16 @@ export class RecordingMailer implements Mailer {
   }
 }
 
-/** Crea una app nueva y vacía para cada test (sin estado compartido entre tests). */
-/** Crea una app nueva y vacía para cada test (sin estado compartido entre tests). */
+/** Secreto de los JWT en los tests (el de verdad está en .env). */
+const TEST_SECRET = 'test-secret-de-al-menos-32-caracteres-de-largo';
+
+/**
+ * Crea una app nueva y vacía para cada test (sin estado compartido entre tests).
+ * Su reloj es falso y está parado: advanceClock() simula que pasa el tiempo.
+ */
 export function buildTestApp() {
+  let now = Date.now();
+  const clock = () => now;
   const users = new InMemoryUserRepository();
   const scores = new InMemoryScoreRepository(users);
   const mailer = new RecordingMailer();
@@ -161,7 +169,9 @@ export function buildTestApp() {
     userRepository: users,
     scoreRepository: scores,
     passwordHasher: fakeHasher,
-    tokenService: new JwtTokenService('test-secret-de-al-menos-32-caracteres-de-largo', 3600),
+    tokenService: new JwtTokenService(TEST_SECRET, 3600),
+    gameTicketService: new JwtGameTicketService(TEST_SECRET, 3 * 60 * 60, clock),
+    clock,
     mailer,
     checkDatabase: async () => {},
     config: {
@@ -173,5 +183,10 @@ export function buildTestApp() {
     },
   });
 
-  return { app, users, scores, mailer };
+  /** Simula que pasan `seconds` segundos (para el antitrampas de las puntuaciones). */
+  const advanceClock = (seconds: number) => {
+    now += seconds * 1000;
+  };
+
+  return { app, users, scores, mailer, advanceClock };
 }

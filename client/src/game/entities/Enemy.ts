@@ -24,7 +24,15 @@
  * enemigo muera.
  */
 import type { EnemyTypeId } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, ENEMY, ENEMY_BULLET, ENEMY_TYPES, THROWN_BOTTLE } from '../config';
+import {
+  ARENA,
+  BOSS_COMMON,
+  ENEMY,
+  ENEMY_BULLET,
+  ENEMY_TYPES,
+  HIT_FLASH_STEPS,
+  THROWN_BOTTLE,
+} from '../config';
 import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
@@ -36,8 +44,6 @@ export type RandomFn = () => number;
 const IDLE_FRAME = 0;
 /** Pasos que dura la animación de disparo completa. */
 const SHOT_STEPS = ENEMY.shootAnimation.length * ENEMY.shootFrameSteps;
-/** Pasos del destello blanco al recibir un impacto que no lo mata (barril). */
-const HIT_FLASH_STEPS = 4;
 
 export class Enemy implements Rect {
   readonly width: number;
@@ -97,7 +103,10 @@ export class Enemy implements Rect {
    */
   static spawn(type: EnemyTypeId, field: Playfield, random: RandomFn, speedScale = 1): Enemy {
     const { width, height } = ENEMY_TYPES[type];
-    const x = field.left + random() * (field.right - field.left - width);
+    // Media de varios sorteos: los valores del centro salen más (ver ENEMY.spawnCenterBias)
+    let roll = 0;
+    for (let i = 0; i < ENEMY.spawnCenterBias; i++) roll += random();
+    const x = field.left + (roll / ENEMY.spawnCenterBias) * (field.right - field.left - width);
     return new Enemy(x, -height, type, random, speedScale);
   }
 

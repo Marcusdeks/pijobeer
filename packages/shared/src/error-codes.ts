@@ -34,6 +34,12 @@ export const ERROR_CODES = [
   'USERNAME_TAKEN',
   'NOTHING_TO_UPDATE',
   'PASSWORDS_DO_NOT_MATCH',
+
+  // ---- Puntuaciones (antitrampas) ----
+  'LEVEL_LOCKED',
+  'GAME_TICKET_INVALID',
+  'SCORE_NOT_POSSIBLE',
+  'CHEATS_ACTIVE',
 ] as const;
 
 /** Unión de todos los códigos: 'VALIDATION_ERROR' | 'NOT_FOUND' | ... */

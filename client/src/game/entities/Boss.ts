@@ -13,12 +13,23 @@
  *
  * Puede haber varios a la vez (en el nivel 4, dos pijos): cada uno empieza en
  * su hueco del callejón, los vecinos salen en direcciones opuestas y atacan
- * por turnos (cada uno empieza con su parte de la pausa de retraso).
+ * por turnos: cada uno empieza con su parte de la pausa de retraso, y cuando
+ * uno ataca los demás esperan al menos media pausa suya (ver waitTurn). Sin
+ * esto último se sincronizaban: con furia la pausa se reduce a la mitad y el
+ * retraso inicial pasaba a ser justo una pausa entera.
  *
  * Se le gana bajándole la vida a 0: cada abrechapas quita PLAYER_BULLET.damage.
  */
-import type { BossId, EnemyTypeId } from '@pijobeer/shared';
-import { BOSS, BOSS_COMMON, BOSS_ENRAGE, ENEMY_BULLET, PLAYER_BULLET } from '../config';
+import type { BossId } from '@pijobeer/shared';
+import {
+  BOSS,
+  BOSS_COMMON,
+  BOSS_ENRAGE,
+  ENEMY_BULLET,
+  HIT_FLASH_STEPS,
+  PLAYER_BULLET,
+  THROWN_BOTTLE,
+} from '../config';
 import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
@@ -29,9 +40,6 @@ export interface BossAttack {
   bullets: Bullet[];
   bottles: Enemy[];
 }
-
-/** Las botellas que lanza el pijo: de cualquier tipo, al azar. */
-const THROWN_TYPES: readonly EnemyTypeId[] = ['normal', 'fast', 'heavy'];
 
 const NO_ATTACK: BossAttack = { bullets: [], bottles: [] };
 
@@ -72,6 +80,8 @@ export class Boss implements Rect {
   private recoverSteps = 0;
   /** Pasos que lleva andando: marcan el frame de la animación del pijo. */
   private walkSteps = 0;
+  /** Pausa que empezó al acabar su última ráfaga (ver turnGap). */
+  private lastPause = 0;
 
   constructor(
     readonly id: BossId,
@@ -146,6 +156,21 @@ export class Boss implements Rect {
     return Math.floor(this.walkSteps / BOSS_COMMON.walkFrameSteps) % 2 === 0 ? 0 : 1;
   }
 
+  /** Lo que deben esperar los demás jefes tras un ataque suyo: media pausa, para turnarse a partes iguales. */
+  get turnGap(): number {
+    return Math.round(this.lastPause / 2);
+  }
+
+  /**
+   * Acaba de atacar otro jefe: este espera al menos `steps` pasos antes de su
+   * siguiente ataque, para no atacar los dos a la vez. No corta una ráfaga ya
+   * empezada.
+   */
+  waitTurn(steps: number): void {
+    if (this.isEntering || this.burstLeft < this.stats.burstSize) return;
+    this.fireCooldown = Math.max(this.fireCooldown, steps);
+  }
+
   /** Punto por el que sale el ataque: abajo en el centro (el grifo, o las manos del pijo). */
   private get tap(): Point {
     return { x: this.x + this.width / 2, y: this.y + this.height };
@@ -180,7 +205,8 @@ export class Boss implements Rect {
       this.burstLeft = this.stats.burstSize;
       this.recoverSteps = this.stats.recoverSteps;
       const pauseScale = this.isEnraged ? this.stats.enragedPauseScale : 1;
-      this.fireCooldown = Math.round(this.stats.burstPause * pauseScale);
+      this.lastPause = Math.round(this.stats.burstPause * pauseScale);
+      this.fireCooldown = this.lastPause;
     }
     return this.attack(target);
   }
@@ -193,7 +219,7 @@ export class Boss implements Rect {
   hit(damage: number = PLAYER_BULLET.damage): boolean {
     if (this.isEntering || this.isDead) return false;
     this.health = Math.max(0, this.health - damage);
-    this.flashSteps = BOSS_COMMON.hitFlashSteps;
+    this.flashSteps = HIT_FLASH_STEPS;
     return true;
   }
 
@@ -231,7 +257,8 @@ export class Boss implements Rect {
     if (stats.attack === 'bottles') {
       const aim = target ?? { x: tap.x, y: tap.y + 1 };
       const bottles = Array.from({ length: stats.streams }, () => {
-        const type = THROWN_TYPES[Math.floor(this.random() * THROWN_TYPES.length)]!;
+        const { types } = THROWN_BOTTLE;
+        const type = types[Math.floor(this.random() * types.length)]!;
         return Enemy.thrownAt(type, tap, aim, this.random, this.bottleSpeedScale);
       });
       return { bullets: [], bottles };

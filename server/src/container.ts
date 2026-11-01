@@ -19,6 +19,7 @@ import { ConsoleMailer } from './lib/mailer';
 import { prisma } from './lib/prisma';
 import { BcryptPasswordHasher } from './modules/auth/password-hasher';
 import { JwtTokenService } from './modules/auth/token.service';
+import { JwtGameTicketService } from './modules/scores/game-ticket.service';
 import { PrismaScoreRepository } from './modules/scores/score.repository';
 import { PrismaUserRepository } from './modules/users/user.repository';
 
@@ -30,6 +31,9 @@ export function buildDependencies(): AppDependencies {
     scoreRepository: new PrismaScoreRepository(prisma),
     passwordHasher: new BcryptPasswordHasher(env.BCRYPT_ROUNDS),
     tokenService: new JwtTokenService(env.JWT_SECRET, env.SESSION_TTL_DAYS * 24 * 60 * 60),
+    // 3 horas: ninguna partida dura tanto. Si caduca, esa puntuación no se guarda
+    gameTicketService: new JwtGameTicketService(env.JWT_SECRET, 3 * 60 * 60),
+    clock: Date.now,
     mailer: new ConsoleMailer(logger),
     checkDatabase: async () => {
       await prisma.$queryRaw`SELECT 1`;

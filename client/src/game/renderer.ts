@@ -14,7 +14,7 @@
  * teclado y con lectores de pantalla, algo que un canvas no permite.
  */
 import type { BossId } from '@pijobeer/shared';
-import { ARENA, COLORS, ENEMY_BULLET, PLAYER_BULLET } from './config';
+import { ARENA, COLORS, ENEMY_BULLET, HUD_BARS, PLAYER_BULLET } from './config';
 import type { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import type { Enemy } from './entities/Enemy';
@@ -65,11 +65,8 @@ export interface RenderAssets {
   alley: HTMLImageElement | null;
 }
 
-/** Barras sobre la cabeza del jugador: la de vida y, encima, las del acelerón y la chupa secándose. */
-const HEALTH_BAR = { width: 36, height: 4, gap: 6 } as const;
-
-/** Barra de vida del jefe, arriba en el centro. */
-const BOSS_BAR = { width: 320, height: 10, top: 48 } as const;
+const HEALTH_BAR = HUD_BARS.player;
+const BOSS_BAR = HUD_BARS.boss;
 
 /** Textos que se pintan en el canvas, ya traducidos al idioma del jugador. */
 export interface RenderLabels {
@@ -201,8 +198,9 @@ function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, assets: RenderAsset
 
 /**
  * Nombre de los jefes y su barra de vida, arriba en el centro. Si son varios
- * (los dos pijos), la barra es la vida que les queda entre todos: así se ve de
- * un vistazo cuánto falta para ganar, también cuando ya ha caído uno.
+ * (los dos pijos), la barra es la vida que les queda entre los que siguen
+ * VIVOS. Al caer uno, GameSession lo quita de la lista y la barra pasa a ser
+ * solo la del otro, así que vuelve a verse más llena aunque él no se haya curado.
  */
 function drawBossBar(ctx: CanvasRenderingContext2D, bosses: readonly Boss[], name: string): void {
   const health = bosses.reduce((sum, boss) => sum + boss.health, 0);
@@ -216,8 +214,9 @@ function drawBossBar(ctx: CanvasRenderingContext2D, bosses: readonly Boss[], nam
   ctx.textBaseline = 'bottom';
   ctx.fillText(name, ARENA.width / 2, y - 3);
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-  ctx.fillRect(x - 2, y - 2, BOSS_BAR.width + 4, BOSS_BAR.height + 4);
+  const { border } = BOSS_BAR;
+  ctx.fillStyle = COLORS.bossBarFrame;
+  ctx.fillRect(x - border, y - border, BOSS_BAR.width + border * 2, BOSS_BAR.height + border * 2);
   // En fase de furia la barra cambia de color para avisar al jugador
   ctx.fillStyle = bosses.some((boss) => boss.isEnraged) ? COLORS.bossEnraged : COLORS.bossHealth;
   ctx.fillRect(x, y, Math.round((BOSS_BAR.width * health) / maxHealth), BOSS_BAR.height);
@@ -358,7 +357,6 @@ function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, assets: Rende
 
   const barBottom = player.y - HEALTH_BAR.gap;
   drawBar(ctx, feetX, barBottom, player.healthPercent, healthColor(player));
-  // Mientras dura el acelerón, una segunda barra encima que se va vaciando
   // Encima, las barras que se van vaciando: el acelerón y la chupa secándose
   let bottom = barBottom;
   for (const [percent, color] of [
@@ -366,7 +364,7 @@ function drawPlayer(ctx: CanvasRenderingContext2D, player: Player, assets: Rende
     [player.dryingPercent, COLORS.jacketDrying],
   ] as const) {
     if (percent <= 0) continue;
-    bottom -= HEALTH_BAR.height + 2;
+    bottom -= HEALTH_BAR.height + HEALTH_BAR.stackGap;
     drawBar(ctx, feetX, bottom, percent, color);
   }
 }
@@ -382,8 +380,14 @@ function drawBar(
   const x = Math.round(centerX - HEALTH_BAR.width / 2);
   const y = Math.round(bottomY - HEALTH_BAR.height);
 
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-  ctx.fillRect(x - 1, y - 1, HEALTH_BAR.width + 2, HEALTH_BAR.height + 2);
+  const { border } = HEALTH_BAR;
+  ctx.fillStyle = COLORS.playerBarFrame;
+  ctx.fillRect(
+    x - border,
+    y - border,
+    HEALTH_BAR.width + border * 2,
+    HEALTH_BAR.height + border * 2,
+  );
 
   ctx.fillStyle = color;
   ctx.fillRect(x, y, Math.round((HEALTH_BAR.width * percent) / 100), HEALTH_BAR.height);
@@ -391,8 +395,8 @@ function drawBar(
 
 /** Verde / amarillo / rojo según el % de vida restante. */
 function healthColor(player: Player): string {
-  if (player.healthPercent >= 75) return COLORS.playerHealthy;
-  if (player.healthPercent >= 25) return COLORS.playerHurt;
+  if (player.healthPercent >= HUD_BARS.healthyAt) return COLORS.playerHealthy;
+  if (player.healthPercent >= HUD_BARS.hurtAt) return COLORS.playerHurt;
   return COLORS.playerCritical;
 }
 

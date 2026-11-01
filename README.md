@@ -129,6 +129,9 @@ como TypeScript puro:
 Para tocar la dificultad, las teclas o los colores: **`client/src/game/config.ts`**.
 Para añadir un nivel: **`packages/shared/src/levels.ts`** (cliente y servidor se enteran solos).
 
+Las páginas se cargan **bajo demanda** (`lazy` en `client/src/router.tsx`): cada una es un archivo JS aparte que
+solo se descarga al visitarla, así que quien entra en Inicio no se baja el motor del juego ni el panel de admin.
+
 ### Sprites
 
 ```
@@ -169,7 +172,7 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 | 1     | 36 botellas                      | 1,5 s               | ×1        | normales                           | —                                                                  |
 | 2     | 50 botellas + 1800 px recorridos | 1,2 s               | ×1,15     | normales, rápidas, pesadas         | Barril de madera (80 de vida, ráfagas de 5 apuntadas)              |
 | 3     | 60 botellas + 2400 px recorridos | 0,9 s               | ×1,3      | más rápidas y pesadas              | Barril de hierro (140 de vida, ráfagas de 3 abanicos de 3 chorros) |
-| 4     | 70 enemigos + 3000 px recorridos | 0,8 s               | ×1,4      | las tres + barriles pequeños (4 %) | Dos pijos (100 de vida cada uno, lanzan botellas cada 1,5 s)       |
+| 4     | 70 enemigos + 3000 px recorridos | 0,8 s               | ×1,4      | las tres + barriles pequeños (4 %) | Dos pijos (100 de vida cada uno, lanzan botellas cada 1,8 s)       |
 
 La distancia (`distanceToComplete`) no se le enseña al jugador: son 30, 40 y 50 s mirando hacia delante,
 así que pasarse el nivel mirando a los lados no basta para llegar al jefe. Si un admin fija las botellas
@@ -204,7 +207,7 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
   (`game/playfield.ts`; la medida sale del propio arte al generar los sprites).
 
 - **Jefes**: al cumplir el objetivo entran los jefes del nivel (en el 4, dos a la vez) y **dejan de caer
-  botellas** (en el 4 sigue llegando un barril pequeño cada 6 s: `bossFightEnemy` en `levels.ts`). Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al jugador: los
+  botellas** (en el 4 sigue llegando un barril pequeño cada 9 s en Normal: `bossFightEnemy` en `levels.ts`). Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al jugador: los
   barriles con chorros de espuma; los **pijos** (del tamaño del protagonista), lanzando botellas de cualquier
   tipo que salen rectas y rápidas hacia donde estaba el jugador (`THROWN_BOTTLE`), sin perseguirle, y que
   disparan hacia donde van a los 0,25 s de lanzarlas. Los dos pijos se **alternan**: uno lanza a mitad de
@@ -214,7 +217,7 @@ a eliminar con sus trucos, la distancia deja de contar (para poder probar el jef
   más rápido:
   - Madera: 2 chorros más por disparo, pero la **mitad de ráfagas** (del mismo tamaño).
   - Hierro: 1 chorro más y menos pausa, siempre con más de 20° entre chorro y chorro para poder esquivarlos.
-  - Pijos: una botella cada 0,75 s en vez de cada 1,5 s.
+  - Pijos: una botella cada 0,9 s en vez de cada 1,8 s. Los dos se turnan: nunca lanzan a la vez.
 
   Con varios jefes, la barra es la vida que les queda entre todos. Se gana al vaciarla. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
 
@@ -273,7 +276,8 @@ textos los usan como `{{game}}`, `{{author}}`, `{{band}}` y `{{hero}}`. Otro tes
 
 Sección `/admin`, visible en el menú solo para cuentas con `isAdmin`. Permite cambiar los **trucos** de las
 partidas de prueba del propio admin: inmortal, botellas a eliminar, velocidad y cantidad de botellas, vida
-de los jefes. Las partidas con algún truco activo **no se guardan en el ranking**. El servidor valida cada
+de los jefes. Las partidas con algún truco activo **no se guardan en el ranking** (lo comprueba el servidor,
+que tiene guardados los trucos). El servidor valida cada
 valor con los límites de `GAME_MODIFIER_LIMITS` (`packages/shared/src/game-modifiers.ts`).
 
 ### Música
@@ -315,7 +319,8 @@ el cliente traduce `code` al idioma del jugador.
 | GET    | `/api/auth/me`           |        | Usuario actual (`null` si no hay)  |
 | PATCH  | `/api/users/me`          |   ✔    | Cambiar nombre y/o contraseña      |
 | PATCH  | `/api/users/me/progress` |   ✔    | Guardar nivel desbloqueado / intro |
-| POST   | `/api/scores`            |   ✔    | Guardar resultado de una partida   |
+| POST   | `/api/scores/start`      |   ✔    | Empezar partida: da su ticket      |
+| POST   | `/api/scores`            |   ✔    | Guardar resultado (con el ticket)  |
 | GET    | `/api/scores/ranking`    |        | Top 10                             |
 | GET    | `/api/scores/me`         |   ✔    | Mis partidas y resumen             |
 | GET    | `/api/health`            |        | Estado del servidor y la BBDD      |
@@ -362,7 +367,14 @@ el cliente traduce `code` al idioma del jugador.
 - Límite de intentos en login y registro (anti fuerza bruta).
 - Sesión en cookie `httpOnly` + `SameSite=Lax` (no la puede leer un script inyectado).
 - Cabeceras de seguridad HTTP con Helmet.
-- El servidor rechaza puntuaciones imposibles (no múltiplos de 10 o fuera de rango) y niveles inexistentes.
+- **Antitrampas de las puntuaciones**: el servidor no se fía de los puntos que manda el navegador (con F12 se
+  pueden mandar los que se quiera). Al empezar una partida entrega un **ticket firmado** (JWT) con el nivel y la
+  hora, que el jugador no puede cambiar; al acabar, mide él mismo cuánto ha durado y rechaza más puntos de los
+  que da tiempo a conseguir (`maxPointsFor` en `packages/shared/src/game-rules.ts`). También rechaza niveles no
+  desbloqueados, puntuaciones que no son múltiplo de 10 y partidas de un admin con trucos. Un test del cliente
+  (`maxPoints.test.ts`) juega "perfecto" con el motor real para comprobar que el tope nunca corta a un jugador
+  honrado. Lo que no impide: esperar el tiempo necesario y mandar una puntuación posible sin jugar (para eso
+  habría que repetir la partida entera en el servidor).
 - Los errores internos nunca llegan al navegador; quedan en el log.
 
 ---
