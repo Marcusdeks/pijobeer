@@ -18,6 +18,7 @@ import {
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
+  FINALE,
   JACKET,
   PICKUP,
   PICKUP_TYPES,
@@ -57,7 +58,7 @@ describe('aparición de botellas y progresión', () => {
     expect(game.enemies).toHaveLength(3);
   });
 
-  it('cada nivel saca botellas más a menudo y más rápidas que el anterior', () => {
+  it('del nivel 1 al 3, cada uno saca botellas más a menudo y más rápidas que el anterior', () => {
     const [l1, l2, l3] = [1, 2, 3].map((id) => session(id).rules);
     expect(l2!.spawnInterval).toBeLessThan(l1!.spawnInterval);
     expect(l3!.spawnInterval).toBeLessThan(l2!.spawnInterval);
@@ -578,6 +579,107 @@ describe('textos de historia', () => {
     game.backgroundDistance = getLevel(4).distanceToComplete;
     game.step(fakeInput());
     expect(game.status).toBe('running');
+  });
+});
+
+describe('nivel 5', () => {
+  /** Nivel 5 con el primo ya en su sitio (la calle recorrida y los barriles eliminados). */
+  function atPrimo(options: Partial<GameSessionOptions> = {}) {
+    const game = session(5, { modifiers: withModifiers({ invincible: true }), ...options });
+    game.kills = getLevel(5).killsToComplete;
+    game.backgroundDistance = getLevel(5).distanceToComplete;
+    run(game, BOSS_ENTRY_STEPS);
+    return game;
+  }
+
+  it('solo salen barriles: de madera y de hierro', () => {
+    const { pickEnemyType } = session(5).rules;
+    const rolls = 100;
+    const types = new Set(Array.from({ length: rolls }, (_, i) => pickEnemyType(() => i / rolls)));
+    expect(types).toEqual(new Set(['woodBarrel', 'ironBarrel']));
+  });
+
+  it('la calle tiene final: el callejón deja de avanzar al llegar al ayuntamiento', () => {
+    const game = session(5, { modifiers: withModifiers({ invincible: true }) });
+    const end = game.rules.cameraEnd!;
+    expect(end).toBe(getLevel(5).distanceToComplete);
+    game.backgroundDistance = end - 1;
+    run(game, 30, fakeInput('up'));
+    expect(game.backgroundDistance).toBe(end);
+    expect(game.player.isAdvancing).toBe(false);
+    // Los otros niveles no tienen final
+    expect(session(4).rules.cameraEnd).toBeNull();
+  });
+
+  it('si un admin fija los enemigos, al salir el jefe se salta al final de la calle', () => {
+    const game = session(5, { modifiers: withModifiers({ killsToComplete: 1, invincible: true }) });
+    addSureKill(game);
+    run(game, 2);
+    expect(game.bosses.map((boss) => boss.id)).toEqual(['primo']);
+    expect(game.backgroundDistance).toBe(game.rules.cameraEnd);
+  });
+
+  it('el primo lanza barriles hacia el jugador', () => {
+    const game = atPrimo();
+    let thrown: Enemy[] = [];
+    for (let i = 0; i < BOSS.primo.burstPause * 2 && !thrown.length; i++) {
+      game.step(fakeInput('left'));
+      thrown = game.enemies.filter((enemy) => enemy.thrown);
+    }
+    expect(thrown).toHaveLength(1);
+    expect(['woodBarrel', 'ironBarrel']).toContain(thrown[0]!.type);
+  });
+
+  it('al derrotarlo, entra solo en el ayuntamiento, desaparece, funde a negro y entonces se gana', () => {
+    const onVictory = vi.fn();
+    const game = atPrimo({ events: { onVictory } });
+    game.enemies.push(new Enemy(300, 300, 'woodBarrel', fixedRandom));
+    for (const boss of game.bosses) while (!boss.isDead) boss.hit();
+    game.step(fakeInput());
+    // Ya no queda nada que pueda hacerle daño mientras entra
+    expect(game.enemies).toHaveLength(0);
+    expect(game.status).toBe('running');
+    expect(onVictory).not.toHaveBeenCalled();
+
+    // Entra solo (lo que se pulse no cuenta): primero llega a la puerta, a la vista
+    const door = game.rules.exit!;
+    const feet = () => ({
+      x: game.player.x + game.player.width / 2,
+      y: game.player.y + game.player.height,
+    });
+    let steps = 0;
+    while (feet().y !== door.y && steps++ < 1000) game.step(fakeInput('down', 'shoot'));
+    expect(feet().x).toBeCloseTo(door.x);
+    expect(game.playerFade).toBe(0);
+
+    // Después desaparece en lo oscuro y la pantalla funde a negro; solo al final, la victoria
+    const fades: Array<[number, number]> = [];
+    while (game.status === 'running' && steps++ < 1000) {
+      game.step(fakeInput('down', 'shoot'));
+      fades.push([game.playerFade, game.screenFade]);
+    }
+    expect(game.status).toBe('victory');
+    expect(onVictory).toHaveBeenCalledTimes(1);
+    expect(feet().y).toBe(door.y - FINALE.vanishDistance);
+    // La pantalla no empieza a fundirse hasta que él ha desaparecido del todo
+    for (const [player, screen] of fades) if (screen > 0) expect(player).toBe(1);
+    expect(fades.at(-1)).toEqual([1, 1]);
+    expect(game.playerBullets).toHaveLength(0);
+    expect(game.points).toBe(BOSS_POINTS.primo);
+  });
+
+  it('con texto tras el jefe, primero el texto y después entra en el ayuntamiento', () => {
+    const onDialog = vi.fn();
+    const game = atPrimo({ dialogs: ['afterBosses'], events: { onDialog } });
+    for (const boss of game.bosses) while (!boss.isDead) boss.hit();
+    game.step(fakeInput());
+    expect(game.status).toBe('dialog');
+    const before = { x: game.player.x, y: game.player.y };
+
+    game.closeDialog();
+    run(game, 5);
+    expect(game.status).toBe('running');
+    expect([game.player.x, game.player.y]).not.toEqual([before.x, before.y]);
   });
 });
 

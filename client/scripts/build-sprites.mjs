@@ -21,6 +21,7 @@ import { buildEnemySheet } from './sprites/enemies.mjs';
 import { buildPickupSheet } from './sprites/pickups.mjs';
 import { buildPlayerSheet } from './sprites/player.mjs';
 import { buildProjectileSheets } from './sprites/projectiles.mjs';
+import { buildPropSheets } from './sprites/props.mjs';
 
 const builders = [
   ['Jugador', buildPlayerSheet],
@@ -29,6 +30,7 @@ const builders = [
   ['Proyectiles', buildProjectileSheets],
   ['Latas', buildPickupSheet],
   ['Callejones', buildAlleySheets],
+  ['Decorados', buildPropSheets],
 ];
 
 for (const [name, build] of builders) {

@@ -20,24 +20,29 @@ import { getLevel, type BossId, type EnemyTypeId } from './levels';
 export const POINTS_PER_KILL = 10;
 
 /**
- * Puntos de cada tipo de enemigo. Las botellas dan lo normal; el barril
- * pequeño, que aguanta 3 impactos, cinco veces más. Múltiplos de POINTS_PER_KILL.
+ * Puntos de cada tipo de enemigo. Las botellas dan lo normal; los barriles
+ * pequeños, que aguantan varios impactos, más: 50 los de madera (3 impactos)
+ * y 80 el de hierro (5). Múltiplos de POINTS_PER_KILL.
  */
 export const ENEMY_POINTS = {
   normal: POINTS_PER_KILL,
   fast: POINTS_PER_KILL,
   heavy: POINTS_PER_KILL,
   barrel: 50,
+  woodBarrel: 50,
+  ironBarrel: 80,
 } as const satisfies Record<EnemyTypeId, number>;
 
 /**
  * Puntos extra por derrotar a cada jefe final (en el nivel 4 hay dos pijos:
  * cuentan los dos). Múltiplos de POINTS_PER_KILL.
  */
-export const BOSS_POINTS = { wood: 300, iron: 500, pijo: 400 } as const satisfies Record<
-  BossId,
-  number
->;
+export const BOSS_POINTS = {
+  wood: 300,
+  iron: 500,
+  pijo: 400,
+  primo: 1000,
+} as const satisfies Record<BossId, number>;
 
 /** Máximo de puntos que el servidor acepta para una sola partida. */
 export const MAX_POINTS_PER_GAME = 1_000_000;
@@ -50,17 +55,22 @@ export const MAX_POINTS_PER_GAME = 1_000_000;
 export const SIMULATION_STEPS_PER_SECOND = 60;
 
 /**
- * Lo más seguido que cada jefe lanza algo que se pueda eliminar para sumar
- * puntos, en pasos entre una cosa y la siguiente (null = no lanza nada así:
- * su espuma no da puntos). El pijo, con furia, lanza una botella cada
- * 108 × 0,5 = 54 pasos (BOSS.pijo en client/src/game/config.ts).
- * Si un jefe pasara a lanzar más deprisa, el test del cliente que comprueba
- * maxPointsFor fallaría y avisaría de que hay que cambiarlo aquí.
+ * Lo que lanza cada jefe que se pueda eliminar para sumar puntos (null = no
+ * lanza nada así: su espuma no da puntos):
+ *   gap     lo más seguido que lanza, en pasos entre una cosa y la siguiente
+ *   points  lo que vale lo más caro que puede lanzar
+ * Con furia, el pijo lanza una botella cada 108 × 0,5 = 54 pasos y el primo un
+ * barril (como mucho de hierro) cada 150 × 0,7 = 105 (BOSS en
+ * client/src/game/config.ts). Si un jefe pasara a lanzar más deprisa, el test
+ * del cliente que comprueba maxPointsFor fallaría y avisaría de que hay que
+ * cambiarlo aquí.
  */
-const BOSS_THROW_GAP_STEPS = { wood: null, iron: null, pijo: 54 } as const satisfies Record<
-  BossId,
-  number | null
->;
+const BOSS_THROWS = {
+  wood: null,
+  iron: null,
+  pijo: { gap: 54, points: POINTS_PER_KILL },
+  primo: { gap: 105, points: ENEMY_POINTS.ironBarrel },
+} as const satisfies Record<BossId, { gap: number; points: number } | null>;
 
 /**
  * ANTITRAMPAS: el máximo de puntos que es posible conseguir en `seconds`
@@ -98,9 +108,8 @@ export function maxPointsFor(levelId: number, seconds: number): number {
   }
   for (const boss of level.bosses) {
     points += BOSS_POINTS[boss];
-    const throwGap = BOSS_THROW_GAP_STEPS[boss];
-    // Lo que lanzan son botellas normales, rápidas o pesadas: POINTS_PER_KILL cada una
-    if (throwGap !== null) points += times(throwGap) * POINTS_PER_KILL;
+    const throws = BOSS_THROWS[boss];
+    if (throws !== null) points += times(throws.gap) * throws.points;
   }
   return points * pointsScale;
 }

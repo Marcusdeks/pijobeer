@@ -33,8 +33,26 @@ function isBackground(r, g, b) {
   return r > 150 && b > 150 && r - g > 90 && b - g > 90;
 }
 
-/** Carga una imagen y sustituye el fondo magenta por transparencia. */
-export async function loadWithoutBackground(file) {
+/**
+ * ¿Es este píxel sombra sobre el fondo? Algunos dibujos (el camión) traen su
+ * sombra pintada como magenta OSCURO: el mismo tono que el fondo, pero sin
+ * su brillo. Se distingue de los reflejos morados de los cristales porque
+ * casi no tiene verde.
+ */
+function isShadow(r, g, b) {
+  return r > 100 && b > 100 && g < 50 && Math.abs(r - b) < 40;
+}
+
+/** Opacidad de la sombra negra que sustituye a la magenta (ver isShadow). */
+const SHADOW_ALPHA = 90;
+
+/**
+ * Carga una imagen y sustituye el fondo magenta por transparencia.
+ * @param {{ shadow?: boolean }} options - shadow: la sombra magenta oscura del
+ *   dibujo pasa a ser una sombra negra semitransparente, que oscurece el suelo
+ *   que haya debajo (si no, se quedaría como una mancha morada)
+ */
+export async function loadWithoutBackground(file, { shadow = false } = {}) {
   const { data, info } = await sharp(file)
     .ensureAlpha()
     .raw()
@@ -44,6 +62,9 @@ export async function loadWithoutBackground(file) {
     const [r, g, b] = [data[i], data[i + 1], data[i + 2]];
     if (isBackground(r, g, b)) {
       data[i + 3] = 0;
+    } else if (shadow && isShadow(r, g, b)) {
+      data.fill(0, i, i + 3);
+      data[i + 3] = SHADOW_ALPHA;
     } else if (r - g > 40 && b - g > 40) {
       // "Despill": los bordes del dibujo se mezclan con el fondo y quedan
       // rosados. Les bajamos el rojo y el azul al nivel del verde para quitar ese halo.

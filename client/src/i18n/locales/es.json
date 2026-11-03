@@ -56,14 +56,14 @@
     "quitToMenu": "Salir al menú principal",
     "victoryTitle": "¡Victoria!",
     "victorySummary": "Nivel {{level}} superado · {{points}} puntos",
-    "gameCompleted": "¡Has superado todos los niveles!",
     "nextLevel": "Siguiente nivel",
     "backToMenu": "Volver al menú",
     "bosses": {
       "wood": "BARRIL DE MADERA PIJO",
       "iron": "BARRIL DE HIERRO PIJO",
       "pijo_one": "PIJO ENEMIGO",
-      "pijo_other": "PIJOS ENEMIGOS"
+      "pijo_other": "PIJOS ENEMIGOS",
+      "primo": "PRIMO PIJO"
     },
     "skipStory": "Saltar ➜",
     "story": {
@@ -73,7 +73,10 @@
       "pijosReply": "Pijos: *sollozan* ¡S-sí! ¡Deja de perseguirnos! ¡Lograremos nuestro objetivo aunque intentes pararnos! *rompen a llorar de puro temor*",
       "pijosHint": "Ten cuidado: la chupa no protege de los botellazos.",
       "pijosDefeatedHero": "{{hero}}: Si vosotros estáis aquí, ¿quién es el imbécil que lanza barriles?",
-      "pijosDefeatedReply": "Pijos: *lloran como nenazas* ¡Es nuestro primo más fuertote! ¡Verás cómo él te da la paliza de tu vida, escoria!"
+      "pijosDefeatedReply": "Pijos: *lloran como nenazas* ¡Es nuestro primo más fuertote! ¡Verás cómo él te da la paliza de tu vida, escoria!",
+      "level5Opening": "{{hero}}: ¡Voy a ir a por ese puto pijo! No será tan grande.",
+      "primoIntro": "Primo Pijo: ¿Tú has sido el que ha derrotado a mis primitos? ¡Te voy a aplastar!",
+      "primoDefeated": "{{hero}}: Joder, maldito grandullón, casi peleabas como un hombre de verdad. En fin, ya que estoy, voy a pasarme por el ayuntamiento a destrozarlo un poco, jeje. Así tendrán alguna excusa más para blanquear dinero esos cabrones."
     },
     "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
   },

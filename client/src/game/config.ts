@@ -143,111 +143,150 @@ export const ENEMY = {
   contactDamage: 20,
 } as const;
 
-/** Caja de colisión de cualquier botella (ver ENEMY). */
-const BOTTLE_BOX = { width: ENEMY.width, height: ENEMY.height } as const;
+/**
+ * Lo común a todas las botellas: su caja de colisión (ver ENEMY), un solo
+ * chorro recto hacia abajo y el primer disparo entre 1 y 2 s después de aparecer.
+ */
+const BOTTLE = {
+  kind: 'bottle',
+  firstShot: [60, 120],
+  aimed: false,
+  streams: 1,
+  spreadDeg: 0,
+  width: ENEMY.width,
+  height: ENEMY.height,
+} as const;
 
-/** Las botellas disparan por primera vez entre 1 y 2 s después de aparecer. */
-const BOTTLE_FIRST_SHOT = [60, 120] as const;
+/**
+ * Lo común a todos los barriles pequeños: apuntan al jugador, disparan nada
+ * más entrar en pantalla (entre 0,25 y 0,5 s) y su caja es el dibujo
+ * (barrel-minion.json, 34x44) sin los bordes redondeados.
+ */
+const BARREL = {
+  kind: 'barrel',
+  firstShot: [15, 30],
+  aimed: true,
+  width: 30,
+  height: 40,
+} as const;
 
 /**
  * TIPOS DE ENEMIGO. Cada nivel decide en qué proporción salen (enemyMix en
  * packages/shared/src/levels.ts). El dibujo indica el tipo, para que el
  * jugador sepa de un vistazo qué le viene encima.
  *
+ *   kind          'bottle' = botella (dispara con la animación de la chapa);
+ *                 'barrel' = barril (dispara sin animación)
+ *   variant       su dibujo: el color en la hoja de botellas, o la madera o
+ *                 el hierro en la de barriles
  *   speed         píxeles por paso de caída (antes del multiplicador del nivel)
  *   shootCooldown pasos de espera entre el final de un disparo y el siguiente
  *   hits          abrechapas que aguanta (los puntos de cada uno, en ENEMY_POINTS)
  *   firstShot     [mín, máx] pasos hasta el primer disparo; se sortea un valor entre
  *                 los dos para que no disparen todos a la vez
  *   aimed         true = dispara hacia donde está el jugador; false = recto hacia abajo
- *   variant       color en la hoja de botellas (null = no es una botella)
+ *   streams       chorros por disparo, en abanico de spreadDeg grados (como los jefes)
  *   width/height  caja de colisión
  */
 export const ENEMY_TYPES = {
   /** La de siempre. */
-  normal: {
-    speed: 2,
-    shootCooldown: 90,
-    firstShot: BOTTLE_FIRST_SHOT,
-    hits: 1,
-    aimed: false,
-    variant: 'pink',
-    ...BOTTLE_BOX,
-  },
+  normal: { ...BOTTLE, variant: 'pink', speed: 2, shootCooldown: 90, hits: 1 },
   /** Rápida: baja más deprisa, dispara como la normal. */
-  fast: {
-    speed: 3.2,
-    shootCooldown: 90,
-    firstShot: BOTTLE_FIRST_SHOT,
-    hits: 1,
-    aimed: false,
-    variant: 'gold',
-    ...BOTTLE_BOX,
-  },
+  fast: { ...BOTTLE, variant: 'gold', speed: 3.2, shootCooldown: 90, hits: 1 },
   /**
    * Pesada: lenta, pero dispara mucho más. Con la animación de disparo (24
    * pasos) y 10 de espera, hace unos 1,8 disparos por segundo (la normal, 0,5).
    */
-  heavy: {
-    speed: 1.3,
-    shootCooldown: 10,
-    firstShot: BOTTLE_FIRST_SHOT,
-    hits: 1,
-    aimed: false,
-    variant: 'dark',
-    ...BOTTLE_BOX,
-  },
+  heavy: { ...BOTTLE, variant: 'dark', speed: 1.3, shootCooldown: 10, hits: 1 },
   /**
-   * Barril pequeño (nivel 4): el más lento de todos, aguanta 3 impactos y
-   * apunta al jugador. Al ir tan despacio pasa mucho rato en pantalla, así que
-   * es una amenaza constante: un disparo apuntado cada 75 pasos (1,25 s), y
-   * el primero nada más entrar en pantalla (entre 0,25 y 0,5 s).
-   * Caja: el dibujo (barrel-minion.json, 34x44) sin los bordes redondeados.
+   * Barril pequeño del nivel 4: el más lento de todos y aguanta 3 impactos.
+   * Al ir tan despacio pasa mucho rato en pantalla, así que es una amenaza
+   * constante: un disparo apuntado cada 75 pasos (1,25 s).
    */
   barrel: {
+    ...BARREL,
+    variant: 'wood',
     speed: 0.7,
     shootCooldown: 75,
-    firstShot: [15, 30],
     hits: 3,
-    aimed: true,
-    variant: null,
-    width: 30,
-    height: 40,
+    streams: 1,
+    spreadDeg: 0,
+  },
+  /**
+   * Barril de madera del nivel 5 (también los lanza el primo): como el del
+   * nivel 4, pero cada disparo son 3 chorros en abanico hacia el jugador, a
+   * 20° entre sí. Para compensar, dispara algo menos: cada 2 s.
+   */
+  woodBarrel: {
+    ...BARREL,
+    variant: 'wood',
+    speed: 0.7,
+    shootCooldown: 120,
+    hits: 3,
+    streams: 3,
+    spreadDeg: 40,
+  },
+  /**
+   * Barril de hierro del nivel 5: más lento y más duro (5 impactos), y cada
+   * disparo son 5 chorros a 15° entre sí, cada 2,5 s.
+   */
+  ironBarrel: {
+    ...BARREL,
+    variant: 'iron',
+    speed: 0.6,
+    shootCooldown: 150,
+    hits: 5,
+    streams: 5,
+    spreadDeg: 60,
   },
 } as const satisfies Record<
   EnemyTypeId,
   {
+    kind: 'bottle' | 'barrel';
+    variant: string;
     speed: number;
     shootCooldown: number;
     firstShot: readonly [number, number];
     hits: number;
     aimed: boolean;
-    variant: string | null;
+    streams: number;
+    spreadDeg: number;
     width: number;
     height: number;
   }
 >;
 
-/**
- * BOTELLAS LANZADAS por los pijos (jefes del nivel 4). Son botellas normales
- * de un tipo al azar (disparan como su tipo, hacia donde van), pero en vez de
- * caer rectas salen en línea recta hacia donde ESTABA el jugador al lanzarlas:
- * no le persiguen (una botella no cambia de rumbo en el aire), así que
- * moverse a tiempo basta para esquivarlas.
- */
-export const THROWN_BOTTLE = {
-  /** Píxeles por paso (más rápidas que cualquier botella que cae). */
-  speed: 5,
-  /**
-   * Pasos hasta que empieza su primer disparo: le salta la chapa a los 3
-   * pasos y la espuma sale 12 después (ver ENEMY.fireOnFrame), a los 0,25 s
-   * de lanzarla. Si esperase como una botella normal, a esta velocidad
-   * llegaría al jugador sin haber disparado nunca.
-   */
-  firstShot: 3,
+/** Cómo vuela algo que lanza un jefe (ver THROWN). */
+export interface ThrowStats {
+  /** Píxeles por paso. */
+  readonly speed: number;
+  /** Pasos hasta que empieza su primer disparo. */
+  readonly firstShot: number;
   /** De qué tipos pueden ser (se elige uno al azar en cada lanzamiento). */
-  types: ['normal', 'fast', 'heavy'] satisfies EnemyTypeId[],
-} as const;
+  readonly types: readonly EnemyTypeId[];
+}
+
+/**
+ * LO QUE LANZAN LOS JEFES: enemigos normales de un tipo al azar (disparan
+ * como su tipo), pero en vez de caer rectos salen en línea recta hacia donde
+ * ESTABA el jugador al lanzarlos: no le persiguen (nada cambia de rumbo en el
+ * aire), así que moverse a tiempo basta para esquivarlos.
+ */
+export const THROWN = {
+  /**
+   * Botellas de los pijos (nivel 4): más rápidas que cualquier botella que
+   * cae. Empiezan a disparar enseguida: les salta la chapa a los 3 pasos y la
+   * espuma sale 12 después (ver ENEMY.fireOnFrame), a los 0,25 s de lanzarlas.
+   * Si esperasen como una botella normal, a esta velocidad llegarían al
+   * jugador sin haber disparado nunca.
+   */
+  bottles: { speed: 5, firstShot: 3, types: ['normal', 'fast', 'heavy'] },
+  /**
+   * Barriles del primo (nivel 5): lentos, y disparan su abanico a los 0,5 s
+   * de lanzarlos. Lo peligroso no es el barril, sino lo que dispara mientras llega.
+   */
+  barrels: { speed: 1.5, firstShot: 30, types: ['woodBarrel', 'ironBarrel'] },
+} as const satisfies Record<string, ThrowStats>;
 
 /**
  * JEFES FINALES. Aparecen cuando se cumple el objetivo de un nivel con jefe
@@ -257,11 +296,12 @@ export const THROWN_BOTTLE = {
  * Se les gana bajándoles la vida a 0 (cada abrechapas quita PLAYER_BULLET.damage).
  *
  * Mientras atacan NO se mueven: se paran windupSteps pasos antes de la ráfaga
- * (el pijo coge impulso), durante toda ella y recoverSteps pasos después.
- * Ese rato quietos es el momento de acertarles.
+ * (el pijo coge impulso; el primo se agacha a por el barril y lo levanta),
+ * durante toda ella y recoverSteps pasos después. Ese rato quietos es el
+ * momento de acertarles.
  *
- *   attack      'foam' = chorros de espuma; 'bottles' = lanza botellas
- *   streams     cuántos chorros (o botellas) salen en cada ataque
+ *   attack      'foam' = chorros de espuma; 'bottles' o 'barrels' = lanza eso (ver THROWN)
+ *   streams     cuántos chorros de espuma salen en cada ataque (los que lanzan cosas, una cada vez)
  *   spreadDeg   apertura total del abanico, en grados (0 = todos juntos)
  *   aimed       true = el abanico apunta al jugador; false = hacia abajo
  *
@@ -271,7 +311,7 @@ export const THROWN_BOTTLE = {
  *   enragedPauseScale      multiplica la pausa entre ráfagas (< 1 = más ráfagas)
  */
 interface BossStats {
-  attack: 'foam' | 'bottles';
+  attack: 'foam' | keyof typeof THROWN;
   health: number;
   width: number;
   height: number;
@@ -380,6 +420,30 @@ export const BOSS = {
     windupSteps: 20,
     recoverSteps: 15,
   },
+  /**
+   * Primo pijo (nivel 5): un grandullón lento y con mucha vida que lanza un
+   * barril cada 2,5 s (con furia, cada 1,75 s), de madera o de hierro al azar.
+   * Los barriles van despacio, pero disparan su abanico mientras llegan.
+   */
+  primo: {
+    ...BOSS_BASE,
+    attack: 'barrels',
+    health: 300,
+    /** Caja de colisión: el cuerpo (el dibujo de andar mide 120x120, con los brazos abiertos). */
+    width: 70,
+    height: 110,
+    speed: 1.5,
+    burstPause: 150,
+    aimed: true,
+    enragedPauseScale: 0.7,
+    /**
+     * Se agacha a por el barril, lo levanta y lo sube sobre la cabeza: 4
+     * poses de 12 pasos (0,8 s de aviso). Al lanzar, 2 poses más: soltándolo
+     * y con las manos vacías.
+     */
+    windupSteps: 48,
+    recoverSteps: 24,
+  },
 } as const satisfies Record<BossId, BossStats>;
 
 /**
@@ -410,8 +474,32 @@ export const BOSS_COMMON = {
   contactDamage: 20,
   /** Pasos sin volver a hacer daño por contacto (si no, quitaría 20 de vida en cada paso). */
   contactCooldown: 45,
-  /** Pasos por frame al andar de lado (el pijo alterna sus dos pasos). */
+  /** Pasos por frame al andar de lado (el pijo alterna sus dos pasos; el primo, cuatro). */
   walkFrameSteps: 12,
+} as const;
+
+/**
+ * FINAL DEL NIVEL 5, delante del ayuntamiento. La calle se acaba (el callejón
+ * deja de avanzar al llegar a la plaza) y, al derrotar al jefe, el
+ * protagonista entra solo en el ayuntamiento por la puerta del centro (dónde
+ * está, en assets/sprites/alleys.json: la mide el script de sprites).
+ */
+export const FINALE = {
+  /**
+   * El camión aparcado en la plaza, detrás del jefe y a un lado: su esquina
+   * de arriba a la izquierda, en píxeles de pantalla con la plaza ya a la
+   * vista. Queda a la derecha de la puerta, que sigue libre para pasar.
+   */
+  truck: { x: 470, y: 20 },
+  /** Píxeles por paso al entrar andando en el ayuntamiento (algo más despacio que jugando). */
+  exitSpeed: 3,
+  /**
+   * Píxeles que sigue andando desde la entrada, ya bajo el arco, mientras
+   * desaparece en lo oscuro de la puerta (90 a 3 por paso = medio segundo).
+   */
+  vanishDistance: 90,
+  /** Pasos del fundido a negro de la pantalla, cuando ya ha desaparecido (60 = 1 s). */
+  fadeSteps: 60,
 } as const;
 
 /**
@@ -530,6 +618,8 @@ export const COLORS = {
   enemyBullet: '#ff0000',
   hud: '#ffffff',
   overlay: 'rgba(0, 0, 0, 0.7)',
+  /** Fundido a negro al entrar en el ayuntamiento (final del nivel 5). */
+  fade: '#000000',
   gameOver: '#ff0000',
   bossHealth: '#ff3b3b',
   /** Barra del jefe en fase de furia. */

@@ -56,14 +56,14 @@
     "quitToMenu": "Quit to main menu",
     "victoryTitle": "Victory!",
     "victorySummary": "Level {{level}} cleared · {{points}} points",
-    "gameCompleted": "You've beaten every level!",
     "nextLevel": "Next level",
     "backToMenu": "Back to menu",
     "bosses": {
       "wood": "POSH WOODEN KEG",
       "iron": "POSH IRON KEG",
       "pijo_one": "POSH KID",
-      "pijo_other": "POSH KIDS"
+      "pijo_other": "POSH KIDS",
+      "primo": "POSH COUSIN"
     },
     "skipStory": "Skip ➜",
     "story": {
@@ -73,7 +73,10 @@
       "pijosReply": "Posh kids: *sobbing* Y-yes! Stop chasing us! We'll reach our goal even if you try to stop us! *they burst into tears out of sheer terror*",
       "pijosHint": "Careful: the jacket doesn't protect you from flying bottles.",
       "pijosDefeatedHero": "{{hero}}: If you're here, who's the idiot throwing barrels?",
-      "pijosDefeatedReply": "Posh kids: *crying like babies* It's our big strong cousin! He'll give you the beating of your life, scum!"
+      "pijosDefeatedReply": "Posh kids: *crying like babies* It's our big strong cousin! He'll give you the beating of your life, scum!",
+      "level5Opening": "{{hero}}: I'm going after that fucking posh guy! He can't be that big.",
+      "primoIntro": "Posh cousin: So you're the one who beat up my little cousins? I'm going to crush you!",
+      "primoDefeated": "{{hero}}: Damn, you big lump, you almost fought like a real man. Anyway, while I'm here I'll swing by the town hall and smash it up a bit, hehe. That'll give those bastards one more excuse to launder money."
     },
     "cheatsActive": "Admin cheats active: this game does not count for the ranking."
   },

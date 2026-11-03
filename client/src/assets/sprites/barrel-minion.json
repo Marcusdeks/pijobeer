@@ -2,12 +2,19 @@
   "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
   "frameWidth": 40,
   "frameHeight": 48,
+  "barrels": ["wood", "iron"],
   "anchor": {
     "x": 20,
     "y": 24
   },
-  "size": {
-    "width": 34,
-    "height": 44
+  "sizes": {
+    "wood": {
+      "width": 34,
+      "height": 44
+    },
+    "iron": {
+      "width": 34,
+      "height": 44
+    }
   }
 }

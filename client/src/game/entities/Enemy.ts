@@ -1,14 +1,15 @@
 /**
- * ENEMIGO que cae durante el nivel: botellas y el barril pequeño del nivel 4.
- * También las botellas que lanzan los pijos (jefes del nivel 4).
+ * ENEMIGO que cae durante el nivel: botellas y barriles pequeños. También lo
+ * que lanzan los jefes: las botellas de los pijos y los barriles del primo.
  *
  * Su TIPO (ver ENEMY_TYPES en config.ts) decide su velocidad, su tamaño,
  * cuántos impactos aguanta, cada cuánto dispara y si apunta al jugador.
  *
  * Cómo se mueve:
  *   - Lo normal: cae recto hacia abajo.
- *   - Lanzada por un pijo (thrown): sale recta hacia donde estaba el jugador
- *     al lanzarla (THROWN_BOTTLE), sin cambiar de rumbo, y dispara hacia donde va.
+ *   - Lanzado por un jefe (thrown): sale recto hacia donde estaba el jugador
+ *     al lanzarlo (THROWN), sin cambiar de rumbo. Las botellas disparan hacia
+ *     donde van; los barriles, hacia el jugador, como siempre.
  *
  * Cada disparo de una botella es una pequeña animación:
  *
@@ -16,8 +17,9 @@
  *                                        └─ aquí sale la bala
  *
  * La bala no sale al empezar la animación sino en la explosión: ver saltar
- * la chapa avisa al jugador y le da tiempo a esquivar. El barril no tiene
- * chapa: dispara directamente, apuntando a donde está el jugador.
+ * la chapa avisa al jugador y le da tiempo a esquivar. Los barriles no tienen
+ * chapa: disparan directamente, apuntando a donde está el jugador, uno o
+ * varios chorros en abanico según su tipo (streams).
  *
  * Sus balas NO se guardan dentro del enemigo: update() las devuelve y
  * GameSession las mete en una lista común, así siguen volando aunque el
@@ -31,7 +33,7 @@ import {
   ENEMY_BULLET,
   ENEMY_TYPES,
   HIT_FLASH_STEPS,
-  THROWN_BOTTLE,
+  type ThrowStats,
 } from '../config';
 import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
@@ -56,6 +58,8 @@ export class Enemy implements Rect {
    * botellas lanzadas.
    */
   heading = 0;
+  /** true si lo ha lanzado un jefe. */
+  readonly thrown: boolean;
 
   /** Desplazamiento por paso, calculado una vez: el rumbo no cambia en vuelo. */
   private velocity: Point = { x: 0, y: 0 };
@@ -73,7 +77,8 @@ export class Enemy implements Rect {
 
   /**
    * @param speedScale - multiplicador de velocidad del nivel (y de los trucos de admin)
-   * @param thrown - true si la ha lanzado un pijo: va hacia el jugador en vez de caer recta
+   * @param throwing - cómo vuela si lo ha lanzado un jefe (va hacia el jugador
+   *   en vez de caer recto), o null si cae como siempre
    */
   constructor(
     public x: number,
@@ -81,19 +86,19 @@ export class Enemy implements Rect {
     readonly type: EnemyTypeId,
     random: RandomFn,
     speedScale = 1,
-    readonly thrown = false,
+    throwing: ThrowStats | null = null,
   ) {
     this.stats = ENEMY_TYPES[type];
     this.width = this.stats.width;
     this.height = this.stats.height;
     this.hitsLeft = this.stats.hits;
-    this.speed = (thrown ? THROWN_BOTTLE.speed : this.stats.speed) * speedScale;
+    this.thrown = throwing !== null;
+    this.speed = (throwing?.speed ?? this.stats.speed) * speedScale;
     this.velocity = velocityAt(0, this.speed);
     // Primer disparo con retraso aleatorio, para que no disparen todos a la vez.
-    // Las lanzadas, enseguida: van tan rápido que si no llegarían sin disparar.
-    const [min, max] = thrown
-      ? [THROWN_BOTTLE.firstShot, THROWN_BOTTLE.firstShot]
-      : this.stats.firstShot;
+    // Lo lanzado, cuando diga su lanzamiento (las botellas van tan rápido que,
+    // si esperasen como las demás, llegarían sin haber disparado).
+    const [min, max] = throwing ? [throwing.firstShot, throwing.firstShot] : this.stats.firstShot;
     this.cooldown = min + Math.floor(random() * (max - min));
   }
 
@@ -110,26 +115,24 @@ export class Enemy implements Rect {
     return new Enemy(x, -height, type, random, speedScale);
   }
 
-  /** Botella lanzada por un pijo: sale de `from` hacia donde está ahora el jugador (`target`). */
+  /**
+   * Lanzado por un jefe: sale de `from` hacia donde está ahora el jugador
+   * (`target`), con la velocidad y el primer disparo de `throwing`.
+   */
   static thrownAt(
     type: EnemyTypeId,
     from: Point,
     target: Point,
     random: RandomFn,
+    throwing: ThrowStats,
     speedScale = 1,
   ): Enemy {
     const { width, height } = ENEMY_TYPES[type];
-    const bottle = new Enemy(
-      from.x - width / 2,
-      from.y - height / 2,
-      type,
-      random,
-      speedScale,
-      true,
-    );
-    bottle.heading = aimDegrees(from, target, BOSS_COMMON.maxAimDeg);
-    bottle.velocity = velocityAt(bottle.heading, bottle.speed);
-    return bottle;
+    const x = from.x - width / 2;
+    const thrown = new Enemy(x, from.y - height / 2, type, random, speedScale, throwing);
+    thrown.heading = aimDegrees(from, target, BOSS_COMMON.maxAimDeg);
+    thrown.velocity = velocityAt(thrown.heading, thrown.speed);
+    return thrown;
   }
 
   /** Frame de la hoja que toca dibujar: el de la animación de disparo, o el de reposo. */
@@ -164,14 +167,14 @@ export class Enemy implements Rect {
 
   /**
    * Avanza un paso: se mueve y gestiona el disparo.
-   * @param target - el centro del jugador (al que apunta el barril)
-   * @returns la bala disparada en este paso, o null
+   * @param target - el centro del jugador (al que apuntan los barriles)
+   * @returns las balas disparadas en este paso (ninguna, una o un abanico)
    */
-  update(target?: Point): Bullet | null {
+  update(target?: Point): Bullet[] {
     if (this.flashSteps > 0) this.flashSteps--;
     this.x += this.velocity.x;
     this.y += this.velocity.y;
-    return this.stats.variant === null ? this.updateDirectShot(target) : this.updateBottleShot();
+    return this.stats.kind === 'barrel' ? this.updateDirectShot(target) : this.updateBottleShot();
   }
 
   /** true si ya ha salido de la pantalla por abajo o (las lanzadas) por un lado. */
@@ -180,10 +183,10 @@ export class Enemy implements Rect {
   }
 
   /** Botellas: la animación de la chapa y la espuma en el frame de la explosión. */
-  private updateBottleShot(): Bullet | null {
+  private updateBottleShot(): Bullet[] {
     if (this.shotStep === null) {
       if (--this.cooldown <= 0) this.shotStep = 0; // empieza la animación de disparo
-      return null;
+      return [];
     }
 
     const frameBefore = this.animationFrame;
@@ -191,20 +194,28 @@ export class Enemy implements Rect {
       // Fin de la animación: vuelve a estar cerrada y espera al siguiente disparo
       this.shotStep = null;
       this.cooldown = this.stats.shootCooldown;
-      return null;
+      return [];
     }
 
     // La bala sale justo en el paso en que se entra en el frame de la espuma
     const fires = frameBefore !== ENEMY.fireOnFrame && this.animationFrame === ENEMY.fireOnFrame;
-    return fires ? this.createBullet(this.heading) : null;
+    return fires ? [this.createBullet(this.heading)] : [];
   }
 
-  /** Barril: sin animación; al acabar la espera dispara hacia el jugador. */
-  private updateDirectShot(target?: Point): Bullet | null {
-    if (--this.cooldown > 0) return null;
+  /**
+   * Barril: sin animación; al acabar la espera dispara hacia el jugador. Con
+   * varios chorros, en abanico de spreadDeg grados centrado en él (con 3 y
+   * 40°: a -20, 0 y 20 grados de la dirección del jugador).
+   */
+  private updateDirectShot(target?: Point): Bullet[] {
+    if (--this.cooldown > 0) return [];
     this.cooldown = this.stats.shootCooldown;
-    const degrees = target ? aimDegrees(this.muzzle(0), target, BOSS_COMMON.maxAimDeg) : 0;
-    return this.createBullet(degrees);
+    const { streams, spreadDeg } = this.stats;
+    const center = target ? aimDegrees(this.muzzle(0), target, BOSS_COMMON.maxAimDeg) : 0;
+    return Array.from({ length: streams }, (_, i) => {
+      const offset = streams > 1 ? (i / (streams - 1) - 0.5) * spreadDeg : 0;
+      return this.createBullet(center + offset);
+    });
   }
 
   /**

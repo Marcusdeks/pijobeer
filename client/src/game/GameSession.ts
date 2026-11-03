@@ -9,6 +9,12 @@
  * ("victory" y "over" son finales: la partida ya no avanza. En "dialog" la
  * partida está parada mientras React enseña un texto: ver DialogMoment.)
  *
+ * Calles con final (nivel 5, la del ayuntamiento): el callejón deja de
+ * avanzar al llegar al final (rules.cameraEnd) y, al derrotar al jefe, el
+ * protagonista entra solo en el edificio (rules.exit): anda hasta la puerta,
+ * desaparece en lo oscuro y la pantalla funde a negro; entonces, la victoria.
+ * Mientras entra no hay enemigos, ni se le puede manejar.
+ *
  * Latas: cada cierto tiempo (según la dificultad) cae una lata. La verde
  * cura y la de leopardo acelera al jugador durante unos segundos.
  *
@@ -29,17 +35,20 @@ import {
   type EnemyTypeId,
   type GameModifiers,
 } from '@pijobeer/shared';
-import { ARENA, BOSS_COMMON, ENEMY, PICKUP, type PickupTypeId } from './config';
+import { ARENA, BOSS_COMMON, ENEMY, FINALE, PICKUP, type PickupTypeId } from './config';
 import { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import { Enemy, type RandomFn } from './entities/Enemy';
 import { Pickup } from './entities/Pickup';
 import { Player } from './entities/Player';
-import { intersects } from './geometry';
+import { clamp, intersects } from './geometry';
 import type { InputState } from './input/InputState';
 import { resolveRules, type GameRules } from './rules';
 
 export type GameStatus = 'running' | 'paused' | 'dialog' | 'victory' | 'over';
+
+/** Pasos que tarda el protagonista en desaparecer en lo oscuro de la puerta (ver FINALE). */
+const VANISH_STEPS = Math.ceil(FINALE.vanishDistance / FINALE.exitSpeed);
 
 /**
  * Momentos en los que la partida se puede parar para enseñar un texto:
@@ -106,6 +115,11 @@ export class GameSession {
   private currentStatus: GameStatus = 'running';
   /** Ya han entrado los jefes (aunque luego se les derrote y desaparezcan). */
   private bossesSpawned = false;
+  /** Escena final: el protagonista está entrando solo en el edificio (ver rules.exit). */
+  private exiting = false;
+  /** Escena final: ya ha llegado a la puerta, y los pasos que lleva desde entonces. */
+  private atDoor = false;
+  private insideSteps = 0;
   /** Puntos de los enemigos eliminados y de los jefes derrotados, sin multiplicar. */
   private earnedPoints = 0;
   private readonly pendingDialogs: Set<DialogMoment>;
@@ -159,6 +173,19 @@ export class GameSession {
     return this.bossesSpawned && this.bosses.length === 0;
   }
 
+  /**
+   * Escena final: cuánto ha desaparecido el protagonista en lo oscuro de la
+   * puerta (0 = se le ve entero, 1 = ya no se le ve) y cuánto se ha fundido
+   * la pantalla a negro después (0 = nada, 1 = negra del todo). Los usa el renderer.
+   */
+  get playerFade(): number {
+    return clamp(this.insideSteps / VANISH_STEPS, 0, 1);
+  }
+
+  get screenFade(): number {
+    return clamp((this.insideSteps - VANISH_STEPS) / FINALE.fadeSteps, 0, 1);
+  }
+
   /** Si ahora se puede usar la chupa: según el nivel, siempre o solo contra los jefes. */
   get jacketAllowed(): boolean {
     const { jacket } = this.level;
@@ -187,6 +214,7 @@ export class GameSession {
   step(input: InputState): void {
     if (this.currentStatus !== 'running') return;
     if (this.openDialog('opening')) return;
+    if (this.exiting) return this.walkInside();
     this.steps++;
 
     this.moveEverything(input);
@@ -219,23 +247,23 @@ export class GameSession {
 
   private moveEverything(input: InputState): void {
     const { player, rules } = this;
+    // En una calle con final, el callejón no pasa de él
+    const roadLeft =
+      rules.cameraEnd === null ? Infinity : rules.cameraEnd - this.backgroundDistance;
     const shot = player.update(input, {
       field: rules.field,
       shootCooldown: rules.shootCooldown,
       // Contra los jefes no se avanza: el combate es en el sitio
-      canAdvance: !this.bossesSpawned,
+      canAdvance: !this.bossesSpawned && roadLeft > 0,
       jacketAllowed: this.jacketAllowed,
     });
     if (shot) this.playerBullets.push(shot);
-    const advance = player.advanceSpeed;
+    const advance = Math.min(player.advanceSpeed, roadLeft);
     this.backgroundDistance += advance;
 
     // Barriles, jefes y botellas lanzadas apuntan al centro del jugador
     const target = { x: player.x + player.width / 2, y: player.y + player.height / 2 };
-    for (const enemy of this.enemies) {
-      const enemyShot = enemy.update(target);
-      if (enemyShot) this.enemyBullets.push(enemyShot);
-    }
+    for (const enemy of this.enemies) this.enemyBullets.push(...enemy.update(target));
     this.bosses.forEach((boss, index) => {
       const { bullets, bottles } = boss.update(target);
       this.enemyBullets.push(...bullets);
@@ -287,7 +315,11 @@ export class GameSession {
   }
 
   private spawnBosses(): void {
-    const { level, field, bossHealth, enemySpeed } = this.rules;
+    const { level, field, bossHealth, enemySpeed, cameraEnd } = this.rules;
+    // Una calle con final se recorre entera antes del jefe. Solo puede faltar
+    // si un admin ha fijado las botellas (y con ellas, no hay que recorrer
+    // nada): entonces se salta al final, para que el jefe salga en su sitio
+    if (cameraEnd !== null) this.backgroundDistance = Math.max(this.backgroundDistance, cameraEnd);
     const count = level.bosses.length;
     this.bosses = level.bosses.map(
       (id, slot) =>
@@ -386,18 +418,51 @@ export class GameSession {
   /**
    * ¿Fin de partida? La victoria se comprueba antes: si en el mismo paso se
    * gana y se pierde la última vida, se le da la victoria al jugador. Si hay
-   * texto tras los jefes, la victoria llega al cerrarlo (en el siguiente paso).
+   * texto tras los jefes, la victoria llega al cerrarlo (en el siguiente paso);
+   * si hay un edificio al final, al entrar en él.
    */
   private checkEnd(): void {
     const won = this.level.bosses.length > 0 ? this.bossesDefeated : this.waveCompleted;
     if (won && this.openDialog('afterBosses')) return;
-    if (won) {
-      this.setStatus('victory');
-      this.events.onVictory?.(this.result);
-    } else if (this.player.isDead) {
+    if (won && this.rules.exit) this.startExit();
+    else if (won) this.win();
+    else if (this.player.isDead) {
       this.setStatus('over');
       this.events.onGameOver?.(this.result);
     }
+  }
+
+  /**
+   * Empieza la escena final. Lo que quedaba en pantalla desaparece: con el
+   * jefe derrotado ya no hay combate, y así nada puede herirle mientras entra.
+   */
+  private startExit(): void {
+    this.exiting = true;
+    this.enemies = [];
+    this.enemyBullets = [];
+    this.playerBullets = [];
+    this.pickups = [];
+  }
+
+  /**
+   * Escena final, paso a paso: anda hasta la puerta; después sigue hacia
+   * dentro mientras desaparece (playerFade) y, ya dentro, la pantalla funde a
+   * negro (screenFade). Al acabar el fundido, la victoria.
+   */
+  private walkInside(): void {
+    const door = this.rules.exit!;
+    if (!this.atDoor) {
+      this.atDoor = this.player.walkTo(door, FINALE.exitSpeed);
+      return;
+    }
+    this.insideSteps++;
+    this.player.walkTo({ x: door.x, y: door.y - FINALE.vanishDistance }, FINALE.exitSpeed);
+    if (this.insideSteps >= VANISH_STEPS + FINALE.fadeSteps) this.win();
+  }
+
+  private win(): void {
+    this.setStatus('victory');
+    this.events.onVictory?.(this.result);
   }
 
   private setStatus(status: GameStatus): void {

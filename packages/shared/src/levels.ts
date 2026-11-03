@@ -17,20 +17,23 @@
 
 /**
  * Jefes finales disponibles (su comportamiento está en client/src/game/config.ts).
- * Los barriles disparan espuma; el pijo lanza botellas hacia el jugador.
+ * Los barriles disparan espuma; el pijo lanza botellas hacia el jugador y su
+ * primo (nivel 5), barriles.
  */
-export type BossId = 'wood' | 'iron' | 'pijo';
+export type BossId = 'wood' | 'iron' | 'pijo' | 'primo';
 
 /**
  * Tipos de enemigo que caen durante el nivel (sus estadísticas están en
- * client/src/game/config.ts): tres botellas y el barril pequeño del nivel 4.
+ * client/src/game/config.ts): tres botellas, el barril pequeño del nivel 4
+ * (un disparo) y los dos del nivel 5, que disparan en abanico: el de madera y
+ * el de hierro.
  */
-export type EnemyTypeId = 'normal' | 'fast' | 'heavy' | 'barrel';
+export type EnemyTypeId = 'normal' | 'fast' | 'heavy' | 'barrel' | 'woodBarrel' | 'ironBarrel';
 
 export interface LevelDefinition {
   readonly id: number;
   /** Callejón del fondo (art/alleys/alley-N.png). Cada nivel tiene el suyo. */
-  readonly alley: 1 | 2 | 3 | 4;
+  readonly alley: 1 | 2 | 3 | 4 | 5;
   /**
    * Botellas que hay que eliminar. Sin jefe, al conseguirlo se gana el nivel.
    * Con jefe, al conseguirlo dejan de salir botellas y aparece el jefe.
@@ -127,6 +130,25 @@ export const LEVELS: readonly LevelDefinition[] = [
     enemySpeed: 1.4,
     // 1 de cada 25 es un barril pequeño (4 %): unos 3 por nivel
     enemyMix: { normal: 7, fast: 9, heavy: 8, barrel: 1 },
+  },
+  {
+    id: 5,
+    // La calle del ayuntamiento: tiene final (el ayuntamiento), así que el
+    // callejón se para al llegar (ver alleys en client/scripts/sprites)
+    alley: 5,
+    // Solo barriles, que aguantan varios impactos: hacen falta menos que botellas
+    killsToComplete: 30,
+    // 50 s avanzando por la calle: es lo que mide hasta la plaza del ayuntamiento
+    distanceToComplete: 3000,
+    // El primo de los pijos, que lanza barriles
+    bosses: ['primo'],
+    bossFightEnemy: null,
+    jacket: 'always',
+    // Uno cada 2 s: van lentos y pasan mucho rato en pantalla disparando
+    spawnInterval: 120,
+    enemySpeed: 1.4,
+    // 3 de madera por cada uno de hierro
+    enemyMix: { woodBarrel: 3, ironBarrel: 1 },
   },
 ];
 

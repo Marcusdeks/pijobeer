@@ -321,11 +321,10 @@ export function PlayPage() {
                           points: victory.result.points,
                         })}
                       </p>
-                      <p>
-                        {victory.nextLevel !== null
-                          ? t('play.levelUnlocked', { level: victory.nextLevel })
-                          : t('play.gameCompleted')}
-                      </p>
+                      {/* En el último nivel no se dice nada más: el juego sigue creciendo */}
+                      {victory.nextLevel !== null && (
+                        <p>{t('play.levelUnlocked', { level: victory.nextLevel })}</p>
+                      )}
                     </>
                   }
                 >

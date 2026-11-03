@@ -8,12 +8,16 @@
  * Igual que playerSprite.ts, este módulo solo tiene DATOS y cálculos; las
  * imágenes las carga GameCanvas. Así la lógica se testea sin navegador.
  */
-import type { BossId, EnemyTypeId } from '@pijobeer/shared';
+import type { BossId, EnemyTypeId, LevelDefinition } from '@pijobeer/shared';
 import { ENEMY_TYPES, type PickupTypeId } from '../config';
+import type { BossPose } from '../entities/Boss';
+import { alleyMeta } from '../playfield';
 import alleysMeta from '../../assets/sprites/alleys.json';
 import minionMeta from '../../assets/sprites/barrel-minion.json';
 import bossMeta from '../../assets/sprites/bosses.json';
 import pijoMeta from '../../assets/sprites/pijo.json';
+import primoMeta from '../../assets/sprites/primo.json';
+import truckMeta from '../../assets/sprites/truck.json';
 import pickupMeta from '../../assets/sprites/pickups.json';
 import enemyMeta from '../../assets/sprites/enemy-bottles.json';
 import foamMeta from '../../assets/sprites/bullet-foam.json';
@@ -53,19 +57,22 @@ export const ENEMY_ANCHOR: Anchor = enemyMeta.anchor;
 
 /** Cada tipo de botella se dibuja con su color (ver ENEMY_TYPES en config.ts). */
 export function enemyFrame(type: EnemyTypeId, frame: number): SpriteFrame {
-  const { variant } = ENEMY_TYPES[type];
-  return gridFrame(enemyMeta, variant ? enemyMeta.variants.indexOf(variant) : 0, frame);
+  const row = Math.max(0, enemyMeta.variants.indexOf(ENEMY_TYPES[type].variant));
+  return gridFrame(enemyMeta, row, frame);
 }
 
 // ------------------------------------------------------------------
-//  Barril pequeño (nivel 4): fila 0 normal, fila 1 destello blanco
+//  Barriles pequeños (una columna por barril; fila 0 normal, fila 1 destello blanco)
 // ------------------------------------------------------------------
 
 /** Centro del barril dentro del frame. */
 export const MINION_ANCHOR: Anchor = minionMeta.anchor;
 
-export function minionFrame(flashing: boolean): SpriteFrame {
-  return gridFrame({ ...minionMeta, frames: 1 }, flashing ? 1 : 0, 0);
+/** El barril de un tipo de enemigo (su variant: madera o hierro). */
+export function minionFrame(type: EnemyTypeId, flashing: boolean): SpriteFrame {
+  const column = Math.max(0, minionMeta.barrels.indexOf(ENEMY_TYPES[type].variant));
+  const frames = minionMeta.barrels.length;
+  return gridFrame({ ...minionMeta, frames }, flashing ? 1 : 0, column);
 }
 
 // ------------------------------------------------------------------
@@ -107,7 +114,7 @@ export function openerFrame(age: number, frameSteps: number): SpriteFrame {
 /** Centro del barril dentro del frame. */
 export const BOSS_ANCHOR: Anchor = bossMeta.anchor;
 
-export function bossFrame(id: Exclude<BossId, 'pijo'>, flashing: boolean): SpriteFrame {
+export function bossFrame(id: Exclude<BossId, 'pijo' | 'primo'>, flashing: boolean): SpriteFrame {
   const column = bossMeta.bosses.indexOf(id);
   return {
     sx: column * bossMeta.frameWidth,
@@ -124,12 +131,60 @@ export function bossFrame(id: Exclude<BossId, 'pijo'>, flashing: boolean): Sprit
 /** Los pies del pijo dentro del frame (se apoyan en la base de su caja, como el jugador). */
 export const PIJO_ANCHOR: Anchor = pijoMeta.anchor;
 
-/** Columna de cada pose en la hoja (ver PIJO en scripts/sprites/bosses.mjs). */
-const PIJO_POSE_COLUMN = { 0: 0, 1: 1, windup: 2, throw: 3 } as const;
-
-export function pijoFrame(pose: keyof typeof PIJO_POSE_COLUMN, flashing: boolean): SpriteFrame {
-  return gridFrame(pijoMeta, flashing ? 1 : 0, PIJO_POSE_COLUMN[pose]);
+/**
+ * Columnas de la hoja (ver PIJO en scripts/sprites/bosses.mjs): 0 y 1 los dos
+ * pasos al andar, 2 el brazo arriba con la botella (cogiendo impulso) y 3 el
+ * brazo estirado (recién lanzada).
+ */
+export function pijoFrame(pose: BossPose, flashing: boolean): SpriteFrame {
+  const column = pose.action === 'walk' ? pose.step % 2 : pose.action === 'windup' ? 2 : 3;
+  return gridFrame(pijoMeta, flashing ? 1 : 0, column);
 }
+
+// ------------------------------------------------------------------
+//  Primo pijo (una fila por animación y una columna por pose; debajo, el destello)
+// ------------------------------------------------------------------
+
+/** Los pies del primo dentro del frame (como el pijo). */
+export const PRIMO_ANCHOR: Anchor = primoMeta.anchor;
+
+/** Poses de cada parte de la animación de lanzar (ver PRIMO en scripts/sprites/bosses.mjs). */
+const PRIMO_WALK_POSES = 4;
+const PRIMO_WINDUP_POSES = 4; // agacharse, levantarlo, sobre la cabeza, a punto
+const PRIMO_RECOVER_POSES = 2; // soltándolo, con las manos vacías
+
+/**
+ * Fila 0: andar. Filas 1 y 2: lanzar un barril de madera o de hierro (el que
+ * tenga en las manos). Cada momento de la animación (progress) cae en su pose.
+ */
+export function primoFrame(
+  pose: BossPose,
+  held: EnemyTypeId | null,
+  flashing: boolean,
+): SpriteFrame {
+  const pick = (progress: number, poses: number) =>
+    Math.min(poses - 1, Math.floor(progress * poses));
+  const row = pose.action === 'walk' ? 0 : held === 'ironBarrel' ? 2 : 1;
+  const column =
+    pose.action === 'walk'
+      ? pose.step % PRIMO_WALK_POSES
+      : pose.action === 'windup'
+        ? pick(pose.progress, PRIMO_WINDUP_POSES)
+        : PRIMO_WINDUP_POSES + pick(pose.progress, PRIMO_RECOVER_POSES);
+  const frames = PRIMO_WINDUP_POSES + PRIMO_RECOVER_POSES;
+  return gridFrame({ ...primoMeta, frames }, row + (flashing ? primoMeta.rows : 0), column);
+}
+
+// ------------------------------------------------------------------
+//  Camión del final del nivel 5 (un solo dibujo)
+// ------------------------------------------------------------------
+
+export const TRUCK_FRAME: SpriteFrame = {
+  sx: 0,
+  sy: 0,
+  width: truckMeta.width,
+  height: truckMeta.height,
+};
 
 // ------------------------------------------------------------------
 //  Latas (una fila, una columna por tipo)
@@ -154,7 +209,12 @@ export function pickupFrame(type: PickupTypeId): SpriteFrame {
 /** Escala a la que se dibujan las hojas de los callejones (están a mitad de tamaño). */
 export const ALLEY_DRAW_SCALE = alleysMeta.drawScale;
 
-/** Alto (en píxeles de la hoja) del callejón de un nivel: lo que tarda en repetirse. */
-export function alleyHeight(alley: number): number {
-  return alleysMeta.alleys[String(alley) as keyof typeof alleysMeta.alleys].height;
+/**
+ * Cómo se reparte la hoja de un callejón, en píxeles de la hoja:
+ *   head  lo de arriba, que no se repite (el final de las calles que lo tienen; si no, 0)
+ *   loop  lo que se repite en bucle, que va debajo
+ */
+export function alleyLayout(alley: LevelDefinition['alley']): { head: number; loop: number } {
+  const { height, loopTop = 0 } = alleyMeta(alley);
+  return { head: loopTop, loop: height - loopTop };
 }

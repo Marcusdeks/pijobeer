@@ -1,5 +1,5 @@
 /**
- * JEFE FINAL: un barril de cerveza pija (madera o hierro) o un pijo.
+ * JEFE FINAL: un barril de cerveza pija (madera o hierro), un pijo o su primo.
  *
  *   1. ENTRADA: baja desde fuera de la pantalla hasta BOSS_COMMON.holdY. Mientras
  *      entra ni ataca ni se le puede dañar (aún no ha empezado el combate).
@@ -7,7 +7,9 @@
  *      a pared y ataca en RÁFAGAS (ver BOSS en config.ts). Mientras ataca se
  *      para (ver isAttacking):
  *        - los barriles disparan abanicos de chorros que pueden apuntar al jugador;
- *        - el pijo lanza botellas hacia donde está él (ver Enemy.thrownAt).
+ *        - el pijo lanza botellas hacia donde está él, y el primo, barriles
+ *          (ver Enemy.thrownAt). Qué lanza lo decide antes de empezar a coger
+ *          impulso, para que el dibujo lo lleve en las manos (ver heldThrow).
  *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido y cambia su
  *      ritmo de ataque (ver BOSS_ENRAGE y los enraged* de cada jefe).
  *
@@ -20,7 +22,7 @@
  *
  * Se le gana bajándole la vida a 0: cada abrechapas quita PLAYER_BULLET.damage.
  */
-import type { BossId } from '@pijobeer/shared';
+import type { BossId, EnemyTypeId } from '@pijobeer/shared';
 import {
   BOSS,
   BOSS_COMMON,
@@ -28,9 +30,9 @@ import {
   ENEMY_BULLET,
   HIT_FLASH_STEPS,
   PLAYER_BULLET,
-  THROWN_BOTTLE,
+  THROWN,
 } from '../config';
-import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
+import { aimDegrees, clamp, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
 import { Enemy, type RandomFn } from './Enemy';
@@ -43,15 +45,25 @@ export interface BossAttack {
 
 const NO_ATTACK: BossAttack = { bullets: [], bottles: [] };
 
+/**
+ * Qué está haciendo, para elegir el dibujo (los jefes animados: pijo y primo):
+ *   walk     andando de lado; step cuenta los pasos de la animación
+ *   windup   cogiendo impulso antes de lanzar
+ *   recover  justo después de lanzar
+ * progress va de 0 (empieza) a 1 (acaba): con él se elige la pose de cada momento.
+ */
+export type BossPose =
+  { action: 'walk'; step: number } | { action: 'windup' | 'recover'; progress: number };
+
 export interface BossOptions {
   /** Multiplicador de vida (dificultad y truco de admin; 1 = normal). */
   healthScale?: number;
   /** Posición entre los jefes que salen a la vez (0, 1...) y cuántos son. */
   slot?: number;
   count?: number;
-  /** Para elegir el tipo de las botellas lanzadas. */
+  /** Para elegir el tipo de lo que lanza. */
   random?: RandomFn;
-  /** Multiplicador de velocidad de las botellas lanzadas (el del nivel). */
+  /** Multiplicador de velocidad de lo que lanza (el del nivel). */
   bottleSpeedScale?: number;
 }
 
@@ -82,6 +94,9 @@ export class Boss implements Rect {
   private walkSteps = 0;
   /** Pausa que empezó al acabar su última ráfaga (ver turnGap). */
   private lastPause = 0;
+  /** Lo que lanzará en su próximo ataque y lo último que ha lanzado (null = solo echa espuma). */
+  private nextThrow: EnemyTypeId | null;
+  private lastThrow: EnemyTypeId | null = null;
 
   constructor(
     readonly id: BossId,
@@ -104,6 +119,7 @@ export class Boss implements Rect {
     this.burstLeft = this.stats.burstSize;
     this.random = random;
     this.bottleSpeedScale = bottleSpeedScale;
+    this.nextThrow = this.pickThrow();
     // Repartidos a lo ancho (uno solo, centrado) y por encima del borde superior: entran bajando
     const center = field.left + ((field.right - field.left) * (slot + 1)) / (count + 1);
     this.x = center - this.width / 2;
@@ -144,16 +160,26 @@ export class Boss implements Rect {
     return inBurst || windingUp || this.recoverSteps > 0;
   }
 
+  /** Qué está haciendo, para que el renderer elija su pose (ver BossPose). */
+  get pose(): BossPose {
+    const { windupSteps, recoverSteps } = this.stats;
+    if (this.recoverSteps > 0) {
+      return { action: 'recover', progress: 1 - this.recoverSteps / recoverSteps };
+    }
+    if (this.isAttacking) {
+      // Sin impulso (los barriles) no hay nada que animar: ya está listo
+      const progress = windupSteps > 0 ? 1 - this.fireCooldown / windupSteps : 1;
+      return { action: 'windup', progress: clamp(progress, 0, 1) };
+    }
+    return { action: 'walk', step: Math.floor(this.walkSteps / BOSS_COMMON.walkFrameSteps) };
+  }
+
   /**
-   * Pose que toca dibujar (la usa el renderer con la hoja del pijo):
-   *   'windup' brazo arriba con la botella, a punto de lanzarla
-   *   'throw'  brazo estirado, recién lanzada
-   *   0 o 1    los dos pasos al andar de lado
+   * Lo que tiene en las manos: lo que acaba de lanzar mientras se recupera y,
+   * si no, lo próximo que va a lanzar. null si solo echa espuma.
    */
-  get pose(): 'windup' | 'throw' | 0 | 1 {
-    if (this.recoverSteps > 0) return 'throw';
-    if (this.isAttacking) return 'windup';
-    return Math.floor(this.walkSteps / BOSS_COMMON.walkFrameSteps) % 2 === 0 ? 0 : 1;
+  get heldThrow(): EnemyTypeId | null {
+    return this.recoverSteps > 0 ? this.lastThrow : this.nextThrow;
   }
 
   /** Lo que deben esperar los demás jefes tras un ataque suyo: media pausa, para turnarse a partes iguales. */
@@ -245,23 +271,37 @@ export class Boss implements Rect {
     }
   }
 
+  /** Elige al azar lo próximo que lanzará, entre los tipos de su ataque (null si echa espuma). */
+  private pickThrow(): EnemyTypeId | null {
+    if (this.stats.attack === 'foam') return null;
+    const { types } = THROWN[this.stats.attack];
+    return types[Math.floor(this.random() * types.length)]!;
+  }
+
   /**
-   * Un ataque: `streams` chorros (o botellas) repartidos por igual en un
-   * abanico de `spreadDeg` grados, centrado en la dirección del jugador (si
-   * apunta) o hacia abajo. Los ángulos se miden desde la vertical: 0 = recto
-   * hacia abajo, positivo = hacia la derecha.
+   * Un ataque. Los que lanzan cosas, lanzan una hacia el jugador (o hacia
+   * abajo). Los que echan espuma, `streams` chorros repartidos por igual en
+   * un abanico de `spreadDeg` grados, centrado en la dirección del jugador
+   * (si apunta) o hacia abajo. Los ángulos se miden desde la vertical: 0 =
+   * recto hacia abajo, positivo = hacia la derecha.
    */
   private attack(target?: Point): BossAttack {
     const { stats, isEnraged, tap } = this;
 
-    if (stats.attack === 'bottles') {
+    if (stats.attack !== 'foam' && this.nextThrow) {
       const aim = target ?? { x: tap.x, y: tap.y + 1 };
-      const bottles = Array.from({ length: stats.streams }, () => {
-        const { types } = THROWN_BOTTLE;
-        const type = types[Math.floor(this.random() * types.length)]!;
-        return Enemy.thrownAt(type, tap, aim, this.random, this.bottleSpeedScale);
-      });
-      return { bullets: [], bottles };
+      const throwing = THROWN[stats.attack];
+      const thrown = Enemy.thrownAt(
+        this.nextThrow,
+        tap,
+        aim,
+        this.random,
+        throwing,
+        this.bottleSpeedScale,
+      );
+      this.lastThrow = this.nextThrow;
+      this.nextThrow = this.pickThrow();
+      return { bullets: [], bottles: [thrown] };
     }
 
     const streams = stats.streams + (isEnraged ? stats.enragedExtraStreams : 0);

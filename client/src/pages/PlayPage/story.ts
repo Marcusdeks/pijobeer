@@ -2,8 +2,8 @@
  * TEXTOS DE HISTORIA que paran la partida: cuáles hay y cuándo salen.
  *
  * El motor solo sabe parar en ciertos momentos (DialogMoment: al empezar,
- * antes de los jefes). Qué texto toca en cada momento de cada nivel se
- * decide aquí, en un único sitio, y PlayPage lo enseña con StoryOverlay.
+ * antes y después de los jefes). Qué texto toca en cada momento de cada nivel
+ * se decide aquí, en un único sitio, y PlayPage lo enseña con StoryOverlay.
  *
  *   lines       claves de traducción, una por párrafo (las dice cada personaje)
  *   durationMs  cuánto se queda en pantalla antes de seguir solo
@@ -12,7 +12,14 @@
 import { FIRST_JACKET_LEVEL } from '@pijobeer/shared';
 import type { DialogMoment } from '../../game/GameSession';
 
-export type StoryId = 'jacketTutorial' | 'level4Opening' | 'pijosIntro' | 'pijosDefeated';
+export type StoryId =
+  | 'jacketTutorial'
+  | 'level4Opening'
+  | 'pijosIntro'
+  | 'pijosDefeated'
+  | 'level5Opening'
+  | 'primoIntro'
+  | 'primoDefeated';
 
 type StoryLineKey =
   | 'play.story.jacketTutorial'
@@ -21,7 +28,10 @@ type StoryLineKey =
   | 'play.story.pijosReply'
   | 'play.story.pijosHint'
   | 'play.story.pijosDefeatedHero'
-  | 'play.story.pijosDefeatedReply';
+  | 'play.story.pijosDefeatedReply'
+  | 'play.story.level5Opening'
+  | 'play.story.primoIntro'
+  | 'play.story.primoDefeated';
 
 export interface Story {
   lines: readonly StoryLineKey[];
@@ -44,9 +54,17 @@ export const STORIES: Record<StoryId, Story> = {
     durationMs: 10000,
     skippable: true,
   },
+  level5Opening: { lines: ['play.story.level5Opening'], durationMs: 5000, skippable: true },
+  primoIntro: { lines: ['play.story.primoIntro'], durationMs: 6000, skippable: true },
+  /** Al derrotar al primo: después, el protagonista entra solo en el ayuntamiento. */
+  primoDefeated: { lines: ['play.story.primoDefeated'], durationMs: 12000, skippable: true },
 };
 
-const PIJOS_LEVEL = 4;
+/** Los niveles con historia propia la enseñan siempre, con botón para saltarla. */
+const LEVEL_STORIES: Readonly<Record<number, Partial<Record<DialogMoment, StoryId>>>> = {
+  4: { opening: 'level4Opening', beforeBosses: 'pijosIntro', afterBosses: 'pijosDefeated' },
+  5: { opening: 'level5Opening', beforeBosses: 'primoIntro', afterBosses: 'primoDefeated' },
+};
 
 /**
  * Textos de una partida, por momento.
@@ -59,9 +77,5 @@ export function storiesFor(
   if (levelId === FIRST_JACKET_LEVEL && !jacketTutorialSeen) {
     return { beforeBosses: 'jacketTutorial' };
   }
-  // El nivel 4 los enseña siempre, con botón para saltarlos
-  if (levelId === PIJOS_LEVEL) {
-    return { opening: 'level4Opening', beforeBosses: 'pijosIntro', afterBosses: 'pijosDefeated' };
-  }
-  return {};
+  return LEVEL_STORIES[levelId] ?? {};
 }

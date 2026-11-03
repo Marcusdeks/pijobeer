@@ -20,7 +20,8 @@ import {
 } from '@pijobeer/shared';
 import { MIN_SPAWN_INTERVAL, PICKUP, PICKUP_TYPES, PLAYER } from './config';
 import type { RandomFn } from './entities/Enemy';
-import { playfieldFor, type Playfield } from './playfield';
+import type { Point } from './geometry';
+import { exitFor, playfieldFor, type Playfield } from './playfield';
 
 export interface GameRules {
   level: LevelDefinition;
@@ -29,6 +30,14 @@ export interface GameRules {
   killsToComplete: number;
   /** Píxeles de callejón que hay que recorrer además (0 = no hace falta). */
   distanceToComplete: number;
+  /**
+   * Calles con final: hasta dónde avanza el callejón (lo que mide la calle
+   * hasta el edificio), y la puerta por la que entra el protagonista al acabar
+   * (en píxeles de pantalla, con el final a la vista). null = callejón sin
+   * final, que se repite sin parar.
+   */
+  cameraEnd: number | null;
+  exit: Point | null;
   /** Pasos entre disparo y disparo del jugador. */
   shootCooldown: number;
   spawnInterval: number;
@@ -60,6 +69,7 @@ export function resolveRules(
   // La dificultad y el truco de ritmo afectan igual a todo lo que aparece
   const spawnScale = modifiers.spawnRate * difficulty.spawnRate;
   const intervalFor = (base: number) => Math.max(MIN_SPAWN_INTERVAL, Math.round(base / spawnScale));
+  const exit = exitFor(level);
 
   return {
     level,
@@ -67,6 +77,9 @@ export function resolveRules(
     killsToComplete: modifiers.killsToComplete ?? level.killsToComplete,
     // Si un admin fija las botellas, ese es el objetivo entero: así puede probar el jefe sin esperar
     distanceToComplete: modifiers.killsToComplete === null ? level.distanceToComplete : 0,
+    // La calle mide lo mismo con o sin trucos: es el dibujo
+    cameraEnd: exit && level.distanceToComplete,
+    exit,
     shootCooldown: Math.round(PLAYER.shootCooldown / difficulty.fireRate),
     spawnInterval: intervalFor(level.spawnInterval),
     bossFightEnemy: level.bossFightEnemy && {

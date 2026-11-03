@@ -21,6 +21,19 @@
       "height": 2548,
       "floorLeft": 124,
       "floorRight": 668
+    },
+    "5": {
+      "height": 890,
+      "floorLeft": 124,
+      "floorRight": 688,
+      "loopTop": 365,
+      "end": {
+        "top": 243,
+        "door": {
+          "x": 400,
+          "y": 391
+        }
+      }
     }
   }
 }

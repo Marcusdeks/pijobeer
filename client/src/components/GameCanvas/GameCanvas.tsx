@@ -25,6 +25,7 @@ import alley1Url from '../../assets/sprites/alley-1.webp';
 import alley2Url from '../../assets/sprites/alley-2.webp';
 import alley3Url from '../../assets/sprites/alley-3.webp';
 import alley4Url from '../../assets/sprites/alley-4.webp';
+import alley5Url from '../../assets/sprites/alley-5.webp';
 import minionSheetUrl from '../../assets/sprites/barrel-minion.png';
 import bossSheetUrl from '../../assets/sprites/bosses.png';
 import foamSheetUrl from '../../assets/sprites/bullet-foam.png';
@@ -34,6 +35,8 @@ import pickupSheetUrl from '../../assets/sprites/pickups.png';
 import pijoSheetUrl from '../../assets/sprites/pijo.png';
 import jacketSheetUrl from '../../assets/sprites/player-jacket.png';
 import playerSheetUrl from '../../assets/sprites/player.png';
+import primoSheetUrl from '../../assets/sprites/primo.png';
+import truckSheetUrl from '../../assets/sprites/truck.png';
 import { ARENA } from '../../game/config';
 import { GameLoop } from '../../game/GameLoop';
 import {
@@ -45,6 +48,7 @@ import {
 } from '../../game/GameSession';
 import { KeyboardInput } from '../../game/input/KeyboardInput';
 import { loadImage } from '../../game/loadImage';
+import { exitFor } from '../../game/playfield';
 import { renderGame, type RenderAssets, type RenderLabels } from '../../game/renderer';
 import styles from './GameCanvas.module.css';
 
@@ -74,11 +78,24 @@ interface GameCanvasProps {
   ref?: Ref<GameCanvasHandle>;
 }
 
-const ALLEY_URLS = { 1: alley1Url, 2: alley2Url, 3: alley3Url, 4: alley4Url } as const;
+const ALLEY_URLS = {
+  1: alley1Url,
+  2: alley2Url,
+  3: alley3Url,
+  4: alley4Url,
+  5: alley5Url,
+} as const;
 
-/** Imágenes de una partida. Del fondo solo se descarga el callejón de ESE nivel. */
-function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
+/**
+ * Imágenes de una partida. Del fondo solo se descarga el callejón de ESE
+ * nivel, y el primo y el camión, solo en el nivel que los tiene (los demás
+ * se quedan en null).
+ */
+function sheetUrlsFor(levelId: number): Partial<Record<keyof RenderAssets, string>> {
+  const level = getLevel(levelId);
   return {
+    ...(level.bosses.includes('primo') && { primoSheet: primoSheetUrl }),
+    ...(exitFor(level) && { truckSheet: truckSheetUrl }),
     playerSheet: playerSheetUrl,
     enemySheet: enemySheetUrl,
     foamSheet: foamSheetUrl,
@@ -88,7 +105,7 @@ function sheetUrlsFor(levelId: number): Record<keyof RenderAssets, string> {
     pickupSheet: pickupSheetUrl,
     minionSheet: minionSheetUrl,
     jacketSheet: jacketSheetUrl,
-    alley: ALLEY_URLS[getLevel(levelId).alley],
+    alley: ALLEY_URLS[level.alley],
   };
 }
 
@@ -172,6 +189,8 @@ export function GameCanvas({
       openerSheet: null,
       bossSheet: null,
       pijoSheet: null,
+      primoSheet: null,
+      truckSheet: null,
       pickupSheet: null,
       minionSheet: null,
       jacketSheet: null,

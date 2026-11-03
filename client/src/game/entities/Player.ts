@@ -23,7 +23,7 @@ import {
   type GameAction,
 } from '../config';
 import { directionFromInput, type Direction } from '../direction';
-import { clamp, type Rect } from '../geometry';
+import { clamp, type Point, type Rect } from '../geometry';
 import type { InputState } from '../input/InputState';
 import type { Playfield } from '../playfield';
 import { IDLE_FRAME, STEPS_PER_ANIMATION_FRAME, WALK_CYCLE_LENGTH } from '../sprites/playerSprite';
@@ -209,6 +209,28 @@ export class Player implements Rect {
     this.blocksLeft = JACKET.maxBlocks;
     this.dryingSteps = JACKET.dryingSteps;
     this.isShielding = false;
+  }
+
+  /**
+   * Escena final: anda solo hasta poner los pies en `target`, primero de lado
+   * y después recto hacia arriba (así entra por la puerta de frente). Va sin
+   * los límites de la partida: puede subir más allá de media pantalla.
+   * @param speed - píxeles por paso
+   * @returns true cuando ya ha llegado
+   */
+  walkTo(target: Point, speed: number): boolean {
+    const dx = target.x - (this.x + this.width / 2);
+    const dy = target.y - (this.y + this.height);
+    const toward = (distance: number) => Math.sign(distance) * Math.min(Math.abs(distance), speed);
+    // Con decimales, la resta puede dejar un resto ínfimo: eso ya cuenta como llegar
+    const sideways = Math.abs(dx) > 0.01;
+    const moveX = sideways ? toward(dx) : 0;
+    const moveY = sideways ? 0 : toward(dy);
+    this.x += moveX;
+    this.y += moveY;
+    this.isShielding = false;
+    this.updateAnimation(Math.sign(moveX), Math.sign(moveY), false);
+    return !sideways && moveY === dy;
   }
 
   /** Empieza el disparo rápido. Otra lata mientras dura lo renueva, no lo acumula. */

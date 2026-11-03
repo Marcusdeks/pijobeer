@@ -1,8 +1,9 @@
 /**
- * HOJAS DE JEFES FINALES Y DEL BARRIL PEQUEÑO
+ * HOJAS DE JEFES FINALES Y DE LOS BARRILES PEQUEÑOS
  *   -> assets/sprites/bosses.png (+ .json)        barriles jefe
  *   -> assets/sprites/pijo.png (+ .json)          pijo animado
- *   -> assets/sprites/barrel-minion.png (+ .json) barril pequeño
+ *   -> assets/sprites/primo.png (+ .json)         primo pijo animado (nivel 5)
+ *   -> assets/sprites/barrel-minion.png (+ .json) barriles pequeños (madera y hierro)
  *
  * Arte fuente: art/bosses/, sobre fondo magenta.
  *
@@ -10,12 +11,14 @@
  *   fila 0 -> el dibujo tal cual
  *   fila 1 -> el mismo dibujo en blanco, para el "destello" al recibir un impacto
  *
- * Los barriles van en una columna por jefe. El pijo tiene su propia hoja con
- * una columna por pose (ver PIJO): es el único que se anima.
+ * Los barriles van en una columna por jefe. El pijo y el primo, que se
+ * animan, tienen cada uno su propia hoja con una columna por pose (ver PIJO y
+ * PRIMO); el primo, además, una fila por animación.
  *
- * El barril pequeño del nivel 4 sale del MISMO dibujo que el jefe de madera,
- * reducido y en su propia hoja (con el mismo par de filas: aguanta 3 impactos
- * y el destello avisa de que cada uno cuenta).
+ * Los barriles pequeños (niveles 4 y 5) salen de los MISMOS dibujos que los
+ * jefes de madera y de hierro, reducidos y en su propia hoja, una columna por
+ * barril (con el mismo par de filas: aguantan varios impactos y el destello
+ * avisa de que cada uno cuenta).
  *
  * El destello se genera aquí y no en el juego porque así no depende de
  * filtros del canvas que no todos los navegadores soportan igual.
@@ -63,8 +66,39 @@ const PIJO = {
   feetY: 78,
 };
 
-/** Barril pequeño: menos de la mitad que el jefe, algo más alto que una botella (46). */
-const MINION = { file: 'barrel-wood.png', height: 44, cell: { width: 40, height: 48 } };
+/**
+ * Primo pijo (jefe del nivel 5): un grandullón, casi el doble que el
+ * protagonista (66). Tres filas, una por animación:
+ *   0  andar (primo-walk.png, 4 poses)
+ *   1  coger y lanzar un barril de madera (primo-throw-wood.png, 6 poses)
+ *   2  lo mismo con uno de hierro (primo-throw-iron.png, 6 poses)
+ * Las poses de lanzar son: agacharse a cogerlo, levantarlo, sobre la cabeza,
+ * a punto de lanzar, soltándolo y con las manos vacías.
+ *
+ * Cada imagen se dibujó a una escala distinta, así que cada una se escala por
+ * su pose de pie (la más alta de andar y la última de lanzar, con las manos
+ * vacías) para que mida `height`: así no cambia de tamaño al lanzar. Como el
+ * pijo, todas las poses se apoyan por los pies y se centran a lo ancho; la
+ * celda se calcula para que quepa la pose más grande.
+ */
+const PRIMO = {
+  rows: [
+    { file: 'primo-walk.png', poses: 4, reference: 'tallest' },
+    { file: 'primo-throw-wood.png', poses: 6, reference: 'last' },
+    { file: 'primo-throw-iron.png', poses: 6, reference: 'last' },
+  ],
+  height: 120,
+};
+
+/**
+ * Barriles pequeños, en el orden de las columnas de su hoja: menos de la mitad
+ * que el jefe, algo más altos que una botella (46).
+ */
+const MINIONS = [
+  { id: 'wood', file: 'barrel-wood.png' },
+  { id: 'iron', file: 'barrel-iron.png' },
+];
+const MINION = { height: 44, cell: { width: 40, height: 48 } };
 
 export async function buildBossSheet() {
   const layers = [];
@@ -95,6 +129,7 @@ export async function buildBossSheet() {
 
   console.log(`✔ ${rel(sheetPath)} (${CELL.width * BOSSES.length}x${CELL.height * 2})`);
   await buildPijoSheet();
+  await buildPrimoSheet();
   await buildMinionSheet();
 }
 
@@ -137,28 +172,85 @@ async function buildPijoSheet() {
   console.log(`✔ ${rel(sheetPath)} (${cell.width * poses.length}x${cell.height * 2})`);
 }
 
+async function buildPrimoSheet() {
+  const rows = [];
+  for (const row of PRIMO.rows) {
+    const image = await loadWithoutBackground(path.join(ART_DIR, 'bosses', row.file));
+    const boxes = splitRegion(image, fullRegion(image), {
+      axis: 'x',
+      count: row.poses,
+      extras: 'drop',
+    });
+    const heights = boxes.map((box) => box.height);
+    const reference = row.reference === 'last' ? heights.at(-1) : Math.max(...heights);
+    const scale = PRIMO.height / reference;
+    rows.push(await Promise.all(boxes.map((box) => extractScaled(image, box, scale))));
+  }
+
+  // La celda, a la medida de la pose más grande (en par, para centrar sin decimales)
+  const sprites = rows.flat();
+  const even = (value) => Math.ceil(value / 2) * 2;
+  const cell = {
+    width: even(Math.max(...sprites.map((sprite) => sprite.width)) + 2),
+    height: even(Math.max(...sprites.map((sprite) => sprite.height)) + 2),
+  };
+  const feetY = cell.height - 1;
+  const columns = Math.max(...rows.map((row) => row.length));
+
+  const layers = [];
+  for (const [rowIndex, row] of rows.entries()) {
+    for (const [column, sprite] of row.entries()) {
+      const left = column * cell.width + (cell.width - sprite.width) / 2;
+      const top = rowIndex * cell.height + feetY - sprite.height;
+      // Debajo de las filas normales, las mismas poses en blanco (destello)
+      const flashTop = top + rows.length * cell.height;
+      layers.push(layer(sprite, left, top), layer(whiteSilhouette(sprite), left, flashTop));
+    }
+    const sizes = row.map((sprite) => `${sprite.width}x${sprite.height}`).join(' ');
+    console.log(`  primo fila ${rowIndex}: ${sizes}`);
+  }
+
+  const sheetPath = path.join(OUTPUT_DIR, 'primo.png');
+  const width = cell.width * columns;
+  const height = cell.height * rows.length * 2;
+  await writeSheet(sheetPath, width, height, layers);
+  await writeMeta(path.join(OUTPUT_DIR, 'primo.json'), {
+    frameWidth: cell.width,
+    frameHeight: cell.height,
+    /** Filas de dibujos normales (las del destello van debajo, en el mismo orden). */
+    rows: rows.length,
+    // Los pies, centrados: se hacen coincidir con la base de la caja de colisión
+    anchor: { x: cell.width / 2, y: feetY },
+  });
+  console.log(`✔ ${rel(sheetPath)} (${width}x${height})`);
+}
+
 async function buildMinionSheet() {
   const { cell } = MINION;
-  const sprite = await loadScaled(MINION.file, MINION.height);
-  const left = (cell.width - sprite.width) / 2;
-  const top = (cell.height - sprite.height) / 2;
+  const layers = [];
+  const sizes = {};
+  for (const [column, minion] of MINIONS.entries()) {
+    const sprite = await loadScaled(minion.file, MINION.height);
+    const left = column * cell.width + (cell.width - sprite.width) / 2;
+    const top = (cell.height - sprite.height) / 2;
+    layers.push(layer(sprite, left, top), layer(whiteSilhouette(sprite), left, cell.height + top));
+    sizes[minion.id] = { width: sprite.width, height: sprite.height };
+    console.log(`  barril pequeño ${minion.id.padEnd(4)} ${sprite.width}x${sprite.height}`);
+  }
 
   const sheetPath = path.join(OUTPUT_DIR, 'barrel-minion.png');
-  await writeSheet(sheetPath, cell.width, cell.height * 2, [
-    layer(sprite, left, top),
-    layer(whiteSilhouette(sprite), left, cell.height + top),
-  ]);
+  await writeSheet(sheetPath, cell.width * MINIONS.length, cell.height * 2, layers);
 
   await writeMeta(path.join(OUTPUT_DIR, 'barrel-minion.json'), {
     frameWidth: cell.width,
     frameHeight: cell.height,
+    barrels: MINIONS.map((minion) => minion.id),
     anchor: { x: cell.width / 2, y: cell.height / 2 },
-    size: { width: sprite.width, height: sprite.height },
+    // Tamaño real del dibujo: referencia para la caja de colisión
+    sizes,
   });
 
-  console.log(
-    `✔ ${rel(sheetPath)} (${cell.width}x${cell.height * 2}, barril ${sprite.width}x${sprite.height})`,
-  );
+  console.log(`✔ ${rel(sheetPath)} (${cell.width * MINIONS.length}x${cell.height * 2})`);
 }
 
 /** Carga un dibujo sin el fondo y lo escala para que mida `height` de alto. */

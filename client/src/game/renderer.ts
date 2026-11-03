@@ -14,7 +14,15 @@
  * teclado y con lectores de pantalla, algo que un canvas no permite.
  */
 import type { BossId } from '@pijobeer/shared';
-import { ARENA, COLORS, ENEMY_BULLET, HUD_BARS, PLAYER_BULLET } from './config';
+import {
+  ARENA,
+  COLORS,
+  ENEMY_BULLET,
+  ENEMY_TYPES,
+  FINALE,
+  HUD_BARS,
+  PLAYER_BULLET,
+} from './config';
 import type { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
 import type { Enemy } from './entities/Enemy';
@@ -22,10 +30,11 @@ import type { Pickup } from './entities/Pickup';
 import type { Player } from './entities/Player';
 import type { GameSession } from './GameSession';
 import type { Rect } from './geometry';
+import { alleyMeta } from './playfield';
 import { PLAYER_PIVOT, playerFrame, type SpriteFrame } from './sprites/playerSprite';
 import {
   ALLEY_DRAW_SCALE,
-  alleyHeight,
+  alleyLayout,
   BOSS_ANCHOR,
   bossFrame,
   ENEMY_ANCHOR,
@@ -40,6 +49,9 @@ import {
   pickupFrame,
   pijoFrame,
   PIJO_ANCHOR,
+  primoFrame,
+  PRIMO_ANCHOR,
+  TRUCK_FRAME,
   type Anchor,
 } from './sprites/sheets';
 
@@ -56,8 +68,12 @@ export interface RenderAssets {
   bossSheet: HTMLImageElement | null;
   /** Pijo (jefe del nivel 4), con sus poses de andar y de lanzar. */
   pijoSheet: HTMLImageElement | null;
+  /** Primo pijo (jefe del nivel 5), con sus animaciones de andar y de lanzar barriles. */
+  primoSheet: HTMLImageElement | null;
+  /** Camión aparcado al final del nivel 5. */
+  truckSheet: HTMLImageElement | null;
   pickupSheet: HTMLImageElement | null;
-  /** Barril pequeño del nivel 4. */
+  /** Barriles pequeños (niveles 4 y 5). */
   minionSheet: HTMLImageElement | null;
   /** Pose del jugador tapándose con la chupa (un solo frame, mismo pivote que player.png). */
   jacketSheet: HTMLImageElement | null;
@@ -91,10 +107,12 @@ export function renderGame(
   // Sin suavizado: cada píxel de los sprites se ve como un bloque nítido (pixel art)
   ctx.imageSmoothingEnabled = false;
 
-  // 1. Fondo: color de reserva (también "borra" el fotograma anterior) y el callejón
+  // 1. Fondo: color de reserva (también "borra" el fotograma anterior), el
+  // callejón y, en las calles con final, el camión aparcado
   ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, ARENA.width, ARENA.height);
-  drawScrollingLayer(ctx, assets.alley, session.level.alley, session.backgroundDistance);
+  drawAlley(ctx, assets.alley, session);
+  drawTruck(ctx, assets.truckSheet, session);
 
   // 2. Entidades. Orden de dibujo = orden de capas: lo que se dibuja después
   // queda encima. La espuma va ANTES que las botellas y el jefe para que su
@@ -103,7 +121,12 @@ export function renderGame(
   for (const pickup of session.pickups) drawPickup(ctx, pickup, assets.pickupSheet);
   for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets);
   for (const boss of session.bosses) drawBoss(ctx, boss, assets);
-  drawPlayer(ctx, session.player, assets);
+  // Al entrar en el ayuntamiento (final del nivel 5) desaparece en lo oscuro de la puerta
+  if (session.playerFade < 1) {
+    ctx.globalAlpha = 1 - session.playerFade;
+    drawPlayer(ctx, session.player, assets);
+    ctx.globalAlpha = 1;
+  }
   for (const bullet of session.playerBullets) drawOpener(ctx, bullet, assets.openerSheet);
 
   // 3. HUD (marcador)
@@ -130,69 +153,128 @@ export function renderGame(
 
   // 4. Fin de partida (la pausa y la victoria son menús HTML, ver la cabecera del archivo)
   if (session.status === 'over') drawOverlay(ctx, labels.gameOver, COLORS.gameOver, 48);
+
+  // 5. Fundido a negro de la escena final: tapa todo, también el marcador
+  if (session.screenFade > 0) {
+    ctx.globalAlpha = session.screenFade;
+    ctx.fillStyle = COLORS.fade;
+    ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+    ctx.globalAlpha = 1;
+  }
 }
 
 /**
- * Dibuja una capa del callejón desplazada hacia abajo y repetida en bucle.
+ * Píxeles que le faltan al callejón para llegar al final de la calle (0 = ya
+ * se ve el final), o null si no tiene final.
+ */
+function roadLeft(session: GameSession): number | null {
+  const { cameraEnd } = session.rules;
+  return cameraEnd === null ? null : cameraEnd - Math.floor(session.backgroundDistance);
+}
+
+/**
+ * Dibuja el callejón, desplazado según lo que se ha avanzado.
  *
  * Avanzar por el callejón equivale a que el fondo baje por la pantalla. La
- * imagen es más alta que la pantalla y se repite: cuando su final llega
- * arriba, por encima ya asoma otra vez su principio (el script de sprites
- * funde final y principio para que no se note el empalme).
+ * imagen es como un mapa colgado de arriba abajo: arriba, lo que no se repite
+ * (el final, en las calles que lo tienen), y debajo, lo que se repite en
+ * bucle hacia abajo sin fin (el script de sprites funde el final del bucle
+ * con su principio para que no se note el empalme).
  *
- * @param distance - píxeles de pantalla recorridos por esta capa
+ * Lo que se ve es una ventana de ese mapa, y `top` es dónde empieza:
+ *   - Sin final, va subiendo sin parar (-distancia; el bucle no se acaba nunca).
+ *   - Con final, empieza tan abajo como mida la calle y sube hasta dejar a la
+ *     vista el final (end.top), donde se para.
+ * Coordenadas enteras: con decimales el pixel art se emborrona.
  */
-function drawScrollingLayer(
+function drawAlley(
   ctx: CanvasRenderingContext2D,
   image: HTMLImageElement | null,
-  alley: number,
-  distance: number,
+  session: GameSession,
 ): void {
   if (!image) return;
 
+  const { alley } = session.level;
   const scale = ALLEY_DRAW_SCALE;
-  const loop = alleyHeight(alley) * scale; // alto de una repetición, en píxeles de pantalla
-  // Entero: un desplazamiento con decimales emborrona el pixel art. Con el doble
-  // módulo, al retroceder (distancia negativa) también queda entre 0 y loop.
-  const offset = ((Math.floor(distance) % loop) + loop) % loop;
+  const layout = alleyLayout(alley);
+  const head = layout.head * scale;
+  const loop = layout.loop * scale;
+  const left = roadLeft(session);
+  const top =
+    left === null ? -Math.floor(session.backgroundDistance) : alleyMeta(alley).end!.top + left;
 
-  // Dos copias seguidas (la actual y la de encima) cubren siempre la pantalla
-  for (const copyTop of [offset - loop, offset]) {
-    const visibleTop = Math.max(0, copyTop);
-    const visibleBottom = Math.min(ARENA.height, copyTop + loop);
-    if (visibleBottom <= visibleTop) continue;
-
+  // De arriba abajo, cada trozo de pantalla sale del final o de su punto del bucle
+  for (let y = 0; y < ARENA.height;) {
+    const mapY = top + y;
+    let sourceTop: number;
+    let rows: number;
+    if (mapY >= 0 && mapY < head) {
+      sourceTop = mapY;
+      rows = head - mapY;
+    } else {
+      // Con el doble módulo, también queda dentro del bucle por encima de 0
+      const into = (((mapY - head) % loop) + loop) % loop;
+      sourceTop = head + into;
+      rows = loop - into;
+    }
+    const height = Math.min(rows, ARENA.height - y);
     // Solo se copia el trozo de imagen que se ve, no la imagen entera
-    const sourceY = (visibleTop - copyTop) / scale;
-    const sourceHeight = (visibleBottom - visibleTop) / scale;
     ctx.drawImage(
       image,
       0,
-      sourceY,
+      sourceTop / scale,
       image.width,
-      sourceHeight,
+      height / scale,
       0,
-      visibleTop,
+      y,
       ARENA.width,
-      visibleBottom - visibleTop,
+      height,
     );
+    y += height;
   }
+}
+
+/**
+ * Camión aparcado en la plaza del final (FINALE.truck). Va pegado al suelo:
+ * baja con el callejón y aparece cuando asoma la plaza.
+ */
+function drawTruck(
+  ctx: CanvasRenderingContext2D,
+  sheet: HTMLImageElement | null,
+  session: GameSession,
+): void {
+  const left = roadLeft(session);
+  if (!sheet || left === null) return;
+  const y = FINALE.truck.y + left;
+  if (y >= ARENA.height) return;
+  drawFrame(ctx, sheet, TRUCK_FRAME, { x: 0, y: 0 }, FINALE.truck.x, y);
 }
 
 /**
  * Jefe, en blanco durante el destello de impacto. Los barriles, centrados en
- * su caja de colisión; el pijo, de pie sobre la base de su caja (como el
- * jugador) y con la pose que toque: andando o lanzando.
+ * su caja de colisión; el pijo y el primo, de pie sobre la base de su caja
+ * (como el jugador) y con la pose que toque: andando o lanzando.
  */
 function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, assets: RenderAssets) {
   const centerX = boss.x + boss.width / 2;
-  if (boss.id === 'pijo') {
-    if (!assets.pijoSheet) return fillRect(ctx, boss, COLORS.enemy);
-    const frame = pijoFrame(boss.pose, boss.isFlashing);
-    return drawFrame(ctx, assets.pijoSheet, frame, PIJO_ANCHOR, centerX, boss.y + boss.height);
+  const feetY = boss.y + boss.height;
+  const { id, pose, isFlashing } = boss;
+  if (id === 'pijo' || id === 'primo') {
+    const sheet = id === 'pijo' ? assets.pijoSheet : assets.primoSheet;
+    if (!sheet) return fillRect(ctx, boss, COLORS.enemy);
+    return id === 'pijo'
+      ? drawFrame(ctx, sheet, pijoFrame(pose, isFlashing), PIJO_ANCHOR, centerX, feetY)
+      : drawFrame(
+          ctx,
+          sheet,
+          primoFrame(pose, boss.heldThrow, isFlashing),
+          PRIMO_ANCHOR,
+          centerX,
+          feetY,
+        );
   }
   if (!assets.bossSheet) return fillRect(ctx, boss, COLORS.enemy);
-  const frame = bossFrame(boss.id, boss.isFlashing);
+  const frame = bossFrame(id, isFlashing);
   drawFrame(ctx, assets.bossSheet, frame, BOSS_ANCHOR, centerX, boss.y + boss.height / 2);
 }
 
@@ -252,19 +334,20 @@ function drawFrame(
 
 /**
  * Enemigo:
- *   - Barril pequeño: centrado en su caja; en blanco durante el destello de impacto.
+ *   - Barril pequeño: centrado en su caja, sin girar (también los que lanza
+ *     el primo); en blanco durante el destello de impacto.
  *   - Botella: su base (el ancla) va en el centro del borde superior de su caja.
  *     Las lanzadas por los pijos se giran alrededor del centro hacia donde van
  *     (el dibujo apunta hacia abajo, como el chorro de espuma).
  */
 function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, assets: RenderAssets) {
   const { center } = enemy;
-  if (enemy.type === 'barrel') {
+  if (ENEMY_TYPES[enemy.type].kind === 'barrel') {
     if (!assets.minionSheet) return fillRect(ctx, enemy, COLORS.enemy);
     return drawFrame(
       ctx,
       assets.minionSheet,
-      minionFrame(enemy.isFlashing),
+      minionFrame(enemy.type, enemy.isFlashing),
       MINION_ANCHOR,
       center.x,
       center.y,

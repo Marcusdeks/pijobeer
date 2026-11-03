@@ -20,6 +20,16 @@ describe('textos de historia', () => {
     expect(storiesFor(4, true)).toEqual(expected);
   });
 
+  it('el nivel 5 tiene los del primo pijo, también siempre', () => {
+    const expected = {
+      opening: 'level5Opening',
+      beforeBosses: 'primoIntro',
+      afterBosses: 'primoDefeated',
+    };
+    expect(storiesFor(5, false)).toEqual(expected);
+    expect(storiesFor(5, true)).toEqual(expected);
+  });
+
   it('los niveles 1 y 2 no tienen textos', () => {
     expect(storiesFor(1, false)).toEqual({});
     expect(storiesFor(2, false)).toEqual({});
