@@ -1,0 +1,10 @@
+{
+  "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
+  "frameWidth": 78,
+  "frameHeight": 94,
+  "frames": 4,
+  "anchor": {
+    "x": 39,
+    "y": 0
+  }
+}

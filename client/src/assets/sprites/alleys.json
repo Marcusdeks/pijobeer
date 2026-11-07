@@ -28,9 +28,10 @@
       "floorRight": 688,
       "loopTop": 365,
       "end": {
-        "top": 243,
+        "top": 428,
+        "doorTop": 243,
         "door": {
-          "x": 400,
+          "x": 376,
           "y": 391
         }
       }

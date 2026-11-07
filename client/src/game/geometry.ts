@@ -44,6 +44,14 @@ export function aimDegrees(from: Point, to: Point, maxDegrees: number): number {
   return clamp(degrees, -maxDegrees, maxDegrees);
 }
 
+/**
+ * Como aimDegrees, pero sin límite: hacia donde esté `to`, también hacia
+ * arriba (180 = recto hacia arriba). Para los barriles, que disparan en 360°.
+ */
+export function directionDegrees(from: Point, to: Point): number {
+  return (Math.atan2(to.x - from.x, to.y - from.y) * 180) / Math.PI;
+}
+
 /** Velocidad (píxeles por paso en cada eje) de algo que avanza `speed` en la dirección de aimDegrees. */
 export function velocityAt(degrees: number, speed: number): Point {
   const radians = (degrees * Math.PI) / 180;

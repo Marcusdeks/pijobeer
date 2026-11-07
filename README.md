@@ -83,7 +83,7 @@ pijobeer/
 │   └── tests/                tests de integración HTTP (sin BBDD, repositorios en memoria)
 │
 ├── client/                 SPA en React
-│   ├── art/                  ARTE FUENTE: player/, enemies/, projectiles/, bosses/, pickups/, alleys/, props/ (no se publica: solo lo lee el script)
+│   ├── art/                  ARTE FUENTE: player/, enemies/, projectiles/, bosses/, pickups/, alleys/, props/, rooms/, people/ (no se publica: solo lo lee el script)
 │   ├── scripts/              herramientas (generar las hojas de sprites)
 │   └── src/
 │       ├── assets/sprites/   hojas de sprites generadas (PNG) + sus metadatos (JSON)
@@ -157,11 +157,23 @@ por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comu
 | `pickups.png`       | `art/pickups/`     | 2 latas (vida, velocidad), sin animación                                      | centro de la lata  |
 | `truck.png`         | `art/props/`       | el camión del final del nivel 5 (con su sombra semitransparente)              | —                  |
 | `alley-N.webp`      | `art/alleys/`      | suelo + paredes de cada callejón                                              | —                  |
+| `room-*.webp`       | `art/rooms/`       | las dos salas del ayuntamiento (nivel 6): planta baja y despacho              | —                  |
+| `disco.png`         | `art/props/`       | bola de discoteca girando (4) + sus brillos (4), que encajan debajo           | arranque cadena    |
+| `city-hall.png`     | `art/people/`      | seguratas, chicas (bailar, asustarse, huir) y alcalde × (normal, destello)    | pies               |
 
 - **`player.json`** lo escribes tú y es la fuente de verdad del jugador (tamaño de frame, filas, pivote,
   velocidad). Los demás `.json` los **genera** el script: no se editan a mano.
 - Las botellas se **giran 180°** (cuello hacia abajo) y la espuma **90°** (cabeza hacia abajo).
-- Para **retocar un dibujo**: sustituye la imagen en `client/art/` y ejecuta `npm run sprites`.
+- Para **retocar un dibujo**: sustituye la imagen en `client/art/` y ejecuta `npm run sprites`. Después
+  puedes revisarlo en la página _Animaciones_ del admin (ver más abajo).
+- Las tres imágenes del **primo** están dibujadas a la misma escala, así que se escalan con un único factor
+  (el de su pose más alta de andar): mide lo mismo andando que lanzando.
+- La **gente del ayuntamiento** (`scripts/sprites/city-hall.mjs`) viene en tiras dibujadas cada una a su
+  escala, así que cada tira dice cuánto mide en el dibujo una pose de pie (`standing`) y se escala para que
+  esa pose mida lo mismo en el juego: el mismo personaje no cambia de tamaño al bailar, asustarse o huir.
+  Las chicas del despacho, que son jefas, salen de las mismas tiras que las de la fiesta, pero más grandes.
+- Las **bolas de discoteca** y sus brillos son dos imágenes del mismo tamaño pensadas para ir una encima
+  de otra: se cortan en una rejilla de 4 columnas por la misma caja, para que sigan encajando.
 - Las cajas de colisión (`game/config.ts`) son más pequeñas que los dibujos: el cuerpo del jugador,
   la botella sin la espuma, el aro del abrechapas y la cabeza del chorro.
 
@@ -175,12 +187,15 @@ Todo el diseño de cada nivel está en **`packages/shared/src/levels.ts`**:
 | 2     | 50 botellas + 1800 px recorridos | 1,2 s               | ×1,15     | normales, rápidas, pesadas                 | Barril de madera (80 de vida, ráfagas de 5 apuntadas)              |
 | 3     | 60 botellas + 2400 px recorridos | 0,9 s               | ×1,3      | más rápidas y pesadas                      | Barril de hierro (140 de vida, ráfagas de 3 abanicos de 3 chorros) |
 | 4     | 70 enemigos + 3000 px recorridos | 0,8 s               | ×1,4      | las tres + barriles pequeños (4 %)         | Dos pijos (100 de vida cada uno, lanzan botellas cada 1,8 s)       |
-| 5     | 30 barriles + toda la calle      | 2 s                 | ×1,4      | solo barriles: 3 de madera por 1 de hierro | Primo pijo (300 de vida, lanza un barril cada 2,5 s)               |
+| 5     | toda la calle (sin mínimo)       | 2 s                 | ×1,4      | solo barriles: 3 de madera por 1 de hierro | Primo pijo (300 de vida, lanza un barril cada 2,5 s)               |
+| 6     | los 4 seguratas                  | no cae nada         | ×1,4      | — (seguratas ya colocados)                 | Dos chicas y el alcalde, al que protegen (lanzan botellas)         |
 
 La distancia (`distanceToComplete`) no se le enseña al jugador: son 30, 40 y 50 s mirando hacia delante,
 así que pasarse el nivel mirando a los lados no basta para llegar al jefe. Si un admin fija las botellas
 a eliminar con sus trucos, la distancia deja de contar (para poder probar el jefe sin esperar; en el
-nivel 5, al salir el jefe se salta al final de la calle).
+nivel 5, al salir el jefe se salta al final de la calle). Las botellas a eliminar solo salen en el marcador
+en el nivel 1, para aprender cómo va (`GameRules.killGoal`); en los demás, cuánto falta es sorpresa, y en
+el menú los niveles bloqueados solo piden superar el anterior.
 
 - **Tipos de enemigo** (`ENEMY_TYPES` en `game/config.ts`; puntos en `ENEMY_POINTS`): el dibujo indica el tipo.
   Rosa = normal, dorada = rápida (dispara igual), negra = pesada (más lenta, dispara más del triple). En el
@@ -191,8 +206,12 @@ nivel 5, al salir el jefe se salta al final de la calle).
   2,5 s (5 impactos, 80 puntos).
 - **Disparos**: el jugador dispara siempre recto hacia arriba y las botellas recto hacia abajo. Los jefes y
   los barriles pequeños apuntan a donde está el jugador **en el momento del disparo**; la espuma sigue recta,
-  sin perseguirle. Cada abrechapas quita **5 de vida** a un jefe (`PLAYER_BULLET.damage`).
-- **La chupa** (tecla **B**; `JACKET` en `game/config.ts`): en el nivel 3 solo contra el jefe y en el 4 y el 5
+  sin perseguirle, y nunca a más de 55° de la vertical, salvo los barriles del **nivel 5** (de madera y de
+  hierro, también los que lanza el primo), que disparan en **360°**: también de lado o hacia arriba si ya
+  les ha pasado (`aimAround` en `ENEMY_TYPES`). Cada abrechapas quita **5 de vida** a un jefe (`PLAYER_BULLET.damage`).
+  Desde el **nivel 5** el protagonista dispara un **30 % más** (`playerFireRate` en `levels.ts`, que se
+  multiplica con el de la dificultad): de tanta cerveza de verdad se le pone el brazo fuerte.
+- **La chupa** (tecla **B**; `JACKET` en `game/config.ts`): en el nivel 3 solo contra el jefe y del 4 al 6
   durante todo el nivel (`jacket` en `levels.ts`). Manteniéndola, el jugador se tapa y la espuma no le hace daño, pero
   no puede moverse ni disparar. Si para **3 chorros seguidos** (sin pasar 1 s entre uno y otro) se empapa y
   tarda **2 s** en secarse (barra azul). No protege de los botellazos (chocar con una botella o con un jefe).
@@ -215,10 +234,36 @@ nivel 5, al salir el jefe se salta al final de la calle).
 
   **Calles con final** (nivel 5, la del ayuntamiento): el arte es una sola imagen con el edificio arriba.
   Solo se repite la calle (desde `loopFrom` en `scripts/sprites/alleys.mjs`); al recorrerla entera, el
-  callejón se para con la plaza del ayuntamiento a la vista (`GameRules.cameraEnd`) y el camión aparcado en
-  ella (`FINALE` en `game/config.ts`). Al derrotar al jefe, el protagonista **entra solo** en el
-  ayuntamiento por la puerta del centro (`GameRules.exit`, medida del arte): desaparece en lo oscuro
-  del arco, la pantalla funde a negro y entonces llega la victoria.
+  callejón se para en la plaza, con el ayuntamiento justo fuera de la pantalla (`GameRules.cameraEnd`), y
+  el camión aparcado detrás del jefe (`FINALE` en `game/config.ts`), que se mueve solo a su izquierda para no
+  tocarlo (`GameRules.bossField`). Al derrotar al jefe, la cámara sube
+  hasta ver la entrada (`doorTop`) mientras el protagonista **va solo** a la puerta del centro
+  (`GameRules.exit`, medida del arte): desaparece en lo oscuro del arco, la pantalla funde a negro y
+  entonces llega la victoria.
+
+  **Dentro del ayuntamiento** (nivel 6, `CITY_HALL` en `game/config.ts`) no hay callejón sino **dos
+  salas fijas** (`interior` en `levels.ts`; `GameSession.room`):
+  - **Planta baja**: hay fiesta. **Luces de discoteca** que cambian de color tiñen toda la sala (un
+    velo de color en modo _overlay_, medio segundo por color: más deprisa podría provocar crisis a
+    personas con epilepsia fotosensible). Del techo cuelgan bolas de discoteca girando, con sus brillos
+    debajo, que se dibujan **encima de todo** (nada que pase por el suelo, ni la espuma, puede verse por
+    delante). Cuatro **seguratas** bailan repartidos por la sala (el 1 y el 3 en los laterales) y tres
+    chicas en medio. Al primer disparo (o a los 3 s) salta la **alarma**: las chicas se asustan y huyen
+    gritando en un **bocadillo de cómic** pixel (la 3 de lado hasta una **puerta** del lateral, que se abre
+    —se oscurece— mientras llega y se cierra cuando ha entrado; la 7 de espaldas escalera arriba y la 5,
+    que no tiene dibujo de huir, con sus poses de susto hacia un arco) y los seguratas disparan 3 chorros
+    en abanico cada 1,7 s. Aguantan 12 abrechapas y dan 100 puntos. Están en la mitad de arriba, donde el
+    jugador no llega: no caen ni se les puede empujar. No cae nada más.
+  - Sin seguratas, el protagonista **sube solo** por la escalera del centro (la misma escena de puerta que
+    al entrar en el ayuntamiento en el nivel 5), la pantalla funde a negro y aparece en el **despacho**,
+    que se ve poco a poco. Allí esperan una **chica** a cada lado (la rubia y la pelirroja), que bailan y
+    lanzan una botella cada 2,2 s, y el **alcalde**, que sale de detrás de su mesa (la rodea por la
+    derecha: mientras está detrás, la mesa le tapa de cintura para abajo) y se pone delante, en
+    calzoncillos, con ráfagas de 3 botellas. Los tres se turnan. Las chicas le **protegen**
+    (`guardedBy`): mientras vivan, no baja de 1 de vida y, si le falta, le lanzan **cerveza que le cura**
+    (`CITY_HALL.office.heal`; se puede romper de un abrechapas). Ninguno de los tres tiene furia.
+  - Al derrotarlos, la pantalla funde a negro y el protagonista aparece en la planta baja, ya vacía y sin
+    luces, para su último texto; después, la victoria.
 
 - **Jefes**: al cumplir el objetivo entran los jefes del nivel (en el 4, dos a la vez) y **dejan de caer
   botellas** (en el 4 sigue llegando un barril pequeño cada 9 s en Normal: `bossFightEnemy` en `levels.ts`). Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al jugador: los
@@ -226,7 +271,7 @@ nivel 5, al salir el jefe se salta al final de la calle).
   tipo que salen rectas y rápidas hacia donde estaba el jugador (`THROWN.bottles`), sin perseguirle, y que
   disparan hacia donde van a los 0,25 s de lanzarlas. El **primo pijo** (nivel 5, casi el doble que el
   protagonista) se agacha a por un barril de madera o de hierro, lo sube sobre la cabeza (0,8 s de aviso) y lo
-  lanza: el barril va **lento** hacia donde estaba el jugador (`THROWN.barrels`) y le dispara su abanico mientras llega. Los dos pijos se **alternan**: uno lanza a mitad de
+  lanza: el barril va **lento** hacia donde estaba el jugador (`THROWN.barrels`) y le dispara su abanico dos veces mientras llega. Los dos pijos se **alternan**: uno lanza a mitad de
   la pausa del otro. **Mientras atacan no se mueven**: los barriles se paran durante la ráfaga y el
   pijo, además, levanta el brazo con la botella un tercio de segundo antes de lanzarla (y se queda con el
   brazo estirado un momento después). Cuando les queda un 20 % de vida entran en **furia** (barra rosa) y van
@@ -235,11 +280,12 @@ nivel 5, al salir el jefe se salta al final de la calle).
   - Hierro: 1 chorro más y menos pausa, siempre con más de 20° entre chorro y chorro para poder esquivarlos.
   - Pijos: una botella cada 0,9 s en vez de cada 1,8 s. Los dos se turnan: nunca lanzan a la vez.
   - Primo: un barril cada 1,75 s en vez de cada 2,5 s.
+  - El alcalde y sus chicas (nivel 6) no tienen furia (`enrages`).
 
   Con varios jefes, la barra es la vida que les queda entre todos. Se gana al vaciarla. Sus valores: `BOSS`, `BOSS_ENRAGE` y `BOSS_COMMON` en `game/config.ts`. Premio en puntos: `BOSS_POINTS` en `packages/shared/src/game-rules.ts`.
 
 - **Latas** (`PICKUP` y `PICKUP_TYPES` en `game/config.ts`): cada cierto tiempo cae una, también contra el
-  jefe. La **verde** cura y la de **leopardo** hace disparar el doble de rápido durante 6 s (una barra
+  jefe. La **verde** cura y la de **leopardo** hace disparar el doble de rápido durante 8 s (una barra
   amarilla sobre la vida marca lo que queda). Se recogen al tocarlas y las balas las atraviesan.
 
   | Dificultad | Sale una lata cada | La verde cura |
@@ -266,12 +312,14 @@ nivel 5, al salir el jefe se salta al final de la calle).
     de que aparezcan y otro al derrotarlos (antes de la victoria), que anuncia al "primo más fuertote".
   - Nivel 5, igual: el de Marcus al empezar, el del primo antes de que aparezca y el de Marcus al vencerle,
     justo antes de entrar en el ayuntamiento.
+  - Nivel 6, igual: el de Marcus al ver la fiesta, el del alcalde al llegar a su despacho, el de Marcus al
+    vencerles y, de vuelta en la planta baja, el último (`epilogue`).
 
   El motor solo sabe "pararse" en esos momentos (`DialogMoment` en `GameSession`); qué texto toca lo decide
   la página.
 
 - **Pausa** (tecla P): menú con el **altavoz** (silenciar) y la barra de **volumen** de la música,
-  _Continuar_ y _Salir al menú principal_.
+  _Continuar_, _Reiniciar nivel_ (vuelve a empezar el mismo nivel desde cero) y _Salir al menú principal_.
 - **Victoria**: menú en verde neón con letras pixel art (fuente _Press Start 2P_) con _Siguiente nivel_
   (si existe) y _Volver al menú_. Se desbloquea el siguiente nivel y se guarda la partida.
 - Al entrar en el menú y al empezar una partida la página se **centra sola**: el menú y el juego están en
@@ -298,6 +346,25 @@ partidas de prueba del propio admin: inmortal, botellas a eliminar, velocidad y 
 de los jefes. Las partidas con algún truco activo **no se guardan en el ranking** (lo comprueba el servidor,
 que tiene guardados los trucos). El servidor valida cada
 valor con los límites de `GAME_MODIFIER_LIMITS` (`packages/shared/src/game-modifiers.ts`).
+
+### Animaciones (solo administradores)
+
+Sección `/animations`, también solo para el admin y solo en español (es una herramienta interna). Lista
+todas las animaciones del juego con un **buscador** (sin tildes ni mayúsculas y con las palabras en cualquier
+orden) y las reproduce en un visor con pausa, frame a frame, zoom, velocidad y fondo. Dibuja la **caja de
+colisión** y el **ancla** (los pies, en los personajes), y permite **comparar** dos animaciones lado a lado o
+superpuestas sobre el mismo suelo: así se ve si un dibujo nuevo cambia de tamaño entre poses.
+
+El catálogo está en `client/src/game/sprites/animations.ts`: saca los recortes de las mismas funciones que
+el renderer y los tiempos y las cajas de `config.ts`, así que lo que se ve es lo que sale en el juego. Cada
+animación nueva del juego se añade ahí; un test comprueba que todos los recortes caen dentro de su PNG.
+
+**Borradores (temporal):** `npm run sprites:drafts` procesa las tiras de poses de `imagenes/png/` con las
+mismas funciones que las hojas del juego (quitar el magenta, separar poses, apoyarlas por los pies; la pose
+más alta de cada tira mide lo que el protagonista) y las deja en `client/src/assets/drafts/`, que git ignora.
+Salen al principio de la lista como «Borrador · …», con avisos de lo que conviene arreglar en el dibujo:
+fondo que no es magenta liso, restos fuera de las poses o poses cortadas por el borde. Con
+`npm run sprites:drafts -- --watch` se regeneran cada vez que se guarda un PNG.
 
 ### Música
 

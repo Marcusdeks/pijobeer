@@ -14,9 +14,12 @@
  * teclado y con lectores de pantalla, algo que un canvas no permite.
  */
 import type { BossId } from '@pijobeer/shared';
+import type { Point } from './geometry';
 import {
   ARENA,
+  CITY_HALL,
   COLORS,
+  type DancerGirl,
   ENEMY_BULLET,
   ENEMY_TYPES,
   FINALE,
@@ -25,6 +28,8 @@ import {
 } from './config';
 import type { Boss } from './entities/Boss';
 import type { Bullet } from './entities/Bullet';
+import type { Dancer } from './entities/Dancer';
+import type { HealingBeer } from './entities/HealingBeer';
 import type { Enemy } from './entities/Enemy';
 import type { Pickup } from './entities/Pickup';
 import type { Player } from './entities/Player';
@@ -37,6 +42,13 @@ import {
   alleyLayout,
   BOSS_ANCHOR,
   bossFrame,
+  CITY_HALL_ANCHOR,
+  dancerFrame,
+  DISCO_ANCHOR,
+  discoFrames,
+  guardFrame,
+  isOfficeBoss,
+  officeBossFrame,
   ENEMY_ANCHOR,
   enemyFrame,
   FOAM_ANCHOR,
@@ -77,8 +89,13 @@ export interface RenderAssets {
   minionSheet: HTMLImageElement | null;
   /** Pose del jugador tapándose con la chupa (un solo frame, mismo pivote que player.png). */
   jacketSheet: HTMLImageElement | null;
-  /** Callejón del nivel en curso. */
+  /** Callejón del nivel en curso (dentro del ayuntamiento no hay). */
   alley: HTMLImageElement | null;
+  /** Nivel 6: las dos salas del ayuntamiento, su gente (seguratas, chicas y alcalde) y las bolas de discoteca. */
+  hallRoom: HTMLImageElement | null;
+  officeRoom: HTMLImageElement | null;
+  cityHallSheet: HTMLImageElement | null;
+  discoSheet: HTMLImageElement | null;
 }
 
 const HEALTH_BAR = HUD_BARS.player;
@@ -90,12 +107,15 @@ export interface RenderLabels {
     level: number;
     health: number;
     kills: number;
-    required: string;
+    /** Cuántas hay que eliminar; null = no se enseña (ver GameRules.killGoal). */
+    required: number | null;
     points: number;
   }) => string;
   gameOver: string;
   /** Nombre del jefe (o de la pareja, si salen varios iguales) para su barra de vida. */
   bossName: (id: BossId, count: number) => string;
+  /** Lo que grita cada chica de la fiesta al huir (su bocadillo). */
+  shout: (girl: DancerGirl) => string;
 }
 
 export function renderGame(
@@ -107,19 +127,31 @@ export function renderGame(
   // Sin suavizado: cada píxel de los sprites se ve como un bloque nítido (pixel art)
   ctx.imageSmoothingEnabled = false;
 
-  // 1. Fondo: color de reserva (también "borra" el fotograma anterior), el
-  // callejón y, en las calles con final, el camión aparcado
+  // 1. Fondo: color de reserva (también "borra" el fotograma anterior) y el
+  // callejón (en las calles con final, con el camión aparcado) o la sala
   ctx.fillStyle = COLORS.background;
   ctx.fillRect(0, 0, ARENA.width, ARENA.height);
-  drawAlley(ctx, assets.alley, session);
-  drawTruck(ctx, assets.truckSheet, session);
+  if (session.room) {
+    const room = session.room === 'hall' ? assets.hallRoom : assets.officeRoom;
+    // Las salas no se mueven: se dibujan desde arriba y lo que sobra queda fuera, por abajo
+    if (room) ctx.drawImage(room, 0, 0);
+  } else {
+    drawAlley(ctx, assets.alley, session);
+    drawTruck(ctx, assets.truckSheet, session);
+  }
 
   // 2. Entidades. Orden de dibujo = orden de capas: lo que se dibuja después
   // queda encima. La espuma va ANTES que las botellas y el jefe para que su
-  // estela quede detrás de ellos y no los tape al salir.
+  // estela quede detrás de ellos y no los tape al salir. Las chicas de la
+  // fiesta, después de los seguratas: bailan más cerca de la cámara.
   for (const bullet of session.enemyBullets) drawFoam(ctx, bullet, assets.foamSheet);
   for (const pickup of session.pickups) drawPickup(ctx, pickup, assets.pickupSheet);
   for (const enemy of session.enemies) drawEnemy(ctx, enemy, assets);
+  for (const heal of session.heals) drawHealingBeer(ctx, heal, assets.enemySheet);
+  // La puerta por la que sale una chica, abierta (oscura) mientras entra; ella, delante
+  const doorOpen = Math.max(0, ...session.dancers.map((dancer) => dancer.doorOpen));
+  if (doorOpen > 0) drawOpenDoor(ctx, doorOpen);
+  for (const dancer of session.dancers) drawDancer(ctx, dancer, assets.cityHallSheet);
   for (const boss of session.bosses) drawBoss(ctx, boss, assets);
   // Al entrar en el ayuntamiento (final del nivel 5) desaparece en lo oscuro de la puerta
   if (session.playerFade < 1) {
@@ -129,7 +161,19 @@ export function renderGame(
   }
   for (const bullet of session.playerBullets) drawOpener(ctx, bullet, assets.openerSheet);
 
-  // 3. HUD (marcador)
+  // 3. Planta baja: las luces de discoteca tiñen toda la sala (mientras dura
+  // la fiesta), encima cuelgan del techo las bolas (nada de lo que pasa por
+  // el suelo puede verse por delante de ellas) y, como en un cómic, los
+  // gritos de las chicas que huyen
+  if (session.room === 'hall') {
+    if (!session.partyOver) drawStrobe(ctx, session.steps);
+    drawDiscoBalls(ctx, assets.discoSheet, session.steps);
+    for (const dancer of session.dancers) {
+      if (dancer.isShouting) drawShout(ctx, labels.shout(dancer.girl), dancer);
+    }
+  }
+
+  // 4. HUD (marcador)
   ctx.fillStyle = COLORS.hud;
   ctx.font = '16px Arial, sans-serif';
   ctx.textAlign = 'left';
@@ -139,7 +183,7 @@ export function renderGame(
       level: session.level.id,
       health: session.player.health,
       kills: session.kills,
-      required: String(session.rules.killsToComplete),
+      required: session.rules.killGoal,
       points: session.points,
     }),
     10,
@@ -151,10 +195,11 @@ export function renderGame(
     drawBossBar(ctx, session.bosses, labels.bossName(firstBoss.id, session.level.bosses.length));
   }
 
-  // 4. Fin de partida (la pausa y la victoria son menús HTML, ver la cabecera del archivo)
+  // 5. Fin de partida (la pausa y la victoria son menús HTML, ver la cabecera del archivo)
   if (session.status === 'over') drawOverlay(ctx, labels.gameOver, COLORS.gameOver, 48);
 
-  // 5. Fundido a negro de la escena final: tapa todo, también el marcador
+  // 6. Fundido a negro de las escenas de puerta (y vuelta a verse al llegar al
+  // despacho): tapa todo, también el marcador
   if (session.screenFade > 0) {
     ctx.globalAlpha = session.screenFade;
     ctx.fillStyle = COLORS.fade;
@@ -165,7 +210,8 @@ export function renderGame(
 
 /**
  * Píxeles que le faltan al callejón para llegar al final de la calle (0 = ya
- * se ve el final), o null si no tiene final.
+ * se ve el final; negativo, cuando al vencer la cámara sube hasta la puerta),
+ * o null si no tiene final.
  */
 function roadLeft(session: GameSession): number | null {
   const { cameraEnd } = session.rules;
@@ -192,9 +238,9 @@ function drawAlley(
   image: HTMLImageElement | null,
   session: GameSession,
 ): void {
-  if (!image) return;
-
   const { alley } = session.level;
+  if (!image || alley === null) return;
+
   const scale = ALLEY_DRAW_SCALE;
   const layout = alleyLayout(alley);
   const head = layout.head * scale;
@@ -245,20 +291,202 @@ function drawTruck(
 ): void {
   const left = roadLeft(session);
   if (!sheet || left === null) return;
-  const y = FINALE.truck.y + left;
-  if (y >= ARENA.height) return;
+  // Lo que le falta a la calle, el camión está por encima de su sitio
+  const y = FINALE.truck.y - left;
+  if (y + TRUCK_FRAME.height <= 0 || y >= ARENA.height) return;
   drawFrame(ctx, sheet, TRUCK_FRAME, { x: 0, y: 0 }, FINALE.truck.x, y);
 }
 
 /**
+ * Bolas de discoteca colgadas del techo (el borde de arriba), girando, con
+ * sus brillos debajo: primero los brillos y encima las bolas, que los tapan
+ * donde se juntan. Cada bola va en un punto distinto del giro.
+ */
+function drawDiscoBalls(
+  ctx: CanvasRenderingContext2D,
+  sheet: HTMLImageElement | null,
+  steps: number,
+): void {
+  if (!sheet) return;
+  const balls = CITY_HALL.hall.discoBalls.map((x, index) => ({
+    x,
+    ...discoFrames(steps + index * CITY_HALL.discoFrameSteps),
+  }));
+  for (const { x, sparkles } of balls) drawFrame(ctx, sheet, sparkles, DISCO_ANCHOR, x, 0);
+  for (const { x, ball } of balls) drawFrame(ctx, sheet, ball, DISCO_ANCHOR, x, 0);
+}
+
+/**
+ * Luces de discoteca: un velo de color sobre toda la sala, que cambia de color
+ * cada CITY_HALL.hall.strobe.colorSteps pasos. Al cambiar, un golpe de luz que
+ * se apaga poco a poco. Se mezcla en modo "overlay" (superponer): oscurece lo
+ * oscuro y aclara lo claro con el tinte del color, como un foco de colores; un
+ * relleno normal solo lo pintaría todo de un color plano.
+ */
+function drawStrobe(ctx: CanvasRenderingContext2D, steps: number): void {
+  const { colors, colorSteps, flashAlpha, baseAlpha } = CITY_HALL.hall.strobe;
+  const color = colors[Math.floor(steps / colorSteps) % colors.length]!;
+  const fading = (steps % colorSteps) / colorSteps;
+  ctx.save();
+  ctx.globalCompositeOperation = 'overlay';
+  ctx.globalAlpha = flashAlpha - (flashAlpha - baseAlpha) * fading;
+  ctx.fillStyle = color;
+  ctx.fillRect(0, 0, ARENA.width, ARENA.height);
+  ctx.restore();
+}
+
+/**
+ * La puerta del lateral, abierta: su hueco, oscuro, más opaco cuanto más
+ * abierta (`open` de 0 a 1). Al cerrarse se aclara hasta desaparecer y vuelve
+ * a verse la madera del dibujo.
+ */
+function drawOpenDoor(ctx: CanvasRenderingContext2D, open: number): void {
+  const [first, ...rest] = CITY_HALL.hall.exitDoor.outline;
+  ctx.save();
+  ctx.globalAlpha = open;
+  ctx.fillStyle = COLORS.doorway;
+  ctx.beginPath();
+  ctx.moveTo(first!.x, first!.y);
+  for (const { x, y } of rest) ctx.lineTo(x, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.restore();
+}
+
+/** Medidas del bocadillo de cómic (en píxeles: todo en bloques, como el pixel art). */
+const BUBBLE = { font: 8, line: 11, padding: 5, border: 2, maxWidth: 150, tail: 6, gap: 4 };
+
+/**
+ * Bocadillo de cómic sobre la cabeza de una chica: blanco, con borde negro y
+ * un piquito hacia ella, y el texto en letra pixel (Press Start 2P). Todo con
+ * rectángulos enteros, sin curvas ni suavizado: así parece pixel art. No se
+ * sale de la pantalla aunque ella esté pegada a un borde.
+ */
+function drawShout(ctx: CanvasRenderingContext2D, text: string, dancer: Dancer): void {
+  ctx.save();
+  ctx.globalAlpha = dancer.opacity;
+  ctx.font = `${BUBBLE.font}px "Press Start 2P", monospace`;
+  const lines = wrapText(ctx, text, BUBBLE.maxWidth);
+  const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+  const width = Math.ceil(textWidth) + BUBBLE.padding * 2;
+  const height = lines.length * BUBBLE.line + BUBBLE.padding * 2 - (BUBBLE.line - BUBBLE.font);
+  // Encima de la cabeza (las chicas miden 62), con el piquito apuntándole
+  const head: Point = { x: Math.round(dancer.x), y: Math.round(dancer.y - 62 - BUBBLE.gap) };
+  const left = Math.round(
+    Math.min(Math.max(head.x - width / 2, BUBBLE.border), ARENA.width - width - BUBBLE.border),
+  );
+  const top = head.y - BUBBLE.tail - height;
+
+  // Borde (un rectángulo negro algo más grande) y fondo blanco
+  const { border } = BUBBLE;
+  ctx.fillStyle = COLORS.bubbleBorder;
+  ctx.fillRect(left - border, top - border, width + border * 2, height + border * 2);
+  ctx.fillStyle = COLORS.bubble;
+  ctx.fillRect(left, top, width, height);
+  // Piquito escalonado: cada fila, un píxel más estrecha, hacia la cabeza
+  const tailX = Math.min(Math.max(head.x, left + BUBBLE.tail), left + width - BUBBLE.tail);
+  for (let row = 0; row < BUBBLE.tail; row++) {
+    const half = BUBBLE.tail - row;
+    ctx.fillStyle = COLORS.bubbleBorder;
+    ctx.fillRect(tailX - half - 1, top + height + row, half * 2 + 2, 1);
+    ctx.fillStyle = COLORS.bubble;
+    ctx.fillRect(tailX - half + 1, top + height + row - 1, half * 2 - 2, 1);
+  }
+
+  ctx.fillStyle = COLORS.bubbleText;
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+  lines.forEach((line, index) =>
+    ctx.fillText(line, left + BUBBLE.padding, top + BUBBLE.padding + index * BUBBLE.line),
+  );
+  ctx.restore();
+}
+
+/** Parte un texto en líneas que no pasen de `maxWidth` (por palabras, con la fuente ya puesta en ctx). */
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const lines: string[] = [];
+  let current = '';
+  for (const word of text.split(' ')) {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && ctx.measureText(candidate).width > maxWidth) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  }
+  return [...lines, current];
+}
+
+/**
+ * Cerveza que va hacia el alcalde para curarle: una botella dorada cerrada,
+ * girada hacia donde va (como las botellas que lanzan los jefes).
+ */
+function drawHealingBeer(
+  ctx: CanvasRenderingContext2D,
+  heal: HealingBeer,
+  sheet: HTMLImageElement | null,
+): void {
+  if (!sheet) return fillRect(ctx, heal, COLORS.enemy);
+  const center = { x: heal.x + heal.width / 2, y: heal.y + heal.height / 2 };
+  drawTurnedBottle(ctx, sheet, enemyFrame('fast', 0), center, heal.heading, heal.height);
+}
+
+/**
+ * Una botella girada `heading` grados alrededor de su centro (el dibujo apunta
+ * hacia abajo; su base, el ancla, va arriba del todo de su caja de `height`).
+ */
+function drawTurnedBottle(
+  ctx: CanvasRenderingContext2D,
+  sheet: HTMLImageElement,
+  frame: SpriteFrame,
+  center: Point,
+  heading: number,
+  height: number,
+): void {
+  ctx.save();
+  ctx.translate(Math.round(center.x), Math.round(center.y));
+  ctx.rotate((-heading * Math.PI) / 180);
+  drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, 0, -height / 2);
+  ctx.restore();
+}
+
+/** Chica de la fiesta, con los pies en su sitio. Al llegar a su salida se desvanece. */
+function drawDancer(ctx: CanvasRenderingContext2D, dancer: Dancer, sheet: HTMLImageElement | null) {
+  if (!sheet) return;
+  ctx.globalAlpha = dancer.opacity;
+  const frame = dancerFrame(dancer.girl, dancer.action, dancer.steps);
+  drawFrame(ctx, sheet, frame, CITY_HALL_ANCHOR, dancer.x, dancer.y);
+  ctx.globalAlpha = 1;
+}
+
+/**
  * Jefe, en blanco durante el destello de impacto. Los barriles, centrados en
- * su caja de colisión; el pijo y el primo, de pie sobre la base de su caja
- * (como el jugador) y con la pose que toque: andando o lanzando.
+ * su caja de colisión; los demás, de pie sobre la base de su caja (como el
+ * jugador) y con la pose que toque: andando o lanzando. El alcalde está tras
+ * su mesa: su dibujo acaba en la cintura, que es la base de su caja.
  */
 function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, assets: RenderAssets) {
   const centerX = boss.x + boss.width / 2;
   const feetY = boss.y + boss.height;
   const { id, pose, isFlashing } = boss;
+  if (isOfficeBoss(id)) {
+    if (!assets.cityHallSheet) return fillRect(ctx, boss, COLORS.enemy);
+    const frame = officeBossFrame(id, pose, isFlashing);
+    // Detrás de la mesa, solo se ve lo que asoma por encima: se recorta el
+    // dibujo por el borde de atrás de la mesa (la mesa es parte del fondo)
+    const { desk } = CITY_HALL.office;
+    const behindDesk = feetY < desk.front && boss.x < desk.right && boss.x + boss.width > desk.left;
+    ctx.save();
+    if (behindDesk) {
+      ctx.beginPath();
+      ctx.rect(0, 0, ARENA.width, desk.back);
+      ctx.clip();
+    }
+    drawFrame(ctx, assets.cityHallSheet, frame, CITY_HALL_ANCHOR, centerX, feetY);
+    ctx.restore();
+    return;
+  }
   if (id === 'pijo' || id === 'primo') {
     const sheet = id === 'pijo' ? assets.pijoSheet : assets.primoSheet;
     if (!sheet) return fillRect(ctx, boss, COLORS.enemy);
@@ -334,6 +562,8 @@ function drawFrame(
 
 /**
  * Enemigo:
+ *   - Segurata: de pie sobre la base de su caja, bailando; en blanco durante
+ *     el destello de impacto.
  *   - Barril pequeño: centrado en su caja, sin girar (también los que lanza
  *     el primo); en blanco durante el destello de impacto.
  *   - Botella: su base (el ancla) va en el centro del borde superior de su caja.
@@ -342,7 +572,14 @@ function drawFrame(
  */
 function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, assets: RenderAssets) {
   const { center } = enemy;
-  if (ENEMY_TYPES[enemy.type].kind === 'barrel') {
+  const { kind } = ENEMY_TYPES[enemy.type];
+  if (kind === 'guard') {
+    if (!assets.cityHallSheet) return fillRect(ctx, enemy, COLORS.enemy);
+    const frame = guardFrame(enemy.look, enemy.age, enemy.isFlashing);
+    const feetY = enemy.y + enemy.height;
+    return drawFrame(ctx, assets.cityHallSheet, frame, CITY_HALL_ANCHOR, center.x, feetY);
+  }
+  if (kind === 'barrel') {
     if (!assets.minionSheet) return fillRect(ctx, enemy, COLORS.enemy);
     return drawFrame(
       ctx,
@@ -358,12 +595,7 @@ function drawEnemy(ctx: CanvasRenderingContext2D, enemy: Enemy, assets: RenderAs
   if (!sheet) return fillRect(ctx, enemy, COLORS.enemy);
   const frame = enemyFrame(enemy.type, enemy.animationFrame);
   if (enemy.heading === 0) return drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, center.x, enemy.y);
-
-  ctx.save();
-  ctx.translate(Math.round(center.x), Math.round(center.y));
-  ctx.rotate((-enemy.heading * Math.PI) / 180);
-  drawFrame(ctx, sheet, frame, ENEMY_ANCHOR, 0, -enemy.height / 2);
-  ctx.restore();
+  drawTurnedBottle(ctx, sheet, frame, center, enemy.heading, enemy.height);
 }
 
 /** Lata: centrada en su caja de colisión. */

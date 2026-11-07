@@ -302,6 +302,12 @@ export function PlayPage() {
               {gameStatus === 'paused' && (
                 <GameOverlay variant="pause" title={t('play.paused')} subtitle={<VolumeSlider />}>
                   <Button onClick={() => gameRef.current?.resume()}>{t('play.resume')}</Button>
+                  {/* Reiniciar es jugar otra vez el mismo nivel: play() le da a la partida
+                      un runId nuevo, que es la key del GameCanvas, así que React tira
+                      el motor viejo y monta uno nuevo desde cero (y pide otro ticket) */}
+                  <Button variant="ghost" onClick={() => play(screen.levelId)}>
+                    {t('play.restartLevel')}
+                  </Button>
                   {/* Salir desmonta la partida: el bucle y el teclado se paran solos */}
                   <Button variant="ghost" onClick={backToMenu}>
                     {t('play.quitToMenu')}

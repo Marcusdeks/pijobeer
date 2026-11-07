@@ -1,6 +1,8 @@
 /**
  * Ventana emergente para elegir nivel (el antiguo "popup-nivel").
- * Los niveles bloqueados se ven, pero desactivados y con lo que piden para abrirse.
+ * Los niveles bloqueados se ven, pero desactivados y con lo que piden para
+ * abrirse: superar el anterior (sin cifras: cuánto hay que eliminar en cada
+ * nivel no se desvela, ver GameRules.killGoal).
  */
 import { LEVELS } from '@pijobeer/shared';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +24,6 @@ export function LevelSelectDialog({ isLevelUnlocked, onSelect, onClose }: LevelS
       <div className={styles.levels}>
         {LEVELS.map((level, index) => {
           const unlocked = isLevelUnlocked(level.id);
-          // El requisito de un nivel está definido en el nivel ANTERIOR
           const previous = LEVELS[index - 1];
 
           return (
@@ -35,10 +36,7 @@ export function LevelSelectDialog({ isLevelUnlocked, onSelect, onClose }: LevelS
               {t('play.level', { level: level.id })}
               {!unlocked && previous && (
                 <span className={styles.requirement}>
-                  {t('play.levelRequirement', {
-                    count: previous.killsToComplete,
-                    level: previous.id,
-                  })}
+                  {t('play.levelRequirement', { level: previous.id })}
                 </span>
               )}
             </Button>

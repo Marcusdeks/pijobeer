@@ -66,6 +66,10 @@ export const router = createBrowserRouter([
         path: ROUTES.admin,
         lazy: lazyPage(() => import('./pages/AdminPage/AdminPage'), 'AdminPage'),
       },
+      {
+        path: ROUTES.animations,
+        lazy: lazyPage(() => import('./pages/AnimationsPage/AnimationsPage'), 'AnimationsPage'),
+      },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

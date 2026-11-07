@@ -19,7 +19,11 @@ export type StoryId =
   | 'pijosDefeated'
   | 'level5Opening'
   | 'primoIntro'
-  | 'primoDefeated';
+  | 'primoDefeated'
+  | 'level6Opening'
+  | 'mayorIntro'
+  | 'mayorDefeated'
+  | 'level6Epilogue';
 
 type StoryLineKey =
   | 'play.story.jacketTutorial'
@@ -31,7 +35,11 @@ type StoryLineKey =
   | 'play.story.pijosDefeatedReply'
   | 'play.story.level5Opening'
   | 'play.story.primoIntro'
-  | 'play.story.primoDefeated';
+  | 'play.story.primoDefeated'
+  | 'play.story.level6Opening'
+  | 'play.story.mayorIntro'
+  | 'play.story.mayorDefeated'
+  | 'play.story.level6Epilogue';
 
 export interface Story {
   lines: readonly StoryLineKey[];
@@ -54,16 +62,28 @@ export const STORIES: Record<StoryId, Story> = {
     durationMs: 10000,
     skippable: true,
   },
-  level5Opening: { lines: ['play.story.level5Opening'], durationMs: 5000, skippable: true },
+  level5Opening: { lines: ['play.story.level5Opening'], durationMs: 9000, skippable: true },
   primoIntro: { lines: ['play.story.primoIntro'], durationMs: 6000, skippable: true },
   /** Al derrotar al primo: después, el protagonista entra solo en el ayuntamiento. */
   primoDefeated: { lines: ['play.story.primoDefeated'], durationMs: 12000, skippable: true },
+  level6Opening: { lines: ['play.story.level6Opening'], durationMs: 6000, skippable: true },
+  /** Al llegar al despacho del alcalde, antes de la lucha. */
+  mayorIntro: { lines: ['play.story.mayorIntro'], durationMs: 6000, skippable: true },
+  mayorDefeated: { lines: ['play.story.mayorDefeated'], durationMs: 7000, skippable: true },
+  /** De vuelta en la planta baja, ya sin fiesta: lo último antes de la victoria. */
+  level6Epilogue: { lines: ['play.story.level6Epilogue'], durationMs: 7000, skippable: true },
 };
 
 /** Los niveles con historia propia la enseñan siempre, con botón para saltarla. */
 const LEVEL_STORIES: Readonly<Record<number, Partial<Record<DialogMoment, StoryId>>>> = {
   4: { opening: 'level4Opening', beforeBosses: 'pijosIntro', afterBosses: 'pijosDefeated' },
   5: { opening: 'level5Opening', beforeBosses: 'primoIntro', afterBosses: 'primoDefeated' },
+  6: {
+    opening: 'level6Opening',
+    beforeBosses: 'mayorIntro',
+    afterBosses: 'mayorDefeated',
+    epilogue: 'level6Epilogue',
+  },
 };
 
 /**

@@ -1,17 +1,22 @@
 /**
- * JEFE FINAL: un barril de cerveza pija (madera o hierro), un pijo o su primo.
+ * JEFE FINAL: un barril de cerveza pija (madera o hierro), un pijo, su primo
+ * o, en el despacho del nivel 6, el alcalde y sus chicas.
  *
  *   1. ENTRADA: baja desde fuera de la pantalla hasta BOSS_COMMON.holdY. Mientras
  *      entra ni ataca ni se le puede dañar (aún no ha empezado el combate).
+ *      Los que tienen puesto fijo (post: los del despacho) ya están en él o,
+ *      como el alcalde, van andando hasta él (de detrás de su mesa a delante).
+ *      Las dos cosas son lo mismo: una RUTA de puntos que recorre antes de pelear.
  *   2. COMBATE: se queda a esa altura (no avanza hacia el jugador), va de pared
- *      a pared y ataca en RÁFAGAS (ver BOSS en config.ts). Mientras ataca se
+ *      a pared (o de un lado a otro de su puesto) y ataca en RÁFAGAS (ver BOSS en config.ts). Mientras ataca se
  *      para (ver isAttacking):
  *        - los barriles disparan abanicos de chorros que pueden apuntar al jugador;
  *        - el pijo lanza botellas hacia donde está él, y el primo, barriles
  *          (ver Enemy.thrownAt). Qué lanza lo decide antes de empezar a coger
  *          impulso, para que el dibujo lo lleve en las manos (ver heldThrow).
  *   3. FURIA: cuando le queda un 20 % de vida se mueve más rápido y cambia su
- *      ritmo de ataque (ver BOSS_ENRAGE y los enraged* de cada jefe).
+ *      ritmo de ataque (ver BOSS_ENRAGE y los enraged* de cada jefe). Los que
+ *      no tienen furia (enrages: false) siguen igual hasta el final.
  *
  * Puede haber varios a la vez (en el nivel 4, dos pijos): cada uno empieza en
  * su hueco del callejón, los vecinos salen en direcciones opuestas y atacan
@@ -27,6 +32,7 @@ import {
   BOSS,
   BOSS_COMMON,
   BOSS_ENRAGE,
+  type BossPost,
   ENEMY_BULLET,
   HIT_FLASH_STEPS,
   PLAYER_BULLET,
@@ -65,6 +71,11 @@ export interface BossOptions {
   random?: RandomFn;
   /** Multiplicador de velocidad de lo que lanza (el del nivel). */
   bottleSpeedScale?: number;
+  /**
+   * Puesto fijo, ya en la sala al empezar (los jefes del despacho): por dónde
+   * se mueve y a qué altura tiene los pies. Sin él, entra bajando desde arriba.
+   */
+  post?: BossPost;
 }
 
 export class Boss implements Rect {
@@ -72,10 +83,18 @@ export class Boss implements Rect {
   readonly height: number;
   readonly maxHealth: number;
   health: number;
-  x: number;
-  y: number;
+  // Las pone placeFeet en el constructor (TypeScript no mira dentro de los métodos)
+  x = 0;
+  y = 0;
 
   private readonly stats: (typeof BOSS)[BossId];
+  /** Por dónde se mueve: el suelo del nivel o su puesto. */
+  private readonly field: Playfield;
+  /**
+   * Entrada: los puntos (donde pone los pies) por los que aún tiene que pasar
+   * hasta llegar a su sitio. Mientras queden, está entrando.
+   */
+  private readonly route: Point[];
   private readonly random: RandomFn;
   private readonly bottleSpeedScale: number;
   /** Hacia dónde se mueve: 1 derecha, -1 izquierda. */
@@ -100,13 +119,14 @@ export class Boss implements Rect {
 
   constructor(
     readonly id: BossId,
-    private readonly field: Playfield,
+    field: Playfield,
     {
       healthScale = 1,
       slot = 0,
       count = 1,
       random = Math.random,
       bottleSpeedScale = 1,
+      post,
     }: BossOptions = {},
   ) {
     this.stats = BOSS[id];
@@ -120,24 +140,39 @@ export class Boss implements Rect {
     this.random = random;
     this.bottleSpeedScale = bottleSpeedScale;
     this.nextThrow = this.pickThrow();
-    // Repartidos a lo ancho (uno solo, centrado) y por encima del borde superior: entran bajando
-    const center = field.left + ((field.right - field.left) * (slot + 1)) / (count + 1);
-    this.x = center - this.width / 2;
-    this.y = -this.height;
+    if (post) {
+      // Su sitio, en el centro de su puesto. Si empieza en otro lado (from),
+      // va hasta él pasando por `via`; si no, ya está ahí
+      this.field = post.field;
+      const home = { x: (post.field.left + post.field.right) / 2, y: post.feetY };
+      this.placeFeet(post.from ?? home);
+      this.route = post.from ? [...(post.via ?? []), home] : [];
+    } else {
+      // Repartidos a lo ancho (uno solo, centrado) y por encima del borde superior: entran bajando
+      this.field = field;
+      const center = field.left + ((field.right - field.left) * (slot + 1)) / (count + 1);
+      this.placeFeet({ x: center, y: 0 });
+      this.route = [{ x: center, y: BOSS_COMMON.holdY + this.height }];
+    }
     this.direction = slot % 2 === 0 ? 1 : -1;
   }
 
   get isEntering(): boolean {
-    return this.y < BOSS_COMMON.holdY;
+    return this.route.length > 0;
+  }
+
+  /** Dónde tiene los pies: el centro de la base de su caja. */
+  get feet(): Point {
+    return { x: this.x + this.width / 2, y: this.y + this.height };
   }
 
   get isDead(): boolean {
     return this.health <= 0;
   }
 
-  /** Fase de furia: le queda poca vida (BOSS_ENRAGE.enrageAt). */
+  /** Fase de furia: le queda poca vida (BOSS_ENRAGE.enrageAt), si es de los que se enfurecen. */
   get isEnraged(): boolean {
-    return this.health <= this.maxHealth * BOSS_ENRAGE.enrageAt;
+    return this.stats.enrages && this.health <= this.maxHealth * BOSS_ENRAGE.enrageAt;
   }
 
   /** true durante el destello: el renderer dibuja la silueta blanca. */
@@ -182,9 +217,15 @@ export class Boss implements Rect {
     return this.recoverSteps > 0 ? this.lastThrow : this.nextThrow;
   }
 
-  /** Lo que deben esperar los demás jefes tras un ataque suyo: media pausa, para turnarse a partes iguales. */
+  /**
+   * Lo que deben esperar los demás jefes tras un ataque suyo: lo que le quede
+   * de ráfaga (el alcalde lanza 3 botellas seguidas: nadie se mete en medio)
+   * y media pausa más, para turnarse a partes iguales.
+   */
   get turnGap(): number {
-    return Math.round(this.lastPause / 2);
+    const inBurst = this.burstLeft < this.stats.burstSize;
+    const burstLeftSteps = inBurst ? this.burstLeft * this.stats.burstGap : 0;
+    return burstLeftSteps + Math.round(this.lastPause / 2);
   }
 
   /**
@@ -212,7 +253,7 @@ export class Boss implements Rect {
     if (this.contactCooldown > 0) this.contactCooldown--;
 
     if (this.isEntering) {
-      this.y = Math.min(BOSS_COMMON.holdY, this.y + BOSS_COMMON.enterSpeed);
+      this.walkRoute();
       return NO_ATTACK;
     }
 
@@ -240,11 +281,12 @@ export class Boss implements Rect {
   /**
    * Recibe un abrechapas. Mientras entra es invulnerable.
    * @param damage - vida que quita (por defecto, la de un abrechapas)
+   * @param minHealth - de aquí no baja (1 = no puede morir: el alcalde mientras le protegen sus chicas)
    * @returns true si el impacto ha contado
    */
-  hit(damage: number = PLAYER_BULLET.damage): boolean {
+  hit(damage: number = PLAYER_BULLET.damage, minHealth = 0): boolean {
     if (this.isEntering || this.isDead) return false;
-    this.health = Math.max(0, this.health - damage);
+    this.health = Math.max(Math.min(minHealth, this.health), this.health - damage);
     this.flashSteps = HIT_FLASH_STEPS;
     return true;
   }
@@ -257,6 +299,38 @@ export class Boss implements Rect {
     if (this.contactCooldown > 0 || this.isEntering) return false;
     this.contactCooldown = BOSS_COMMON.contactCooldown;
     return true;
+  }
+
+  /**
+   * Cura (la cerveza que le lanzan sus chicas al alcalde), sin pasar de su
+   * vida máxima. Muerto, ya no hay nada que curar.
+   */
+  heal(amount: number): void {
+    if (!this.isDead) this.health = Math.min(this.maxHealth, this.health + amount);
+  }
+
+  /** Pone sus pies en `point` (el centro de la base de su caja). */
+  private placeFeet(point: Point): void {
+    this.x = point.x - this.width / 2;
+    this.y = point.y - this.height;
+  }
+
+  /** Entrada: anda en línea recta hacia el siguiente punto de su ruta (y lo tacha al llegar). */
+  private walkRoute(): void {
+    const next = this.route[0]!;
+    const { feet } = this;
+    const dx = next.x - feet.x;
+    const dy = next.y - feet.y;
+    const distance = Math.hypot(dx, dy);
+    const step = BOSS_COMMON.enterSpeed;
+    if (distance <= step) {
+      this.placeFeet(next);
+      this.route.shift();
+    } else {
+      this.placeFeet({ x: feet.x + (dx / distance) * step, y: feet.y + (dy / distance) * step });
+    }
+    // Si anda de lado, mueve las piernas (los que bajan desde arriba, también)
+    this.walkSteps++;
   }
 
   /** De lado a lado, dando la vuelta al llegar a una pared. Con furia, más rápido. */

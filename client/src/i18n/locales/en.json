@@ -43,10 +43,11 @@
     "options": "Options",
     "chooseLevelTitle": "Choose your level",
     "level": "Level {{level}}",
-    "levelRequirement": "Destroy {{count}} posh beers in Level {{level}}",
+    "levelRequirement": "Beat Level {{level}}",
     "skipIntro": "Skip ➜",
     "canvasLabel": "Game area",
-    "hud": "Level {{level}}  |  Health: {{health}}  |  Posh: {{kills}}/{{required}}  |  Points: {{points}}",
+    "hud": "Level {{level}}  |  Health: {{health}}  |  Posh: {{kills}}  |  Points: {{points}}",
+    "hudWithGoal": "Level {{level}}  |  Health: {{health}}  |  Posh: {{kills}}/{{required}}  |  Points: {{points}}",
     "paused": "PAUSED",
     "gameOver": "GAME OVER, loser",
     "levelUnlocked": "Level {{level}} unlocked!",
@@ -63,7 +64,10 @@
       "iron": "POSH IRON KEG",
       "pijo_one": "POSH KID",
       "pijo_other": "POSH KIDS",
-      "primo": "POSH COUSIN"
+      "primo": "POSH COUSIN",
+      "mayor": "THE MAYOR AND HIS GIRLS",
+      "blonde": "THE MAYOR'S GIRLS",
+      "redhead": "THE MAYOR'S GIRLS"
     },
     "skipStory": "Skip ➜",
     "story": {
@@ -74,11 +78,21 @@
       "pijosHint": "Careful: the jacket doesn't protect you from flying bottles.",
       "pijosDefeatedHero": "{{hero}}: If you're here, who's the idiot throwing barrels?",
       "pijosDefeatedReply": "Posh kids: *crying like babies* It's our big strong cousin! He'll give you the beating of your life, scum!",
-      "level5Opening": "{{hero}}: I'm going after that fucking posh guy! He can't be that big.",
+      "level5Opening": "{{hero}}: Whoa! My arm's getting strong from all the REAL beer I've been drinking on the way, not that posh crap. I'm going after that fucking posh guy! He can't be that big.",
       "primoIntro": "Posh cousin: So you're the one who beat up my little cousins? I'm going to crush you!",
-      "primoDefeated": "{{hero}}: Damn, you big lump, you almost fought like a real man. Anyway, while I'm here I'll swing by the town hall and smash it up a bit, hehe. That'll give those bastards one more excuse to launder money."
+      "primoDefeated": "{{hero}}: Damn, you big lump, you almost fought like a real man. Anyway, while I'm here I'll swing by the town hall and smash it up a bit, hehe. That'll give those bastards one more excuse to launder money.",
+      "level6Opening": "{{hero}}: So that big guy and his cousins were supplying this party, huh? Well, the gravy train's over for these crooks.",
+      "mayorIntro": "Mayor: Who let this lout into my office?! Girls, get him!",
+      "mayorDefeated": "{{hero}}: Well, party's over for these losers. That's what you get for shutting down our bars.",
+      "level6Epilogue": "{{hero}}: Time to head back to those filthy streets. They're probably full of fucking posh kids again."
     },
-    "cheatsActive": "Admin cheats active: this game does not count for the ranking."
+    "cheatsActive": "Admin cheats active: this game does not count for the ranking.",
+    "restartLevel": "Restart level",
+    "shouts": {
+      "girl3": "Help, a metalhead!",
+      "girl5": "I bet he hasn't showered!",
+      "girl7": "Gross! He wears a Thrasher vest!"
+    }
   },
   "options": {
     "title": "Options",

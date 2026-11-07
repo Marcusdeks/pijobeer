@@ -16,4 +16,5 @@ export const ROUTES = {
   profile: '/profile',
   scores: '/scores',
   admin: '/admin',
+  animations: '/animations',
 } as const;

@@ -43,10 +43,11 @@
     "options": "Options",
     "chooseLevelTitle": "Choisis ton niveau",
     "level": "Niveau {{level}}",
-    "levelRequirement": "Détruis {{count}} bières de bourges au Niveau {{level}}",
+    "levelRequirement": "Termine le Niveau {{level}}",
     "skipIntro": "Passer ➜",
     "canvasLabel": "Zone de jeu",
-    "hud": "Niveau {{level}}  |  Vie : {{health}}  |  Bourges : {{kills}}/{{required}}  |  Points : {{points}}",
+    "hud": "Niveau {{level}}  |  Vie : {{health}}  |  Bourges : {{kills}}  |  Points : {{points}}",
+    "hudWithGoal": "Niveau {{level}}  |  Vie : {{health}}  |  Bourges : {{kills}}/{{required}}  |  Points : {{points}}",
     "paused": "PAUSE",
     "gameOver": "GAME OVER, minable",
     "levelUnlocked": "Niveau {{level}} débloqué !",
@@ -63,7 +64,10 @@
       "iron": "FÛT DE FER DE BOURGE",
       "pijo_one": "BOURGE ENNEMI",
       "pijo_other": "BOURGES ENNEMIS",
-      "primo": "COUSIN BOURGE"
+      "primo": "COUSIN BOURGE",
+      "mayor": "LE MAIRE ET SES NANAS",
+      "blonde": "LES NANAS DU MAIRE",
+      "redhead": "LES NANAS DU MAIRE"
     },
     "skipStory": "Passer ➜",
     "story": {
@@ -74,11 +78,21 @@
       "pijosHint": "Attention : le blouson ne protège pas des bouteilles lancées.",
       "pijosDefeatedHero": "{{hero}} : Si vous êtes ici, qui est le crétin qui lance des tonneaux ?",
       "pijosDefeatedReply": "Bourges : *pleurent comme des mauviettes* C'est notre cousin le plus costaud ! Tu vas voir, il va te mettre la raclée de ta vie, minable !",
-      "level5Opening": "{{hero}} : Je vais me faire ce putain de bourge ! Il ne peut pas être si grand.",
+      "level5Opening": "{{hero}} : Ouah ! Je me fais un bras costaud à force de boire de la VRAIE bière en chemin, pas cette merde de bourges. Je vais me faire ce putain de bourge ! Il ne peut pas être si grand.",
       "primoIntro": "Cousin bourge : C'est toi qui as battu mes petits cousins ? Je vais t'écraser !",
-      "primoDefeated": "{{hero}} : Putain, espèce de grand balourd, tu te battais presque comme un vrai homme. Bon, tant que j'y suis, je vais passer à la mairie et la saccager un peu, héhé. Comme ça, ces enfoirés auront une excuse de plus pour blanchir de l'argent."
+      "primoDefeated": "{{hero}} : Putain, espèce de grand balourd, tu te battais presque comme un vrai homme. Bon, tant que j'y suis, je vais passer à la mairie et la saccager un peu, héhé. Comme ça, ces enfoirés auront une excuse de plus pour blanchir de l'argent.",
+      "level6Opening": "{{hero}} : Alors c'est ce grand costaud et ses cousins qui fournissaient cette fête, hein ? Eh bien, c'est fini la belle vie pour ces pourris.",
+      "mayorIntro": "Le maire : Qui a laissé entrer ce rustre dans mon bureau ?! Les filles, attrapez-le !",
+      "mayorDefeated": "{{hero}} : Bon, la fête est finie pour ces nazes. Voilà ce qui arrive quand on ferme nos bars.",
+      "level6Epilogue": "{{hero}} : Il est temps de retourner dans ces rues crasseuses. Elles doivent être de nouveau pleines de putains de bourges."
     },
-    "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement."
+    "cheatsActive": "Triches admin actives : cette partie ne compte pas pour le classement.",
+    "restartLevel": "Recommencer le niveau",
+    "shouts": {
+      "girl3": "Au secours, un métalleux !",
+      "girl5": "Il ne s'est sûrement pas douché !",
+      "girl7": "Beurk ! Il porte un gilet Thrasher !"
+    }
   },
   "options": {
     "title": "Options",

@@ -23,8 +23,11 @@ import {
   writeSheet,
 } from './lib.mjs';
 
-/** Ancho del camión en el juego: casi un tercio de la plaza, con sitio para pasar por su lado. */
-const TRUCK_WIDTH = 230;
+/**
+ * Ancho del camión en el juego: grande, como un camión de verdad al lado del
+ * protagonista. Puede salirse un poco por el borde de la pantalla.
+ */
+const TRUCK_WIDTH = 288;
 
 export async function buildPropSheets() {
   // Con su sombra, que oscurece el suelo de la plaza

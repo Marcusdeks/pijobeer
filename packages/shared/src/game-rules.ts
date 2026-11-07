@@ -22,7 +22,8 @@ export const POINTS_PER_KILL = 10;
 /**
  * Puntos de cada tipo de enemigo. Las botellas dan lo normal; los barriles
  * pequeños, que aguantan varios impactos, más: 50 los de madera (3 impactos)
- * y 80 el de hierro (5). Múltiplos de POINTS_PER_KILL.
+ * y 80 el de hierro (5); y los seguratas del nivel 6, que aguantan mucho más,
+ * 100. Múltiplos de POINTS_PER_KILL.
  */
 export const ENEMY_POINTS = {
   normal: POINTS_PER_KILL,
@@ -31,6 +32,7 @@ export const ENEMY_POINTS = {
   barrel: 50,
   woodBarrel: 50,
   ironBarrel: 80,
+  guard: 100,
 } as const satisfies Record<EnemyTypeId, number>;
 
 /**
@@ -42,6 +44,9 @@ export const BOSS_POINTS = {
   iron: 500,
   pijo: 400,
   primo: 1000,
+  mayor: 1500,
+  blonde: 300,
+  redhead: 300,
 } as const satisfies Record<BossId, number>;
 
 /** Máximo de puntos que el servidor acepta para una sola partida. */
@@ -60,16 +65,20 @@ export const SIMULATION_STEPS_PER_SECOND = 60;
  *   gap     lo más seguido que lanza, en pasos entre una cosa y la siguiente
  *   points  lo que vale lo más caro que puede lanzar
  * Con furia, el pijo lanza una botella cada 108 × 0,5 = 54 pasos y el primo un
- * barril (como mucho de hierro) cada 150 × 0,7 = 105 (BOSS en
- * client/src/game/config.ts). Si un jefe pasara a lanzar más deprisa, el test
- * del cliente que comprueba maxPointsFor fallaría y avisaría de que hay que
- * cambiarlo aquí.
+ * barril (como mucho de hierro) cada 150 × 0,7 = 105; el alcalde lanza
+ * ráfagas de 3 botellas a 12 pasos entre sí, y sus chicas, que no tienen furia,
+ * una cada 130 (BOSS en client/src/game/config.ts). Si un jefe pasara a
+ * lanzar más deprisa, el test del cliente que comprueba maxPointsFor fallaría
+ * y avisaría de que hay que cambiarlo aquí.
  */
 const BOSS_THROWS = {
   wood: null,
   iron: null,
   pijo: { gap: 54, points: POINTS_PER_KILL },
   primo: { gap: 105, points: ENEMY_POINTS.ironBarrel },
+  mayor: { gap: 12, points: POINTS_PER_KILL },
+  blonde: { gap: 130, points: POINTS_PER_KILL },
+  redhead: { gap: 130, points: POINTS_PER_KILL },
 } as const satisfies Record<BossId, { gap: number; points: number } | null>;
 
 /**
@@ -98,9 +107,14 @@ export function maxPointsFor(levelId: number, seconds: number): number {
   // El juego redondea el intervalo de aparición (rules.ts): medio paso menos cubre ese redondeo
   const spawnEvery = (baseInterval: number) => baseInterval / spawnRate - 0.5;
 
-  const mix = Object.keys(level.enemyMix) as EnemyTypeId[];
-  const bestEnemy = Math.max(...mix.map((type) => ENEMY_POINTS[type]));
-  let points = times(spawnEvery(level.spawnInterval)) * bestEnemy;
+  let points = 0;
+  if (level.spawnInterval !== null) {
+    const mix = Object.keys(level.enemyMix) as EnemyTypeId[];
+    const bestEnemy = Math.max(...mix.map((type) => ENEMY_POINTS[type]));
+    points += times(spawnEvery(level.spawnInterval)) * bestEnemy;
+  }
+  // Los seguratas del ayuntamiento: los que hay, ni uno más
+  if (level.interior) points += level.interior.guards * ENEMY_POINTS.guard;
 
   if (level.bossFightEnemy) {
     const { type, spawnInterval } = level.bossFightEnemy;

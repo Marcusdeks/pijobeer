@@ -18,29 +18,41 @@ import {
   type GameModifiers,
   type LevelDefinition,
 } from '@pijobeer/shared';
-import { MIN_SPAWN_INTERVAL, PICKUP, PICKUP_TYPES, PLAYER } from './config';
+import { FINALE, MIN_SPAWN_INTERVAL, PICKUP, PICKUP_TYPES, PLAYER } from './config';
 import type { RandomFn } from './entities/Enemy';
-import type { Point } from './geometry';
-import { exitFor, playfieldFor, type Playfield } from './playfield';
+import { exitFor, playfieldFor, type Exit, type Playfield } from './playfield';
 
 export interface GameRules {
   level: LevelDefinition;
   /** Suelo del callejón: nadie puede meterse en las paredes. */
   field: Playfield;
+  /**
+   * Por dónde se mueven los jefes: el suelo, salvo en las calles con final,
+   * donde se quedan a la izquierda del camión aparcado sin tocarlo.
+   */
+  bossField: Playfield;
+  /** Kills para seguir: las del nivel o, si un admin la ha fijado, su cifra (dentro del ayuntamiento, los seguratas). */
   killsToComplete: number;
+  /**
+   * Cuántas hay que eliminar, para enseñarlo en el marcador; null = no se
+   * enseña. Solo se ve en el nivel 1, para aprender cómo va el juego (y si un
+   * admin fija la cifra): en los demás, cuánto falta es parte de la sorpresa.
+   */
+  killGoal: number | null;
   /** Píxeles de callejón que hay que recorrer además (0 = no hace falta). */
   distanceToComplete: number;
   /**
    * Calles con final: hasta dónde avanza el callejón (lo que mide la calle
-   * hasta el edificio), y la puerta por la que entra el protagonista al acabar
-   * (en píxeles de pantalla, con el final a la vista). null = callejón sin
+   * hasta el edificio), y por dónde sale el protagonista al acabar (ver
+   * Exit). null = callejón sin
    * final, que se repite sin parar.
    */
   cameraEnd: number | null;
-  exit: Point | null;
-  /** Pasos entre disparo y disparo del jugador. */
+  exit: Exit | null;
+  /** Pasos entre disparo y disparo del jugador (con el ritmo del nivel y el de la dificultad). */
   shootCooldown: number;
-  spawnInterval: number;
+  /** Pasos entre botella y botella (null = no cae nada, como dentro del ayuntamiento). */
+  spawnInterval: number | null;
   /** Enemigos durante el combate con los jefes, con el ritmo ajustado igual que spawnInterval. */
   bossFightEnemy: { type: EnemyTypeId; spawnInterval: number } | null;
   /** Multiplicador final de la velocidad de las botellas (nivel × truco). */
@@ -70,18 +82,21 @@ export function resolveRules(
   const spawnScale = modifiers.spawnRate * difficulty.spawnRate;
   const intervalFor = (base: number) => Math.max(MIN_SPAWN_INTERVAL, Math.round(base / spawnScale));
   const exit = exitFor(level);
+  const field = playfieldFor(level);
 
   return {
     level,
-    field: playfieldFor(level),
+    field,
+    bossField: exit ? { ...field, right: FINALE.truck.x - FINALE.truckGap } : field,
     killsToComplete: modifiers.killsToComplete ?? level.killsToComplete,
+    killGoal: modifiers.killsToComplete ?? (level.id === 1 ? level.killsToComplete : null),
     // Si un admin fija las botellas, ese es el objetivo entero: así puede probar el jefe sin esperar
     distanceToComplete: modifiers.killsToComplete === null ? level.distanceToComplete : 0,
     // La calle mide lo mismo con o sin trucos: es el dibujo
     cameraEnd: exit && level.distanceToComplete,
     exit,
-    shootCooldown: Math.round(PLAYER.shootCooldown / difficulty.fireRate),
-    spawnInterval: intervalFor(level.spawnInterval),
+    shootCooldown: Math.round(PLAYER.shootCooldown / (difficulty.fireRate * level.playerFireRate)),
+    spawnInterval: level.spawnInterval === null ? null : intervalFor(level.spawnInterval),
     bossFightEnemy: level.bossFightEnemy && {
       type: level.bossFightEnemy.type,
       spawnInterval: intervalFor(level.bossFightEnemy.spawnInterval),

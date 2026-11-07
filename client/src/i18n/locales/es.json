@@ -43,10 +43,11 @@
     "options": "Opciones",
     "chooseLevelTitle": "Elige tu nivel",
     "level": "Nivel {{level}}",
-    "levelRequirement": "Mata {{count}} cervezas pijas en el Nivel {{level}}",
+    "levelRequirement": "Supera el Nivel {{level}}",
     "skipIntro": "Saltar ➜",
     "canvasLabel": "Área de juego",
-    "hud": "Nivel {{level}}  |  Vida: {{health}}  |  Pijos: {{kills}}/{{required}}  |  Puntos: {{points}}",
+    "hud": "Nivel {{level}}  |  Vida: {{health}}  |  Pijos: {{kills}}  |  Puntos: {{points}}",
+    "hudWithGoal": "Nivel {{level}}  |  Vida: {{health}}  |  Pijos: {{kills}}/{{required}}  |  Puntos: {{points}}",
     "paused": "PAUSA",
     "gameOver": "GAME OVER pringao",
     "levelUnlocked": "¡Nivel {{level}} desbloqueado!",
@@ -63,7 +64,10 @@
       "iron": "BARRIL DE HIERRO PIJO",
       "pijo_one": "PIJO ENEMIGO",
       "pijo_other": "PIJOS ENEMIGOS",
-      "primo": "PRIMO PIJO"
+      "primo": "PRIMO PIJO",
+      "mayor": "EL ALCALDE Y SUS CHICAS",
+      "blonde": "LAS CHICAS DEL ALCALDE",
+      "redhead": "LAS CHICAS DEL ALCALDE"
     },
     "skipStory": "Saltar ➜",
     "story": {
@@ -74,11 +78,21 @@
       "pijosHint": "Ten cuidado: la chupa no protege de los botellazos.",
       "pijosDefeatedHero": "{{hero}}: Si vosotros estáis aquí, ¿quién es el imbécil que lanza barriles?",
       "pijosDefeatedReply": "Pijos: *lloran como nenazas* ¡Es nuestro primo más fuertote! ¡Verás cómo él te da la paliza de tu vida, escoria!",
-      "level5Opening": "{{hero}}: ¡Voy a ir a por ese puto pijo! No será tan grande.",
+      "level5Opening": "{{hero}}: ¡Buah! Se me está poniendo el brazo fuerte de tanto ir bebiendo cerveza DE VERDAD por el camino, y no esa mierda pija. ¡Voy a ir a por ese puto pijo! No será tan grande.",
       "primoIntro": "Primo Pijo: ¿Tú has sido el que ha derrotado a mis primitos? ¡Te voy a aplastar!",
-      "primoDefeated": "{{hero}}: Joder, maldito grandullón, casi peleabas como un hombre de verdad. En fin, ya que estoy, voy a pasarme por el ayuntamiento a destrozarlo un poco, jeje. Así tendrán alguna excusa más para blanquear dinero esos cabrones."
+      "primoDefeated": "{{hero}}: Joder, maldito grandullón, casi peleabas como un hombre de verdad. En fin, ya que estoy, voy a pasarme por el ayuntamiento a destrozarlo un poco, jeje. Así tendrán alguna excusa más para blanquear dinero esos cabrones.",
+      "level6Opening": "{{hero}}: Así que el grandullón ese y sus primos estaban suministrando esta fiesta, ¿eh? Pues se les acabó el chollo a estos corruptos.",
+      "mayorIntro": "Alcalde: ¡¿Quién ha dejado entrar a este gañán en mi despacho?! ¡Chicas, a por él!",
+      "mayorDefeated": "{{hero}}: Bueno, se les acabó la fiesta a estos pringaos. Eso os pasa por cerrar nuestros garitos.",
+      "level6Epilogue": "{{hero}}: Es hora de volver a esas sucias calles. Seguramente se habrán llenado de putos pijos otra vez."
     },
-    "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking."
+    "cheatsActive": "Trucos de admin activos: esta partida no cuenta para el ranking.",
+    "restartLevel": "Reiniciar nivel",
+    "shouts": {
+      "girl3": "¡Socorro, un heavy!",
+      "girl5": "¡Seguro que no se ha duchado!",
+      "girl7": "¡Qué asco! ¡Lleva un chaleco Thrasher!"
+    }
   },
   "options": {
     "title": "Opciones",

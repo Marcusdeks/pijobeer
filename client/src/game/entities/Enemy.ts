@@ -1,6 +1,7 @@
 /**
  * ENEMIGO que cae durante el nivel: botellas y barriles pequeños. También lo
- * que lanzan los jefes: las botellas de los pijos y los barriles del primo.
+ * que lanzan los jefes (las botellas de los pijos y los barriles del primo) y
+ * los seguratas del nivel 6, que no caen: ya están en la sala (ver placed).
  *
  * Su TIPO (ver ENEMY_TYPES en config.ts) decide su velocidad, su tamaño,
  * cuántos impactos aguanta, cada cuánto dispara y si apunta al jugador.
@@ -10,6 +11,8 @@
  *   - Lanzado por un jefe (thrown): sale recto hacia donde estaba el jugador
  *     al lanzarlo (THROWN), sin cambiar de rumbo. Las botellas disparan hacia
  *     donde van; los barriles, hacia el jugador, como siempre.
+ *   - Colocado (placed, los seguratas): no se mueve. Dispara como un barril,
+ *     pero solo desde que GameSession le avisa de que ha saltado la alarma (arm).
  *
  * Cada disparo de una botella es una pequeña animación:
  *
@@ -35,7 +38,7 @@ import {
   HIT_FLASH_STEPS,
   type ThrowStats,
 } from '../config';
-import { aimDegrees, velocityAt, type Point, type Rect } from '../geometry';
+import { aimDegrees, directionDegrees, velocityAt, type Point, type Rect } from '../geometry';
 import type { Playfield } from '../playfield';
 import { Bullet } from './Bullet';
 
@@ -60,6 +63,12 @@ export class Enemy implements Rect {
   heading = 0;
   /** true si lo ha lanzado un jefe. */
   readonly thrown: boolean;
+  /** true si ya estaba en la sala al empezar (los seguratas: ver Enemy.placed). */
+  placed = false;
+  /** Qué dibujo lleva, entre los de su tipo (el número de segurata). */
+  look = 0;
+  /** Pasos que lleva en juego: marcan el frame de su baile (los seguratas). */
+  age = 0;
 
   /** Desplazamiento por paso, calculado una vez: el rumbo no cambia en vuelo. */
   private velocity: Point = { x: 0, y: 0 };
@@ -74,6 +83,12 @@ export class Enemy implements Rect {
   private cooldown: number;
   /** Pasos desde que empezó la animación de disparo, o null si no está disparando. */
   private shotStep: number | null = null;
+  /** Disparos que le quedan (lo lanzado puede tener un límite: ver ThrowStats.shots). */
+  private shotsLeft: number;
+  /** Pasos de espera entre un disparo y el siguiente. */
+  private readonly reload: number;
+  /** false hasta que puede disparar (los colocados esperan a la alarma). */
+  private armed = true;
 
   /**
    * @param speedScale - multiplicador de velocidad del nivel (y de los trucos de admin)
@@ -95,6 +110,8 @@ export class Enemy implements Rect {
     this.thrown = throwing !== null;
     this.speed = (throwing?.speed ?? this.stats.speed) * speedScale;
     this.velocity = velocityAt(0, this.speed);
+    this.shotsLeft = throwing?.shots ?? Infinity;
+    this.reload = throwing?.shotGap ?? this.stats.shootCooldown;
     // Primer disparo con retraso aleatorio, para que no disparen todos a la vez.
     // Lo lanzado, cuando diga su lanzamiento (las botellas van tan rápido que,
     // si esperasen como las demás, llegarían sin haber disparado).
@@ -135,6 +152,26 @@ export class Enemy implements Rect {
     return thrown;
   }
 
+  /**
+   * Un enemigo que ya está en la sala al empezar: con los pies en `feet`, sin
+   * moverse y sin disparar hasta que se le llame a arm(). `look`: qué dibujo
+   * lleva. `phase`: pasos de baile adelantados, para que no bailen todos a la vez.
+   */
+  static placed(type: EnemyTypeId, feet: Point, look: number, random: RandomFn, phase = 0): Enemy {
+    const { width, height } = ENEMY_TYPES[type];
+    const enemy = new Enemy(feet.x - width / 2, feet.y - height, type, random, 0);
+    enemy.placed = true;
+    enemy.armed = false;
+    enemy.look = look;
+    enemy.age = phase;
+    return enemy;
+  }
+
+  /** Puede empezar a disparar (ha saltado la alarma). */
+  arm(): void {
+    this.armed = true;
+  }
+
   /** Frame de la hoja que toca dibujar: el de la animación de disparo, o el de reposo. */
   get animationFrame(): number {
     if (this.shotStep === null) return IDLE_FRAME;
@@ -172,9 +209,11 @@ export class Enemy implements Rect {
    */
   update(target?: Point): Bullet[] {
     if (this.flashSteps > 0) this.flashSteps--;
+    this.age++;
     this.x += this.velocity.x;
     this.y += this.velocity.y;
-    return this.stats.kind === 'barrel' ? this.updateDirectShot(target) : this.updateBottleShot();
+    if (!this.armed) return [];
+    return this.stats.kind === 'bottle' ? this.updateBottleShot() : this.updateDirectShot(target);
   }
 
   /** true si ya ha salido de la pantalla por abajo o (las lanzadas) por un lado. */
@@ -185,7 +224,8 @@ export class Enemy implements Rect {
   /** Botellas: la animación de la chapa y la espuma en el frame de la explosión. */
   private updateBottleShot(): Bullet[] {
     if (this.shotStep === null) {
-      if (--this.cooldown <= 0) this.shotStep = 0; // empieza la animación de disparo
+      // Empieza la animación de disparo (si aún le quedan)
+      if (--this.cooldown <= 0 && this.shotsLeft > 0) this.shotStep = 0;
       return [];
     }
 
@@ -193,25 +233,33 @@ export class Enemy implements Rect {
     if (++this.shotStep >= SHOT_STEPS) {
       // Fin de la animación: vuelve a estar cerrada y espera al siguiente disparo
       this.shotStep = null;
-      this.cooldown = this.stats.shootCooldown;
+      this.cooldown = this.reload;
       return [];
     }
 
     // La bala sale justo en el paso en que se entra en el frame de la espuma
     const fires = frameBefore !== ENEMY.fireOnFrame && this.animationFrame === ENEMY.fireOnFrame;
-    return fires ? [this.createBullet(this.heading)] : [];
+    if (!fires) return [];
+    this.shotsLeft--;
+    return [this.createBullet(this.heading)];
   }
 
   /**
-   * Barril: sin animación; al acabar la espera dispara hacia el jugador. Con
-   * varios chorros, en abanico de spreadDeg grados centrado en él (con 3 y
-   * 40°: a -20, 0 y 20 grados de la dirección del jugador).
+   * Barril (y segurata): sin animación de disparo; al acabar la espera
+   * dispara hacia el jugador (los de aimAround, esté donde esté: también
+   * hacia arriba o de lado si ya les ha pasado). Con varios chorros, en abanico de spreadDeg grados centrado en él
+   * (con 3 y 40°: a -20, 0 y 20 grados de la dirección del jugador).
    */
   private updateDirectShot(target?: Point): Bullet[] {
-    if (--this.cooldown > 0) return [];
-    this.cooldown = this.stats.shootCooldown;
+    if (--this.cooldown > 0 || this.shotsLeft <= 0) return [];
+    this.cooldown = this.reload;
+    this.shotsLeft--;
     const { streams, spreadDeg } = this.stats;
-    const center = target ? aimDegrees(this.muzzle(0), target, BOSS_COMMON.maxAimDeg) : 0;
+    const center = !target
+      ? 0
+      : this.stats.aimAround
+        ? directionDegrees(this.center, target)
+        : aimDegrees(this.muzzle(0), target, BOSS_COMMON.maxAimDeg);
     return Array.from({ length: streams }, (_, i) => {
       const offset = streams > 1 ? (i / (streams - 1) - 0.5) * spreadDeg : 0;
       return this.createBullet(center + offset);

@@ -8,11 +8,14 @@
  * Igual que playerSprite.ts, este módulo solo tiene DATOS y cálculos; las
  * imágenes las carga GameCanvas. Así la lógica se testea sin navegador.
  */
-import type { BossId, EnemyTypeId, LevelDefinition } from '@pijobeer/shared';
-import { ENEMY_TYPES, type PickupTypeId } from '../config';
+import type { AlleyId, BossId, EnemyTypeId } from '@pijobeer/shared';
+import { CITY_HALL, ENEMY_TYPES, type DancerGirl, type PickupTypeId } from '../config';
 import type { BossPose } from '../entities/Boss';
+import type { DancerAction } from '../entities/Dancer';
 import { alleyMeta } from '../playfield';
 import alleysMeta from '../../assets/sprites/alleys.json';
+import cityHallMeta from '../../assets/sprites/city-hall.json';
+import discoMeta from '../../assets/sprites/disco.json';
 import minionMeta from '../../assets/sprites/barrel-minion.json';
 import bossMeta from '../../assets/sprites/bosses.json';
 import pijoMeta from '../../assets/sprites/pijo.json';
@@ -114,7 +117,7 @@ export function openerFrame(age: number, frameSteps: number): SpriteFrame {
 /** Centro del barril dentro del frame. */
 export const BOSS_ANCHOR: Anchor = bossMeta.anchor;
 
-export function bossFrame(id: Exclude<BossId, 'pijo' | 'primo'>, flashing: boolean): SpriteFrame {
+export function bossFrame(id: 'wood' | 'iron', flashing: boolean): SpriteFrame {
   const column = bossMeta.bosses.indexOf(id);
   return {
     sx: column * bossMeta.frameWidth,
@@ -176,6 +179,119 @@ export function primoFrame(
 }
 
 // ------------------------------------------------------------------
+//  Gente del ayuntamiento, nivel 6 (una fila por animación, ver
+//  scripts/sprites/city-hall.mjs; debajo, las mismas en blanco para el destello)
+// ------------------------------------------------------------------
+
+/** Los pies, como el jugador: se apoyan en la base de la caja de colisión. */
+export const CITY_HALL_ANCHOR: Anchor = cityHallMeta.anchor;
+
+/** Nombre de una fila de la hoja ("guard-1", "girl-3-run", "mayor"...). */
+export type CityHallAnimation = keyof typeof cityHallMeta.animations;
+
+/** Pose `column` (en bucle) de una animación de la hoja de la gente del ayuntamiento. */
+export function cityHallFrame(
+  animation: CityHallAnimation,
+  column: number,
+  flashing = false,
+): SpriteFrame {
+  const { row, frames } = cityHallMeta.animations[animation];
+  return gridFrame({ ...cityHallMeta, frames }, row + (flashing ? cityHallMeta.rows : 0), column);
+}
+
+/** Segurata (`look` = su número) bailando: una pose cada CITY_HALL.danceFrameSteps pasos. */
+export function guardFrame(look: number, age: number, flashing: boolean): SpriteFrame {
+  const column = Math.floor(age / CITY_HALL.danceFrameSteps);
+  return cityHallFrame(`guard-${look}` as CityHallAnimation, column, flashing);
+}
+
+/**
+ * Qué fila usa cada chica de la fiesta en cada momento y, si no son todas,
+ * qué poses. La 5 no tiene dibujo de huir: huye con sus poses de asustada
+ * (las dos del susto, sin la primera, que es la tranquila).
+ */
+const DANCER_ART: Record<
+  DancerGirl,
+  Record<DancerAction, { animation: CityHallAnimation; poses?: readonly number[] }>
+> = {
+  3: {
+    dance: { animation: 'girl-3-dance' },
+    scared: { animation: 'girl-3-scared' },
+    run: { animation: 'girl-3-run' },
+  },
+  5: {
+    dance: { animation: 'girl-5-dance' },
+    scared: { animation: 'girl-5-scared' },
+    run: { animation: 'girl-5-scared', poses: [1, 2] },
+  },
+  7: {
+    dance: { animation: 'girl-7-dance' },
+    scared: { animation: 'girl-7-scared' },
+    run: { animation: 'girl-7-run' },
+  },
+};
+
+/** Cuántas poses tiene la animación de una chica de la fiesta en una acción. */
+export function dancerPoses(girl: DancerGirl, action: DancerAction): number {
+  const { animation, poses } = DANCER_ART[girl][action];
+  return poses?.length ?? cityHallMeta.animations[animation].frames;
+}
+
+/**
+ * Chica de la fiesta: bailando y corriendo, en bucle; el susto se ve una
+ * sola vez, repartido a lo largo de lo que dura (CITY_HALL.dancer.scaredSteps).
+ * @param steps - pasos que lleva en esa acción (Dancer.steps)
+ */
+export function dancerFrame(girl: DancerGirl, action: DancerAction, steps: number): SpriteFrame {
+  const { animation, poses } = DANCER_ART[girl][action];
+  const frames = dancerPoses(girl, action);
+  const { danceFrameSteps, dancer } = CITY_HALL;
+  const index =
+    action === 'scared'
+      ? Math.min(frames - 1, Math.floor((steps * frames) / dancer.scaredSteps))
+      : Math.floor(steps / (action === 'run' ? dancer.runFrameSteps : danceFrameSteps)) % frames;
+  return cityHallFrame(animation, poses ? poses[index]! : index);
+}
+
+/**
+ * Los jefes del despacho: su fila y la pose que ponen al coger impulso
+ * (windup) y al lanzar (recover). El alcalde tiene un solo dibujo; sus chicas
+ * lanzan con poses de su baile (la rubia es la chica 1; la pelirroja, la 5).
+ */
+const OFFICE_BOSS_ART = {
+  mayor: { animation: 'mayor', windup: 0, recover: 0 },
+  blonde: { animation: 'office-girl-1', windup: 3, recover: 2 },
+  redhead: { animation: 'office-girl-5', windup: 2, recover: 1 },
+} as const satisfies Partial<
+  Record<BossId, { animation: CityHallAnimation; windup: number; recover: number }>
+>;
+
+export type OfficeBossId = keyof typeof OFFICE_BOSS_ART;
+
+export const isOfficeBoss = (id: BossId): id is OfficeBossId => id in OFFICE_BOSS_ART;
+
+/** Jefe del despacho: andando, bailando de lado (en bucle); atacando, la pose de su lanzamiento. */
+export function officeBossFrame(id: OfficeBossId, pose: BossPose, flashing: boolean): SpriteFrame {
+  const art = OFFICE_BOSS_ART[id];
+  const column =
+    pose.action === 'walk' ? pose.step : pose.action === 'windup' ? art.windup : art.recover;
+  return cityHallFrame(art.animation, column, flashing);
+}
+
+// ------------------------------------------------------------------
+//  Bolas de discoteca de la planta baja (fila 0 la bola, fila 1 sus brillos)
+// ------------------------------------------------------------------
+
+/** Donde nace la cadena (arriba, centrada en la bola): se pega al techo, el borde de la pantalla. */
+export const DISCO_ANCHOR: Anchor = discoMeta.anchor;
+
+/** La bola girando y sus brillos, del mismo momento del giro (encajan uno sobre otro). */
+export function discoFrames(steps: number): { ball: SpriteFrame; sparkles: SpriteFrame } {
+  const column = Math.floor(steps / CITY_HALL.discoFrameSteps);
+  return { ball: gridFrame(discoMeta, 0, column), sparkles: gridFrame(discoMeta, 1, column) };
+}
+
+// ------------------------------------------------------------------
 //  Camión del final del nivel 5 (un solo dibujo)
 // ------------------------------------------------------------------
 
@@ -214,7 +330,7 @@ export const ALLEY_DRAW_SCALE = alleysMeta.drawScale;
  *   head  lo de arriba, que no se repite (el final de las calles que lo tienen; si no, 0)
  *   loop  lo que se repite en bucle, que va debajo
  */
-export function alleyLayout(alley: LevelDefinition['alley']): { head: number; loop: number } {
+export function alleyLayout(alley: AlleyId): { head: number; loop: number } {
   const { height, loopTop = 0 } = alleyMeta(alley);
   return { head: loopTop, loop: height - loopTop };
 }

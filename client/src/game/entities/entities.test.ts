@@ -1,5 +1,6 @@
 /**
- * Tests de las entidades del motor: jugador (y su chupa), botellas, barriles y jefes.
+ * Tests de las entidades del motor: jugador (y su chupa), botellas, barriles, jefes,
+ * y la gente del ayuntamiento (seguratas y chicas de la fiesta).
  * Corren en Node, sin navegador ni canvas: la lógica está separada del dibujo.
  */
 import { getLevel, type BossId } from '@pijobeer/shared';
@@ -9,6 +10,7 @@ import {
   BOSS,
   BOSS_COMMON,
   BOSS_ENRAGE,
+  CITY_HALL,
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
@@ -21,6 +23,7 @@ import { intersects } from '../geometry';
 import { playfieldFor } from '../playfield';
 import { fakeInput, fixedRandom } from '../testing';
 import { Boss } from './Boss';
+import { Dancer } from './Dancer';
 import { Enemy } from './Enemy';
 import { Player } from './Player';
 
@@ -252,6 +255,46 @@ describe('Enemy (botella)', () => {
     }
     expect(step).toBe(THROWN.barrels.firstShot);
     expect(fan).toHaveLength(ENEMY_TYPES.woodBarrel.streams);
+  });
+
+  it('el barril lanzado dispara su abanico dos veces, separadas shotGap pasos, y ya no más', () => {
+    const barrel = Enemy.thrownAt(
+      'ironBarrel',
+      { x: 400, y: 150 },
+      { x: 400, y: 450 },
+      fixedRandom,
+      THROWN.barrels,
+    );
+    const firedAt: number[] = [];
+    for (let step = 1; step <= 600; step++) {
+      if (barrel.update({ x: 400, y: 450 }).length) firedAt.push(step);
+    }
+    const { firstShot, shotGap } = THROWN.barrels;
+    expect(firedAt).toEqual([firstShot, firstShot + shotGap]);
+  });
+
+  it('el barril del nivel 4 no dispara hacia arriba: como mucho a maxAimDeg de la vertical', () => {
+    const barrel = new Enemy(400, 300, 'barrel', fixedRandom);
+    let shots: ReturnType<Enemy['update']> = [];
+    for (let step = 0; step < 300 && !shots.length; step++)
+      shots = barrel.update({ x: 400, y: 50 });
+    expect(shots).toHaveLength(1);
+    const before = shots[0]!.y;
+    shots[0]!.update();
+    expect(shots[0]!.y).toBeGreaterThan(before);
+  });
+
+  it('los barriles del nivel 5 disparan en 360°: también hacia arriba si el jugador ya les ha pasado', () => {
+    const barrel = new Enemy(400, 300, 'woodBarrel', fixedRandom);
+    const above = { x: barrel.center.x, y: 50 };
+    let fan: ReturnType<Enemy['update']> = [];
+    for (let step = 0; step < 300 && !fan.length; step++) fan = barrel.update(above);
+    expect(fan).toHaveLength(ENEMY_TYPES.woodBarrel.streams);
+    // El chorro del centro va recto hacia arriba
+    const middle = fan[1]!;
+    expect(middle.y).toBeLessThan(barrel.y);
+    middle.update();
+    expect(middle.y).toBeLessThan(barrel.y - 1);
   });
 
   it('el barril es el enemigo más lento y dispara el doble que antes (cada 75 pasos)', () => {
@@ -558,5 +601,72 @@ describe('Boss (jefe final)', () => {
 
   it('el truco de vida de los jefes multiplica su vida', () => {
     expect(arrived('wood', 0.5).maxHealth).toBe(BOSS.wood.health / 2);
+  });
+});
+
+describe('Enemy (segurata colocado)', () => {
+  const feet = { x: 300, y: 200 };
+  const target = { x: 300, y: 450 };
+
+  it('está con los pies en su sitio y no se mueve', () => {
+    const guard = Enemy.placed('guard', feet, 2, fixedRandom);
+    expect(guard.x + guard.width / 2).toBe(feet.x);
+    expect(guard.y + guard.height).toBe(feet.y);
+    for (let i = 0; i < 100; i++) guard.update(target);
+    expect([guard.x + guard.width / 2, guard.y + guard.height]).toEqual([feet.x, feet.y]);
+    expect(guard.look).toBe(2);
+  });
+
+  it('no dispara hasta la alarma; después, su abanico hacia el jugador', () => {
+    const guard = Enemy.placed('guard', feet, 1, fixedRandom);
+    const shots = (steps: number) =>
+      Array.from({ length: steps }, () => guard.update(target)).flat();
+    expect(shots(300)).toHaveLength(0);
+
+    guard.arm();
+    const [maxFirstShot] = ENEMY_TYPES.guard.firstShot.slice(-1);
+    const fan = shots(maxFirstShot!);
+    expect(fan).toHaveLength(ENEMY_TYPES.guard.streams);
+    // Hacia abajo, que es donde está el jugador
+    for (const bullet of fan) expect(bullet.velocityY).toBeGreaterThan(0);
+  });
+
+  it('aguanta sus impactos (con destello) y muere con el último', () => {
+    const guard = Enemy.placed('guard', feet, 1, fixedRandom);
+    for (let i = 1; i < ENEMY_TYPES.guard.hits; i++) expect(guard.hit()).toBe(false);
+    expect(guard.isFlashing).toBe(true);
+    expect(guard.hit()).toBe(true);
+  });
+});
+
+describe('Dancer (chica de la fiesta)', () => {
+  const exit = { x: 100, y: 100 };
+  const { scaredSteps, runSpeed, fadeSteps } = CITY_HALL.dancer;
+
+  it('baila hasta que se la asusta; entonces se asusta un rato y después huye a su salida', () => {
+    const dancer = new Dancer(3, 400, 100, exit);
+    for (let i = 0; i < 500; i++) dancer.update();
+    expect([dancer.action, dancer.x]).toEqual(['dance', 400]);
+
+    dancer.scare();
+    for (let i = 0; i < scaredSteps - 1; i++) dancer.update();
+    expect([dancer.action, dancer.x]).toEqual(['scared', 400]);
+    dancer.update();
+    expect(dancer.action).toBe('run');
+
+    // 300 px a su velocidad, y después se desvanece
+    const runSteps = Math.ceil(300 / runSpeed);
+    for (let i = 0; i < runSteps; i++) dancer.update();
+    expect([dancer.x, dancer.y]).toEqual([exit.x, exit.y]);
+    for (let i = 0; i < fadeSteps; i++) dancer.update();
+    expect(dancer.isGone).toBe(true);
+  });
+
+  it('asustarla otra vez no reinicia su huida', () => {
+    const dancer = new Dancer(7, 400, 100, exit);
+    dancer.scare();
+    for (let i = 0; i < scaredSteps + 10; i++) dancer.update();
+    dancer.scare();
+    expect(dancer.action).toBe('run');
   });
 });

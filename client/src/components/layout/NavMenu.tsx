@@ -7,6 +7,10 @@
  *
  * Los apartados con `private: true` solo se muestran con sesión iniciada
  * (equivale a la lista "menusPrivados" de sesion.js).
+ *
+ * Cada apartado lleva su clave de traducción (`label`) o, si es una
+ * herramienta interna del admin que solo existe en español, el texto tal
+ * cual (`text`).
  */
 import { useTranslation } from 'react-i18next';
 import { NavLink } from 'react-router';
@@ -21,12 +25,15 @@ import styles from './NavMenu.module.css';
  */
 type Audience = 'everyone' | 'user' | 'admin';
 
-const ITEMS: ReadonlyArray<{ to: string; label: TranslationKey; audience: Audience }> = [
+type Item = { to: string; audience: Audience } & ({ label: TranslationKey } | { text: string });
+
+const ITEMS: readonly Item[] = [
   { to: ROUTES.home, label: 'nav.home', audience: 'everyone' },
   { to: ROUTES.story, label: 'nav.story', audience: 'everyone' },
   { to: ROUTES.play, label: 'nav.play', audience: 'everyone' },
   { to: ROUTES.scores, label: 'nav.scores', audience: 'user' },
   { to: ROUTES.admin, label: 'nav.admin', audience: 'admin' },
+  { to: ROUTES.animations, text: 'Animaciones', audience: 'admin' },
   { to: ROUTES.controls, label: 'nav.controls', audience: 'everyone' },
   { to: ROUTES.credits, label: 'nav.credits', audience: 'everyone' },
 ];
@@ -57,7 +64,7 @@ export function NavMenu() {
           end={item.to === ROUTES.home}
           className={({ isActive }) => (isActive ? `${styles.item} ${styles.active}` : styles.item)}
         >
-          {t(item.label)}
+          {'label' in item ? t(item.label) : item.text}
         </NavLink>
       ))}
     </nav>

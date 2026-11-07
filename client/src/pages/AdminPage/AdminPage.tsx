@@ -9,24 +9,16 @@ import { adminApi } from '../../api/endpoints';
 import { useErrorMessage } from '../../api/useErrorMessage';
 import { Alert } from '../../components/ui/Alert';
 import { Panel } from '../../components/ui/Panel';
-import { RequireAuth } from '../../features/auth/RequireAuth';
-import { useAuth } from '../../features/auth/useAuth';
+import { RequireAdmin } from '../../features/auth/RequireAdmin';
 import styles from './AdminPage.module.css';
 import { ModifiersPanel } from './ModifiersPanel';
 
 export function AdminPage() {
   return (
-    <RequireAuth>
-      <AdminOnly />
-    </RequireAuth>
+    <RequireAdmin>
+      <AdminContent />
+    </RequireAdmin>
   );
-}
-
-function AdminOnly() {
-  const { t } = useTranslation();
-  const { user } = useAuth();
-  if (!user?.isAdmin) return <Alert type="error">{t('errors.FORBIDDEN')}</Alert>;
-  return <AdminContent />;
 }
 
 function AdminContent() {

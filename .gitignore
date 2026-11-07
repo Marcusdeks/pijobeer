@@ -15,6 +15,10 @@ privado/
 # Pueden tener derechos de autor, así que no se publican.
 sound/
 
+# Borradores de animaciones (npm run sprites:drafts): se generan a partir de
+# imagenes/png/ solo para revisarlos en este equipo
+client/src/assets/drafts/
+
 # Dependencias (se regeneran con "npm install")
 node_modules/
 

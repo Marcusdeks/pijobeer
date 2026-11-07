@@ -129,6 +129,8 @@ export function boundingBox(image, region) {
  *   - 'drop'  -> se descartan los más estrechos (ruido). Para dibujos compactos.
  *   - 'merge' -> el más estrecho se une a su vecino más cercano, hasta quedar
  *                `count`. Así las gotas y chispas se quedan con su frame.
+ * Sin `count` (solo con 'drop'), se quedan todos los grupos que no son ruido:
+ * para los borradores, que no dicen cuántas poses traen.
  *
  * @returns {Array<{left, top, width, height}>} cajas ajustadas, en orden
  */
@@ -163,7 +165,7 @@ export function splitRegion(image, region, { axis, count, minGap = 1, extras = '
     groups = groups
       .filter((g) => size(g) > 20)
       .sort((a, b) => size(b) - size(a))
-      .slice(0, count)
+      .slice(0, count ?? Infinity)
       .sort((a, b) => a.from - b.from);
   } else {
     while (groups.length > count) {
@@ -178,7 +180,7 @@ export function splitRegion(image, region, { axis, count, minGap = 1, extras = '
     }
   }
 
-  if (groups.length !== count) {
+  if (count !== undefined && groups.length !== count) {
     throw new Error(`Se esperaban ${count} frames y se han encontrado ${groups.length}`);
   }
 

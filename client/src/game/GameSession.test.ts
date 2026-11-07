@@ -1,5 +1,6 @@
 /**
- * Tests de la partida: aparición de enemigos, victoria, jefes, latas, pausa y trucos.
+ * Tests de la partida: aparición de enemigos, victoria, jefes, latas, pausa, trucos y
+ * cada nivel con algo propio (el 4, el 5 y el 6, dentro del ayuntamiento).
  */
 import {
   BOSS_POINTS,
@@ -15,6 +16,7 @@ import {
   BOSS,
   BOSS_COMMON,
   CAMERA,
+  CITY_HALL,
   ENEMY,
   ENEMY_BULLET,
   ENEMY_TYPES,
@@ -25,9 +27,11 @@ import {
   PLAYER,
   PLAYER_BULLET,
 } from './config';
+import type { Boss } from './entities/Boss';
 import { Bullet } from './entities/Bullet';
 import { Enemy } from './entities/Enemy';
 import { Pickup } from './entities/Pickup';
+import { Player } from './entities/Player';
 import { GameSession, type GameSessionOptions } from './GameSession';
 import { IDLE_FRAME } from './sprites/playerSprite';
 import { fakeInput, fixedRandom, run } from './testing';
@@ -54,14 +58,14 @@ describe('aparición de botellas y progresión', () => {
     const game = session(1);
     // Mirando a un lado no avanza: las botellas caen solo a su ritmo y la primera sigue en pantalla
     game.player.facing = 'izquierda';
-    run(game, game.rules.spawnInterval * 3);
+    run(game, game.rules.spawnInterval! * 3);
     expect(game.enemies).toHaveLength(3);
   });
 
   it('del nivel 1 al 3, cada uno saca botellas más a menudo y más rápidas que el anterior', () => {
     const [l1, l2, l3] = [1, 2, 3].map((id) => session(id).rules);
-    expect(l2!.spawnInterval).toBeLessThan(l1!.spawnInterval);
-    expect(l3!.spawnInterval).toBeLessThan(l2!.spawnInterval);
+    expect(l2!.spawnInterval!).toBeLessThan(l1!.spawnInterval!);
+    expect(l3!.spawnInterval!).toBeLessThan(l2!.spawnInterval!);
     expect(l2!.enemySpeed).toBeGreaterThan(l1!.enemySpeed);
     expect(l3!.enemySpeed).toBeGreaterThan(l2!.enemySpeed);
   });
@@ -210,6 +214,12 @@ describe('aparición de botellas y progresión', () => {
     expect(rules.distanceToComplete).toBe(0);
   });
 
+  it('el marcador solo enseña cuántas hay que eliminar en el nivel 1 (o si un admin lo fija)', () => {
+    expect(session(1).rules.killGoal).toBe(getLevel(1).killsToComplete);
+    for (const level of [2, 3, 4, 5]) expect(session(level).rules.killGoal).toBeNull();
+    expect(session(3, { modifiers: withModifiers({ killsToComplete: 5 }) }).rules.killGoal).toBe(5);
+  });
+
   it('se dispara menos cuanto más difícil (~3,5 / 3 / 2,4 disparos por segundo)', () => {
     const shotsPerSecond = (difficulty: 'easy' | 'normal' | 'hard') =>
       60 / session(1, { difficulty }).rules.shootCooldown;
@@ -279,7 +289,7 @@ describe('jefes finales', () => {
   it('durante el combate dejan de caer botellas (el nivel 2 no tiene enemigos de combate)', () => {
     const { game } = bossFight();
     game.enemies = [];
-    for (let i = 0; i < getLevel(2).spawnInterval * 3; i++) {
+    for (let i = 0; i < getLevel(2).spawnInterval! * 3; i++) {
       // Sin balas del jefe: aquí solo se cuentan las botellas, no se busca morir
       game.enemyBullets = [];
       game.step(fakeInput());
@@ -329,7 +339,7 @@ describe('dificultad', () => {
     const easy = session(2, { difficulty: 'easy' }).rules;
     const hard = session(2, { difficulty: 'hard' }).rules;
     expect(hard.enemySpeed).toBeGreaterThan(easy.enemySpeed);
-    expect(hard.spawnInterval).toBeLessThan(easy.spawnInterval);
+    expect(hard.spawnInterval!).toBeLessThan(easy.spawnInterval!);
     expect(hard.bossHealth).toBeGreaterThan(easy.bossHealth);
   });
 
@@ -630,7 +640,7 @@ describe('nivel 5', () => {
     expect(['woodBarrel', 'ironBarrel']).toContain(thrown[0]!.type);
   });
 
-  it('al derrotarlo, entra solo en el ayuntamiento, desaparece, funde a negro y entonces se gana', () => {
+  it('al derrotarlo, la cámara sube, entra solo en el ayuntamiento, desaparece, funde a negro y se gana', () => {
     const onVictory = vi.fn();
     const game = atPrimo({ events: { onVictory } });
     game.enemies.push(new Enemy(300, 300, 'woodBarrel', fixedRandom));
@@ -641,15 +651,20 @@ describe('nivel 5', () => {
     expect(game.status).toBe('running');
     expect(onVictory).not.toHaveBeenCalled();
 
-    // Entra solo (lo que se pulse no cuenta): primero llega a la puerta, a la vista
-    const door = game.rules.exit!;
+    // Durante el combate la puerta queda por encima de la pantalla; al subir la cámara, a la vista
+    const { door, reveal } = game.rules.exit!;
+    expect(door.y).toBeLessThan(0);
+    expect(door.y + reveal).toBeGreaterThan(0);
     const feet = () => ({
       x: game.player.x + game.player.width / 2,
       y: game.player.y + game.player.height,
     });
+
+    // Entra solo (lo que se pulse no cuenta): primero llega a la puerta, a la vista
     let steps = 0;
-    while (feet().y !== door.y && steps++ < 1000) game.step(fakeInput('down', 'shoot'));
+    while (feet().y !== door.y + reveal && steps++ < 1000) game.step(fakeInput('down', 'shoot'));
     expect(feet().x).toBeCloseTo(door.x);
+    expect(game.backgroundDistance).toBe(game.rules.cameraEnd! + reveal);
     expect(game.playerFade).toBe(0);
 
     // Después desaparece en lo oscuro y la pantalla funde a negro; solo al final, la victoria
@@ -660,12 +675,30 @@ describe('nivel 5', () => {
     }
     expect(game.status).toBe('victory');
     expect(onVictory).toHaveBeenCalledTimes(1);
-    expect(feet().y).toBe(door.y - FINALE.vanishDistance);
+    expect(feet().y).toBe(door.y + reveal - FINALE.vanishDistance);
     // La pantalla no empieza a fundirse hasta que él ha desaparecido del todo
     for (const [player, screen] of fades) if (screen > 0) expect(player).toBe(1);
     expect(fades.at(-1)).toEqual([1, 1]);
     expect(game.playerBullets).toHaveLength(0);
     expect(game.points).toBe(BOSS_POINTS.primo);
+  });
+
+  it('el primo no llega nunca al camión: se mueve solo a su izquierda', () => {
+    const game = atPrimo();
+    let rightmost = 0;
+    for (let i = 0; i < 2000; i++) {
+      game.step(fakeInput());
+      for (const boss of game.bosses) rightmost = Math.max(rightmost, boss.x + boss.width);
+    }
+    expect(rightmost).toBeLessThanOrEqual(FINALE.truck.x - FINALE.truckGap);
+  });
+
+  it('no pide un mínimo de barriles: el jefe sale al acabar la calle', () => {
+    const game = session(5, { modifiers: withModifiers({ invincible: true }) });
+    game.backgroundDistance = getLevel(5).distanceToComplete;
+    run(game, 2);
+    expect(game.kills).toBe(0);
+    expect(game.bosses.map((boss) => boss.id)).toEqual(['primo']);
   });
 
   it('con texto tras el jefe, primero el texto y después entra en el ayuntamiento', () => {
@@ -797,5 +830,318 @@ describe('nivel 4', () => {
       thrown = game.enemies.some((enemy) => enemy.thrown);
     }
     expect(thrown).toBe(true);
+  });
+});
+
+describe('nivel 6', () => {
+  const hall = CITY_HALL.hall;
+  const { office } = CITY_HALL;
+
+  /** Un abrechapas encima de cada segurata en cada paso, hasta acabar con los cuatro. */
+  function clearHall(game: GameSession) {
+    for (let i = 0; i < 200 && game.kills < hall.guards.length; i++) {
+      for (const enemy of game.enemies) {
+        const x = enemy.x + enemy.width / 2 - PLAYER_BULLET.width / 2;
+        game.playerBullets.push(new Bullet(x, enemy.y + enemy.height / 2, 0, PLAYER_BULLET));
+      }
+      game.step(fakeInput());
+    }
+  }
+
+  /** Nivel 6 ya en el despacho, con la sala a la vista y el alcalde ya delante de su mesa. */
+  function inOffice(options: Partial<GameSessionOptions> = {}) {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }), ...options });
+    clearHall(game);
+    const ready = () =>
+      game.room === 'office' &&
+      game.screenFade === 0 &&
+      game.bosses.every((boss) => !boss.isEntering);
+    for (let i = 0; i < 3000 && !ready(); i++) {
+      game.step(fakeInput());
+      if (game.status === 'dialog') game.closeDialog();
+    }
+    return game;
+  }
+
+  const byId = (game: GameSession, id: string) => game.bosses.find((boss) => boss.id === id)!;
+
+  /** Un abrechapas que da de lleno a un jefe en el siguiente paso. */
+  function shoot(game: GameSession, boss: Boss) {
+    const x = boss.x + boss.width / 2 - PLAYER_BULLET.width / 2;
+    game.playerBullets.push(new Bullet(x, boss.y + boss.height / 2, 0, PLAYER_BULLET));
+  }
+
+  it('empieza en la planta baja: cuatro seguratas quietos en su sitio, nada que caiga y tres chicas bailando', () => {
+    const game = session(6);
+    expect(game.room).toBe('hall');
+    expect(game.field).toEqual(hall.field);
+    expect(game.enemies.map((enemy) => enemy.type)).toEqual(hall.guards.map(() => 'guard'));
+    expect(game.dancers.map((dancer) => dancer.action)).toEqual(['dance', 'dance', 'dance']);
+    const where = () => game.enemies.map((enemy) => [enemy.x, enemy.y]);
+    const before = where();
+
+    // Antes de la alarma: ni cae nada, ni disparan, ni se avanza aunque se pulse W
+    run(game, hall.alarmSteps - 1, fakeInput('up'));
+    expect(where()).toEqual(before);
+    expect(game.enemies).toHaveLength(hall.guards.length);
+    expect(game.enemyBullets).toHaveLength(0);
+    expect(game.backgroundDistance).toBe(0);
+    expect(game.dancers.every((dancer) => dancer.action === 'dance')).toBe(true);
+    expect(game.dancers.some((dancer) => dancer.isShouting)).toBe(false);
+  });
+
+  it('al primer disparo salta la alarma: las chicas gritan y huyen, y los seguratas disparan', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
+    game.step(fakeInput('shoot'));
+    expect(game.dancers.every((dancer) => dancer.action === 'scared')).toBe(true);
+    expect(game.dancers.every((dancer) => dancer.isShouting)).toBe(true);
+
+    run(game, CITY_HALL.dancer.scaredSteps);
+    expect(game.dancers.every((dancer) => dancer.action === 'run')).toBe(true);
+    let shots = 0;
+    for (let i = 0; i < 600 && game.dancers.length > 0; i++) {
+      game.step(fakeInput());
+      shots += game.enemyBullets.length;
+    }
+    // Llegan a su salida, desaparecen y se retiran
+    expect(game.dancers).toHaveLength(0);
+    expect(shots).toBeGreaterThan(0);
+  });
+
+  it('la chica 3 sale por la puerta del lateral: se abre al llegar ella y se cierra después', () => {
+    const game = session(6);
+    game.step(fakeInput('shoot'));
+    const girl = game.dancers.find((dancer) => dancer.girl === 3)!;
+    expect(girl.viaDoor).toBe(true);
+    const opening: number[] = [];
+    for (let i = 0; i < 600 && game.dancers.includes(girl); i++) {
+      game.step(fakeInput());
+      opening.push(girl.doorOpen);
+    }
+    expect(game.dancers).not.toContain(girl);
+    // Cerrada mientras se asusta, se abre del todo, y vuelve a cerrarse antes de retirarla
+    expect(opening[0]).toBe(0);
+    expect(Math.max(...opening)).toBe(1);
+    expect(opening.at(-1)).toBeLessThan(0.1);
+    // Las demás no tienen puerta
+    expect(game.dancers.every((dancer) => dancer.doorOpen === 0)).toBe(true);
+  });
+
+  it('si no dispara, la alarma salta sola a los 3 s', () => {
+    const game = session(6);
+    run(game, hall.alarmSteps - 1);
+    expect(game.dancers[0]!.action).toBe('dance');
+    run(game, 1);
+    expect(game.dancers[0]!.action).toBe('scared');
+  });
+
+  it('los seguratas no mueren de un choque: hay que acabar con ellos a abrechapas', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
+    const [guard] = game.enemies;
+    game.player.x = guard!.x;
+    game.player.y = guard!.y;
+    game.step(fakeInput());
+    expect(guard!.alive).toBe(true);
+    expect(game.kills).toBe(0);
+  });
+
+  it('sin seguratas, sube solo por la escalera y aparece en el despacho, con los jefes esperando', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
+    clearHall(game);
+    expect(game.points).toBe(hall.guards.length * ENEMY_POINTS.guard);
+
+    // Sube solo hasta lo alto de la escalera (lo que se pulse no cuenta) y desaparece
+    let steps = 0;
+    while (game.room === 'hall' && steps++ < 2000) game.step(fakeInput('down', 'shoot'));
+    expect(game.room).toBe('office');
+    expect(game.partyOver).toBe(true);
+    expect(game.playerBullets).toHaveLength(0);
+    // Llega con la pantalla en negro, abajo, en la entrada
+    expect(game.screenFade).toBe(1);
+    expect(game.field).toEqual(office.field);
+    const start = Player.spawn();
+    expect([game.player.x, game.player.y]).toEqual([start.x, start.y]);
+
+    // Las chicas, ya en su puesto; el alcalde, detrás de su mesa
+    expect(game.bosses.map((boss) => boss.id)).toEqual(['mayor', 'blonde', 'redhead']);
+    for (const id of ['blonde', 'redhead'] as const) {
+      const boss = byId(game, id);
+      expect(boss.isEntering).toBe(false);
+      expect(boss.feet.y).toBe(office.posts[id]!.feetY);
+    }
+    const mayor = byId(game, 'mayor');
+    expect(mayor.isEntering).toBe(true);
+    expect(mayor.feet).toEqual(office.posts.mayor!.from);
+
+    // La sala se ve poco a poco y, mientras, nada se mueve
+    run(game, FINALE.fadeSteps - 1);
+    expect(game.screenFade).toBeGreaterThan(0);
+    expect(mayor.feet).toEqual(office.posts.mayor!.from);
+    run(game, 1);
+    expect(game.screenFade).toBe(0);
+  });
+
+  it('el alcalde sale de detrás de la mesa y se pone delante; mientras, no se le puede dañar', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
+    clearHall(game);
+    for (let i = 0; i < 2000 && (game.room !== 'office' || game.screenFade > 0); i++) {
+      game.step(fakeInput());
+    }
+    const mayor = byId(game, 'mayor');
+    const { desk } = office;
+    let leftDesk = false;
+    for (let i = 0; i < 1000 && mayor.isEntering; i++) {
+      shoot(game, mayor);
+      game.step(fakeInput());
+      // Por detrás de la mesa solo pasa mientras está a su altura: sale por un lado, no la atraviesa
+      if (mayor.feet.y > desk.back) leftDesk ||= mayor.x >= desk.right;
+      if (mayor.feet.y > desk.back && mayor.feet.y < desk.front) {
+        expect(mayor.x >= desk.right || mayor.x + mayor.width <= desk.left).toBe(true);
+      }
+    }
+    expect(leftDesk).toBe(true);
+    expect(mayor.isEntering).toBe(false);
+    expect(mayor.feet.y).toBe(office.posts.mayor!.feetY);
+    expect(mayor.feet.y).toBeGreaterThan(desk.front);
+    // Como mucho, el abrechapas que le llega justo en el paso en que acaba de colocarse
+    expect(mayor.health).toBeGreaterThanOrEqual(mayor.maxHealth - PLAYER_BULLET.damage);
+  });
+
+  it('con texto antes de los jefes, sale al acabar de verse el despacho (y no al subir)', () => {
+    const onDialog = vi.fn();
+    const game = session(6, {
+      modifiers: withModifiers({ invincible: true }),
+      dialogs: ['beforeBosses'],
+      events: { onDialog },
+    });
+    clearHall(game);
+    for (let i = 0; i < 2000 && game.status === 'running'; i++) game.step(fakeInput());
+    expect(game.status).toBe('dialog');
+    expect(onDialog).toHaveBeenCalledWith('beforeBosses');
+    expect(game.room).toBe('office');
+    expect(game.screenFade).toBe(0);
+  });
+
+  it('mientras vivan sus chicas, al alcalde no se le puede bajar de 1 de vida y ellas le curan', () => {
+    const game = inOffice();
+    const mayor = byId(game, 'mayor');
+    for (let i = 0; i < 200; i++) {
+      shoot(game, mayor);
+      game.step(fakeInput());
+    }
+    expect(mayor.health).toBeGreaterThanOrEqual(1);
+    expect(game.bosses).toContain(mayor);
+
+    // Sin dispararle, las chicas le lanzan cerveza y le curan
+    const hurt = mayor.health;
+    let thrown = 0;
+    for (let i = 0; i < office.heal.gap * 3; i++) {
+      game.step(fakeInput());
+      thrown = Math.max(thrown, game.heals.length);
+    }
+    expect(thrown).toBeGreaterThan(0);
+    expect(mayor.health).toBeGreaterThan(hurt);
+  });
+
+  it('la cerveza que le cura se puede romper de un abrechapas', () => {
+    const game = inOffice();
+    const mayor = byId(game, 'mayor');
+    mayor.hit(PLAYER_BULLET.damage * 10, 1);
+    const hurt = mayor.health;
+    for (let i = 0; i < office.heal.gap * 3; i++) {
+      for (const heal of game.heals) {
+        const x = heal.x + heal.width / 2 - PLAYER_BULLET.width / 2;
+        game.playerBullets.push(new Bullet(x, heal.y + heal.height / 2, 0, PLAYER_BULLET));
+      }
+      game.step(fakeInput());
+    }
+    expect(mayor.health).toBe(hurt);
+  });
+
+  it('sin sus chicas, el alcalde ya puede caer; ni ellas ni él se enfurecen', () => {
+    const game = inOffice();
+    for (const id of ['blonde', 'redhead'] as const) {
+      const girl = byId(game, id);
+      while (girl.health > PLAYER_BULLET.damage) girl.hit();
+      expect(girl.isEnraged).toBe(false);
+      shoot(game, girl);
+      game.step(fakeInput());
+    }
+    expect(game.bosses.map((boss) => boss.id)).toEqual(['mayor']);
+    const mayor = byId(game, 'mayor');
+    while (mayor.health > PLAYER_BULLET.damage) mayor.hit();
+    expect(mayor.isEnraged).toBe(false);
+    shoot(game, mayor);
+    game.step(fakeInput());
+    expect(game.bosses).toHaveLength(0);
+  });
+
+  it('los jefes del despacho lanzan botellas por turnos y no salen de su puesto', () => {
+    const game = inOffice();
+    const throwers = new Set<string>();
+    for (let i = 0; i < 1500; i++) {
+      const before = game.enemies.filter((enemy) => enemy.thrown).length;
+      game.step(fakeInput());
+      const thrown = game.enemies.filter((enemy) => enemy.thrown);
+      // Nunca dos a la vez: como mucho, una botella nueva por paso
+      expect(thrown.length - before).toBeLessThanOrEqual(1);
+      for (const boss of game.bosses) {
+        const { field } = office.posts[boss.id]!;
+        expect(boss.x).toBeGreaterThanOrEqual(field.left);
+        expect(boss.x + boss.width).toBeLessThanOrEqual(field.right);
+        if (boss.pose.action === 'recover') throwers.add(boss.id);
+      }
+      game.enemies = game.enemies.filter((enemy) => !enemy.thrown);
+    }
+    expect([...throwers].sort()).toEqual(['blonde', 'mayor', 'redhead']);
+  });
+
+  it('al derrotarlos: su texto, pantalla negra, de vuelta en la planta baja, el último texto y la victoria', () => {
+    const onVictory = vi.fn();
+    const onDialog = vi.fn();
+    const game = inOffice({
+      dialogs: ['afterBosses', 'epilogue'],
+      events: { onVictory, onDialog },
+    });
+    for (const boss of game.bosses) while (!boss.isDead) boss.hit();
+    game.step(fakeInput());
+    expect(game.status).toBe('dialog');
+    expect(onDialog).toHaveBeenLastCalledWith('afterBosses');
+    game.closeDialog();
+
+    // Funde a negro en el despacho (empieza en el paso siguiente a cerrar el texto)...
+    run(game, FINALE.fadeSteps);
+    expect(game.room).toBe('office');
+    expect(game.screenFade).toBeGreaterThan(0.9);
+    // ...y aparece abajo, en la planta baja vacía y sin fiesta, mientras vuelve a verse
+    run(game, 1);
+    expect(game.room).toBe('hall');
+    expect(game.screenFade).toBe(1);
+    expect(game.partyOver).toBe(true);
+    expect([game.enemies, game.dancers, game.bosses]).toEqual([[], [], []]);
+    run(game, FINALE.fadeSteps);
+    expect(game.screenFade).toBe(0);
+
+    // El último texto y, al cerrarlo, la victoria
+    game.step(fakeInput());
+    expect(onDialog).toHaveBeenLastCalledWith('epilogue');
+    expect(onVictory).not.toHaveBeenCalled();
+    game.closeDialog();
+    game.step(fakeInput());
+    expect(game.status).toBe('victory');
+    expect(onVictory).toHaveBeenCalledTimes(1);
+    const bosses = BOSS_POINTS.mayor + BOSS_POINTS.blonde + BOSS_POINTS.redhead;
+    expect(game.points).toBe(hall.guards.length * ENEMY_POINTS.guard + bosses);
+  });
+});
+
+describe('ritmo de disparo del jugador', () => {
+  it('desde el nivel 5 dispara más que antes (en cualquier dificultad)', () => {
+    for (const difficulty of ['easy', 'normal', 'hard'] as const) {
+      const cooldown = (levelId: number) => session(levelId, { difficulty }).rules.shootCooldown;
+      expect(cooldown(5)).toBeLessThan(cooldown(4));
+      expect(cooldown(6)).toBe(cooldown(5));
+      expect(cooldown(4)).toBe(cooldown(1));
+    }
   });
 });

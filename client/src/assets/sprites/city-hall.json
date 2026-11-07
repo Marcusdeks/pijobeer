@@ -1,0 +1,72 @@
+{
+  "_generado": "Archivo generado por \"npm run sprites\". No lo edites a mano: cambia el script.",
+  "frameWidth": 68,
+  "frameHeight": 88,
+  "rows": 15,
+  "animations": {
+    "guard-1": {
+      "row": 0,
+      "frames": 4
+    },
+    "guard-2": {
+      "row": 1,
+      "frames": 3
+    },
+    "guard-3": {
+      "row": 2,
+      "frames": 4
+    },
+    "guard-4": {
+      "row": 3,
+      "frames": 3
+    },
+    "girl-3-dance": {
+      "row": 4,
+      "frames": 4
+    },
+    "girl-3-scared": {
+      "row": 5,
+      "frames": 3
+    },
+    "girl-3-run": {
+      "row": 6,
+      "frames": 4
+    },
+    "girl-5-dance": {
+      "row": 7,
+      "frames": 4
+    },
+    "girl-5-scared": {
+      "row": 8,
+      "frames": 3
+    },
+    "girl-7-dance": {
+      "row": 9,
+      "frames": 4
+    },
+    "girl-7-scared": {
+      "row": 10,
+      "frames": 3
+    },
+    "girl-7-run": {
+      "row": 11,
+      "frames": 4
+    },
+    "office-girl-1": {
+      "row": 12,
+      "frames": 4
+    },
+    "office-girl-5": {
+      "row": 13,
+      "frames": 4
+    },
+    "mayor": {
+      "row": 14,
+      "frames": 1
+    }
+  },
+  "anchor": {
+    "x": 34,
+    "y": 87
+  }
+}

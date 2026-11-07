@@ -21,7 +21,9 @@
  * tiras, con el destino arriba. No se repite entera: arriba está el final
  * (el ayuntamiento y su plaza) y debajo, desde loopFrom, la calle, que es lo
  * único que se repite mientras se avanza. Al llegar al final el juego deja
- * de avanzar con el ayuntamiento a la vista (ver GameRules.cameraEnd).
+ * de avanzar justo debajo del ayuntamiento, que queda fuera de la pantalla
+ * (ver GameRules.cameraEnd); al vencer al jefe sube un poco más para que se
+ * vea la puerta por la que entra el protagonista.
  */
 import path from 'node:path';
 import sharp from 'sharp';
@@ -43,16 +45,24 @@ const ALLEYS = [
    * Nivel 5: la calle del ayuntamiento, una sola imagen (ver la cabecera).
    * En tanto por uno del alto de la imagen (1024 px):
    *   loopFrom  dónde empieza la calle que se repite (bajo las escaleras de la plaza)
-   *   endTop    la fila que queda arriba de la pantalla al llegar al final: se
-   *             ven la entrada con sus arcos, la plaza y las escaleras
-   *   door      a dónde entra el protagonista al acabar: el arco del centro
+   *   endTop    la fila que queda arriba de la pantalla al llegar al final:
+   *             justo bajo el edificio, así se ven la plaza y las escaleras
+   *   doorTop   la fila que queda arriba cuando, al vencer, la cámara sube
+   *             hasta el ayuntamiento: se ven la entrada y sus arcos
+   *   door      a dónde entra el protagonista al acabar: el arco del centro,
+   *             algo a la izquierda para pasar sin rozar el camión aparcado
    */
   {
     id: 5,
     file: 'alley-5.png',
     wallLeft: 0.15,
     wallRight: 0.865,
-    end: { loopFrom: 420 / 1024, endTop: 140 / 1024, door: { x: 0.5, y: 225 / 1024 } },
+    end: {
+      loopFrom: 420 / 1024,
+      endTop: 246 / 1024,
+      doorTop: 140 / 1024,
+      door: { x: 0.47, y: 225 / 1024 },
+    },
   },
 ];
 
@@ -145,6 +155,7 @@ function endMeta(end, street) {
     loopTop: Math.round(street.height * end.loopFrom),
     end: {
       top: Math.round(gameHeight * end.endTop),
+      doorTop: Math.round(gameHeight * end.doorTop),
       door: {
         x: Math.round(SHEET_WIDTH * DRAW_SCALE * end.door.x),
         y: Math.round(gameHeight * end.door.y),

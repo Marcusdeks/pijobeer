@@ -19,6 +19,9 @@
  */
 import { getLevel, type DifficultyId, type GameModifiers } from '@pijobeer/shared';
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
+/* Letra pixel de los bocadillos de cómic del nivel 6 (la misma que la de los
+   menús). El canvas no la descarga solo: ver el efecto que la pide al montar. */
+import '@fontsource/press-start-2p/400.css';
 import { useTranslation } from 'react-i18next';
 // Importar las imágenes hace que Vite las incluya en el build y nos dé su URL final (con hash)
 import alley1Url from '../../assets/sprites/alley-1.webp';
@@ -28,6 +31,8 @@ import alley4Url from '../../assets/sprites/alley-4.webp';
 import alley5Url from '../../assets/sprites/alley-5.webp';
 import minionSheetUrl from '../../assets/sprites/barrel-minion.png';
 import bossSheetUrl from '../../assets/sprites/bosses.png';
+import cityHallSheetUrl from '../../assets/sprites/city-hall.png';
+import discoSheetUrl from '../../assets/sprites/disco.png';
 import foamSheetUrl from '../../assets/sprites/bullet-foam.png';
 import openerSheetUrl from '../../assets/sprites/bullet-opener.png';
 import enemySheetUrl from '../../assets/sprites/enemy-bottles.png';
@@ -36,6 +41,8 @@ import pijoSheetUrl from '../../assets/sprites/pijo.png';
 import jacketSheetUrl from '../../assets/sprites/player-jacket.png';
 import playerSheetUrl from '../../assets/sprites/player.png';
 import primoSheetUrl from '../../assets/sprites/primo.png';
+import hallRoomUrl from '../../assets/sprites/room-hall.webp';
+import officeRoomUrl from '../../assets/sprites/room-office.webp';
 import truckSheetUrl from '../../assets/sprites/truck.png';
 import { ARENA } from '../../game/config';
 import { GameLoop } from '../../game/GameLoop';
@@ -88,14 +95,22 @@ const ALLEY_URLS = {
 
 /**
  * Imágenes de una partida. Del fondo solo se descarga el callejón de ESE
- * nivel, y el primo y el camión, solo en el nivel que los tiene (los demás
- * se quedan en null).
+ * nivel; el primo y el camión, solo en el nivel que los tiene, y las salas
+ * del ayuntamiento y su gente, solo en el que pasa dentro (los demás se
+ * quedan en null).
  */
 function sheetUrlsFor(levelId: number): Partial<Record<keyof RenderAssets, string>> {
   const level = getLevel(levelId);
   return {
     ...(level.bosses.includes('primo') && { primoSheet: primoSheetUrl }),
     ...(exitFor(level) && { truckSheet: truckSheetUrl }),
+    ...(level.alley !== null && { alley: ALLEY_URLS[level.alley] }),
+    ...(level.interior && {
+      hallRoom: hallRoomUrl,
+      officeRoom: officeRoomUrl,
+      cityHallSheet: cityHallSheetUrl,
+      discoSheet: discoSheetUrl,
+    }),
     playerSheet: playerSheetUrl,
     enemySheet: enemySheetUrl,
     foamSheet: foamSheetUrl,
@@ -105,7 +120,6 @@ function sheetUrlsFor(levelId: number): Partial<Record<keyof RenderAssets, strin
     pickupSheet: pickupSheetUrl,
     minionSheet: minionSheetUrl,
     jacketSheet: jacketSheetUrl,
-    alley: ALLEY_URLS[level.alley],
   };
 }
 
@@ -138,11 +152,19 @@ export function GameCanvas({
 
   useEffect(() => {
     labelsRef.current = {
-      hud: (data) => t('play.hud', data),
+      hud: (data) => t(data.required === null ? 'play.hud' : 'play.hudWithGoal', data),
       gameOver: t('play.gameOver'),
       bossName: (id, count) => t(`play.bosses.${id}`, { count }),
+      shout: (girl) => t(`play.shouts.girl${girl}`),
     };
   }, [t]);
+
+  /* El navegador solo descarga una fuente cuando algo del HTML la usa; el
+     canvas no cuenta. Se pide a mano para que los bocadillos no salgan, la
+     primera vez, con la letra de reserva. */
+  useEffect(() => {
+    document.fonts?.load('8px "Press Start 2P"').catch(() => {});
+  }, []);
 
   /* Al empezar la partida el foco del teclado pasa al canvas (si se quedara
      en un enlace de la cabecera, Espacio o Enter podrían activarlo en mitad
@@ -195,6 +217,10 @@ export function GameCanvas({
       minionSheet: null,
       jacketSheet: null,
       alley: null,
+      hallRoom: null,
+      officeRoom: null,
+      cityHallSheet: null,
+      discoSheet: null,
     };
     let disposed = false;
     for (const [key, url] of Object.entries(sheetUrlsFor(levelId)) as Array<

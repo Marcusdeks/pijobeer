@@ -75,17 +75,18 @@ const PIJO = {
  * Las poses de lanzar son: agacharse a cogerlo, levantarlo, sobre la cabeza,
  * a punto de lanzar, soltándolo y con las manos vacías.
  *
- * Cada imagen se dibujó a una escala distinta, así que cada una se escala por
- * su pose de pie (la más alta de andar y la última de lanzar, con las manos
- * vacías) para que mida `height`: así no cambia de tamaño al lanzar. Como el
- * pijo, todas las poses se apoyan por los pies y se centran a lo ancho; la
- * celda se calcula para que quepa la pose más grande.
+ * Las tres imágenes están dibujadas a la MISMA escala (mismo lienzo, mismo
+ * cuerpo), así que todas usan un único factor: el que hace que la pose más
+ * alta de andar mida `height`. Escalar cada fila por separado haría que el
+ * primo cambiase de tamaño al pasar de andar a lanzar. Como el pijo, todas las
+ * poses se apoyan por los pies y se centran a lo ancho; la celda se calcula
+ * para que quepa la pose más grande (con el barril sobre la cabeza).
  */
 const PRIMO = {
   rows: [
-    { file: 'primo-walk.png', poses: 4, reference: 'tallest' },
-    { file: 'primo-throw-wood.png', poses: 6, reference: 'last' },
-    { file: 'primo-throw-iron.png', poses: 6, reference: 'last' },
+    { file: 'primo-walk.png', poses: 4 },
+    { file: 'primo-throw-wood.png', poses: 6 },
+    { file: 'primo-throw-iron.png', poses: 6 },
   ],
   height: 120,
 };
@@ -173,19 +174,24 @@ async function buildPijoSheet() {
 }
 
 async function buildPrimoSheet() {
-  const rows = [];
-  for (const row of PRIMO.rows) {
-    const image = await loadWithoutBackground(path.join(ART_DIR, 'bosses', row.file));
-    const boxes = splitRegion(image, fullRegion(image), {
-      axis: 'x',
-      count: row.poses,
-      extras: 'drop',
-    });
-    const heights = boxes.map((box) => box.height);
-    const reference = row.reference === 'last' ? heights.at(-1) : Math.max(...heights);
-    const scale = PRIMO.height / reference;
-    rows.push(await Promise.all(boxes.map((box) => extractScaled(image, box, scale))));
-  }
+  const cut = await Promise.all(
+    PRIMO.rows.map(async (row) => {
+      const image = await loadWithoutBackground(path.join(ART_DIR, 'bosses', row.file));
+      const boxes = splitRegion(image, fullRegion(image), {
+        axis: 'x',
+        count: row.poses,
+        extras: 'drop',
+      });
+      return { image, boxes };
+    }),
+  );
+  // Un único factor para todas las filas: el de la pose más alta de andar
+  const scale = PRIMO.height / Math.max(...cut[0].boxes.map((box) => box.height));
+  const rows = await Promise.all(
+    cut.map(({ image, boxes }) =>
+      Promise.all(boxes.map((box) => extractScaled(image, box, scale))),
+    ),
+  );
 
   // La celda, a la medida de la pose más grande (en par, para centrar sin decimales)
   const sprites = rows.flat();
@@ -261,7 +267,7 @@ async function loadScaled(file, height) {
 }
 
 /** Silueta blanca: mismos píxeles visibles, todos en blanco. */
-function whiteSilhouette(sprite) {
+export function whiteSilhouette(sprite) {
   const flash = { ...sprite, data: Buffer.from(sprite.data) };
   for (let i = 0; i < flash.data.length; i += 4) {
     if (flash.data[i + 3] > 0) flash.data.fill(255, i, i + 3);

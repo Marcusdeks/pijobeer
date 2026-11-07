@@ -50,7 +50,8 @@ function playPerfectly(levelId: number, seconds: number, input: InputState): num
     }
     game.step(input);
   }
-  for (const boss of game.bosses) while (!boss.isDead) boss.hit();
+  // Al que aún esté entrando (el alcalde, saliendo de detrás de su mesa) no se le puede dar
+  for (const boss of game.bosses) while (!boss.isEntering && !boss.isDead) boss.hit();
   game.step(input);
   return game.points;
 }
