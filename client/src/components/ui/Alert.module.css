@@ -1,8 +1,7 @@
+/* Avisos: una cajita con marco pixel del color del aviso (rojo si es un error, verde si va bien) */
 .alert {
-  padding: 0.9rem 1rem;
-  border-radius: var(--radius-sm);
-  margin-bottom: 1.2rem;
-  font-size: 0.9rem;
+  padding: calc(var(--pixel) * 3) calc(var(--pixel) * 4);
+  margin: var(--pixel) var(--pixel) calc(var(--pixel) * 5);
   text-align: center;
 }
 
@@ -12,17 +11,21 @@
 
 .error {
   background-color: rgba(255, 0, 0, 0.15);
-  border: 1px solid var(--color-primary);
-  color: #ff6666;
+  color: #ff7a7a;
+  box-shadow: var(--frame-primary);
 }
 
 .success {
+  --color-ok: var(--color-success);
   background-color: rgba(0, 200, 0, 0.12);
-  border: 1px solid var(--color-success);
-  color: #66ff66;
+  color: #7aff7a;
+  box-shadow:
+    0 calc(var(--pixel) * -1) 0 0 var(--color-ok),
+    0 var(--pixel) 0 0 var(--color-ok),
+    calc(var(--pixel) * -1) 0 0 0 var(--color-ok),
+    var(--pixel) 0 0 0 var(--color-ok);
 }
 
 .alert a {
   color: inherit;
-  font-weight: 700;
 }

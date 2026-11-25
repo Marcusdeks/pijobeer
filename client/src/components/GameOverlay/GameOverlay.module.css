@@ -56,7 +56,7 @@
    Toda la ventana (título, textos y botones) usa la fuente pixel art; los
    botones la heredan porque global.css les pone "font: inherit". */
 .victory {
-  font-family: 'Press Start 2P', monospace;
+  font-family: var(--font-pixel);
   gap: 1.4rem;
 }
 

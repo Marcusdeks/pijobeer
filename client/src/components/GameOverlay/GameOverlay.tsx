@@ -13,10 +13,6 @@
  * Enter sin coger el ratón.
  */
 import { useEffect, useRef, type ReactNode } from 'react';
-/* Fuente pixel art "Press Start 2P" para el menú de victoria. Va instalada
-   en el proyecto (paquete @fontsource) en vez de cargarse desde Google:
-   funciona sin internet y no depende de un servicio externo. */
-import '@fontsource/press-start-2p/400.css';
 import styles from './GameOverlay.module.css';
 
 interface GameOverlayProps {

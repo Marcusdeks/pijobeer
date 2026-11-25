@@ -18,6 +18,11 @@ import { RouterProvider } from 'react-router';
 import { AuthProvider } from './features/auth/AuthProvider';
 import './i18n'; // inicializa i18next antes de pintar nada
 import { router } from './router';
+/* Las dos fuentes pixel de la web (ver global.css): instaladas en el
+   proyecto (paquetes @fontsource) en vez de cargarse desde Google Fonts, así
+   funcionan sin internet y no dependen de un servicio externo */
+import '@fontsource/press-start-2p/400.css';
+import '@fontsource/vt323/400.css';
 import './styles/global.css';
 
 const rootElement = document.getElementById('root');

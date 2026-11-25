@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@fontsource/press-start-2p": "^5.3.0",
+    "@fontsource/vt323": "^5.3.0",
     "@pijobeer/shared": "*",
     "i18next": "^25.10.10",
     "i18next-browser-languagedetector": "^8.2.1",

@@ -9,15 +9,20 @@
   gap: 1rem;
 }
 
+/* Cada tecla, dibujada como una tecla pixel: con relieve y una sombra dura debajo */
 .key {
   display: inline-block;
-  min-width: 3rem;
-  padding: 0.2rem 0.6rem;
-  font-family: inherit;
-  font-weight: 700;
+  min-width: 3.2rem;
+  margin: var(--pixel);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+  font-family: var(--font-pixel);
+  font-size: 0.7rem;
   text-align: center;
-  border: 1px solid var(--color-primary-border);
-  border-bottom-width: 3px;
-  border-radius: var(--radius-sm);
-  background: var(--color-bg);
+  color: var(--color-text);
+  background-color: var(--color-surface-raised);
+  box-shadow:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 #000,
+    inset var(--pixel) var(--pixel) 0 0 #3a2a2a,
+    var(--frame-muted),
+    0 calc(var(--pixel) * 2) 0 var(--pixel) var(--color-shadow);
 }

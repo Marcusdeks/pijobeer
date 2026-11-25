@@ -8,32 +8,31 @@
   gap: 0.5rem;
   background-color: transparent;
   color: var(--color-text);
-  border: 1px solid var(--color-primary-border);
-  padding: 0.5rem 1rem;
-  font-size: 0.95rem;
-  font-weight: 600;
+  border: none;
+  margin: var(--pixel);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
   cursor: pointer;
-  border-radius: var(--radius-sm);
-  transition: all var(--transition);
+  box-shadow: var(--frame-muted);
+  transition: background-color var(--transition);
 }
 
 .trigger:hover,
 .trigger[aria-expanded='true'] {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background-color: var(--color-primary-soft);
+  background-color: var(--color-primary-dark);
+  box-shadow: var(--frame-primary);
 }
 
 .menu {
   position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
-  min-width: 180px;
+  top: calc(100% + var(--pixel) * 2);
+  right: var(--pixel);
+  min-width: 190px;
   list-style: none;
-  background: linear-gradient(180deg, var(--color-surface-raised) 0%, var(--color-surface) 100%);
-  border: 1px solid var(--color-primary-border);
-  border-radius: 8px;
-  overflow: hidden;
+  background-color: var(--color-surface);
+  /* Marco pixel y sombra dura, como una ventana emergente de un juego */
+  box-shadow: var(--frame-primary), var(--shadow-pixel);
   z-index: 1000;
 }
 
@@ -45,26 +44,24 @@
   padding: 0.8rem 1.2rem;
   background: none;
   border: none;
-  border-left: 3px solid transparent;
+  border-left: var(--pixel) solid transparent;
   color: var(--color-text);
-  font-size: 0.9rem;
+  font-size: 1.3rem;
   text-align: left;
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: background-color var(--transition);
 }
 
 .item:hover,
 .item[aria-checked='true'] {
-  background-color: rgba(255, 0, 0, 0.15);
-  color: var(--color-primary);
-  border-left-color: var(--color-primary);
+  background-color: var(--color-primary-dark);
+  border-left-color: var(--color-primary-light);
 }
 
 .flag {
   width: 24px;
   height: 16px;
   object-fit: cover;
-  border-radius: 2px;
 }
 
 /* En pantallas pequeñas solo se ve la bandera del botón, para que quepa todo */

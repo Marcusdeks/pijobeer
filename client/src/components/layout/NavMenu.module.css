@@ -1,38 +1,52 @@
 .menu {
-  background: linear-gradient(180deg, var(--color-surface) 0%, var(--color-bg) 100%);
+  background-color: var(--color-surface);
   min-height: 60px;
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
   align-items: center;
-  gap: 0.5rem 4.5rem;
-  padding: 0.5rem 2rem;
-  border-bottom: 1px solid rgba(255, 0, 0, 0.2);
+  gap: calc(var(--pixel) * 2) calc(var(--pixel) * 6);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 8);
+  border-bottom: var(--pixel) solid var(--color-primary-dark);
 }
 
+/* Las opciones del menú, en letra pixel pequeña */
 .item {
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
   color: var(--color-text);
   text-decoration: none;
-  font-weight: 600;
-  font-size: 0.85rem;
-  padding-bottom: 4px;
-  border-bottom: 2px solid transparent;
-  transition: color var(--transition);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+  transition:
+    color var(--transition),
+    background-color var(--transition);
 }
 
 .item:hover {
-  color: var(--color-primary);
+  background-color: var(--color-primary-dark);
 }
 
-/* Página en la que estás: roja y subrayada */
+/*
+ * Página en la que estás: en un bloque rojo con una flechita delante, como la
+ * opción elegida en el menú de un juego. La flecha es un ::before: decoración
+ * de CSS, así los lectores de pantalla no la leen.
+ */
 .active {
-  color: var(--color-primary);
-  border-bottom-color: var(--color-primary);
+  color: var(--color-text);
+  background-color: var(--color-primary);
+}
+
+.active::before {
+  content: '▶ ';
 }
 
 @media (max-width: 768px) {
   .menu {
-    gap: 0.5rem 1.5rem;
-    padding: 0.5rem 1rem;
+    gap: calc(var(--pixel) * 2);
+    padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+  }
+
+  .item {
+    font-size: 0.5rem;
   }
 }

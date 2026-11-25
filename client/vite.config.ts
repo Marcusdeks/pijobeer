@@ -17,9 +17,13 @@ export default defineConfig({
 
        Por qué: para el navegador, cliente y API están en el mismo origen.
        Así la cookie de sesión funciona sin configurar CORS, igual que
-       funcionará en producción, donde el servidor Node sirve ambas cosas. */
+       funcionará en producción, donde el servidor Node sirve ambas cosas.
+
+       El puerto de la API sale de API_PORT (por defecto, 3000, el PORT del
+       servidor). Si el 3000 está ocupado por otra cosa, se arrancan los dos en
+       otro sin tocar ningún archivo: PORT=3001 API_PORT=3001 npm run dev */
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': `http://localhost:${process.env.API_PORT ?? 3000}`,
     },
   },
 

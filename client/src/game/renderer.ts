@@ -99,6 +99,31 @@ export interface RenderAssets {
 }
 
 const HEALTH_BAR = HUD_BARS.player;
+
+/**
+ * Letra de los textos del canvas: la misma letra pixel que la web (la carga
+ * main.tsx; GameCanvas se asegura de que esté descargada antes de usarla).
+ */
+const PIXEL_FONT = '"Press Start 2P", monospace';
+
+/**
+ * Escribe un texto con una sombra dura negra debajo (desplazada, sin
+ * difuminar), como los rótulos de la web. Sin ella, el texto blanco no se lee
+ * sobre fondos claros como el mármol del ayuntamiento.
+ */
+function fillPixelText(
+  ctx: CanvasRenderingContext2D,
+  text: string,
+  x: number,
+  y: number,
+  color: string,
+  shadow = 2,
+): void {
+  ctx.fillStyle = COLORS.textShadow;
+  ctx.fillText(text, x + shadow, y + shadow);
+  ctx.fillStyle = color;
+  ctx.fillText(text, x, y);
+}
 const BOSS_BAR = HUD_BARS.boss;
 
 /** Textos que se pintan en el canvas, ya traducidos al idioma del jugador. */
@@ -174,21 +199,17 @@ export function renderGame(
   }
 
   // 4. HUD (marcador)
-  ctx.fillStyle = COLORS.hud;
-  ctx.font = '16px Arial, sans-serif';
+  ctx.font = `12px ${PIXEL_FONT}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
-  ctx.fillText(
-    labels.hud({
-      level: session.level.id,
-      health: session.player.health,
-      kills: session.kills,
-      required: session.rules.killGoal,
-      points: session.points,
-    }),
-    10,
-    10,
-  );
+  const hud = labels.hud({
+    level: session.level.id,
+    health: session.player.health,
+    kills: session.kills,
+    required: session.rules.killGoal,
+    points: session.points,
+  });
+  fillPixelText(ctx, hud, 10, 10, COLORS.hud);
 
   const [firstBoss] = session.bosses;
   if (firstBoss) {
@@ -196,7 +217,7 @@ export function renderGame(
   }
 
   // 5. Fin de partida (la pausa y la victoria son menús HTML, ver la cabecera del archivo)
-  if (session.status === 'over') drawOverlay(ctx, labels.gameOver, COLORS.gameOver, 48);
+  if (session.status === 'over') drawOverlay(ctx, labels.gameOver, COLORS.gameOver, 32);
 
   // 6. Fundido a negro de las escenas de puerta (y vuelta a verse al llegar al
   // despacho): tapa todo, también el marcador
@@ -365,7 +386,7 @@ const BUBBLE = { font: 8, line: 11, padding: 5, border: 2, maxWidth: 150, tail: 
 function drawShout(ctx: CanvasRenderingContext2D, text: string, dancer: Dancer): void {
   ctx.save();
   ctx.globalAlpha = dancer.opacity;
-  ctx.font = `${BUBBLE.font}px "Press Start 2P", monospace`;
+  ctx.font = `${BUBBLE.font}px ${PIXEL_FONT}`;
   const lines = wrapText(ctx, text, BUBBLE.maxWidth);
   const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
   const width = Math.ceil(textWidth) + BUBBLE.padding * 2;
@@ -518,11 +539,10 @@ function drawBossBar(ctx: CanvasRenderingContext2D, bosses: readonly Boss[], nam
   const x = Math.round(ARENA.width / 2 - BOSS_BAR.width / 2);
   const y = BOSS_BAR.top;
 
-  ctx.fillStyle = COLORS.hud;
-  ctx.font = 'bold 13px Arial, sans-serif';
+  ctx.font = `10px ${PIXEL_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.fillText(name, ARENA.width / 2, y - 3);
+  fillPixelText(ctx, name, ARENA.width / 2, y - 5, COLORS.hud);
 
   const { border } = BOSS_BAR;
   ctx.fillStyle = COLORS.bossBarFrame;
@@ -730,9 +750,8 @@ function drawOverlay(
   ctx.fillStyle = COLORS.overlay;
   ctx.fillRect(0, 0, ARENA.width, ARENA.height);
 
-  ctx.fillStyle = color;
-  ctx.font = `bold ${fontSize}px Arial, sans-serif`;
+  ctx.font = `${fontSize}px ${PIXEL_FONT}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(text, ARENA.width / 2, ARENA.height / 2);
+  fillPixelText(ctx, text, ARENA.width / 2, ARENA.height / 2, color, 4);
 }

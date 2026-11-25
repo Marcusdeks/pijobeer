@@ -1,28 +1,42 @@
 /* ==============================================================
    ESTILOS GLOBALES
    Solo tres cosas viven aquí:
-     1. Los "design tokens": colores, espaciados y radios como variables.
+     1. Los "design tokens": colores, medidas y fuentes como variables.
      2. Un reset mínimo para que todos los navegadores partan igual.
      3. Estilos de etiquetas HTML sueltas (body, a, h1...).
 
    El resto de estilos van en un archivo .module.css junto a cada
    componente (CSS Modules): sus clases solo afectan a ese componente,
-   así que es imposible que un cambio en el perfil rompa el menú.
+   así que es imposible que un cambio en el perfil rompa el menú. Lo
+   que comparten varios (el marco pixel, la sombra dura) son tokens de
+   aquí: --frame-* y --shadow-pixel.
+
+   ESTÉTICA PIXEL ART: la web imita a las recreativas de los 80-90,
+   como el juego. Sus reglas, que salen de aquí:
+     - Nada redondo: los radios valen 0 (las esquinas de un píxel son rectas).
+     - Nada difuminado: colores planos (sin degradados) y sombras duras
+       (desplazadas, sin blur), como las de un sprite.
+     - Todo mide múltiplos de --pixel (4 px): un "píxel gordo" de la pantalla.
+     - Dos fuentes pixel: Press Start 2P para lo que se lee de un vistazo
+       (títulos, botones, menús) y VT323 para los textos largos, que con la
+       primera serían ilegibles.
+     - Las animaciones van a saltos (steps), no suaves: como un sprite que
+       cambia de frame.
    ============================================================== */
 
 :root {
   /* ---- Paleta: negro, rojo y blanco ---- */
   --color-bg: #000000;
-  --color-surface: #0a0a0a;
-  --color-surface-raised: #1a1a1a;
+  --color-surface: #0f0a0a;
+  --color-surface-raised: #1c1414;
   --color-primary: #ff0000;
-  --color-primary-dark: #cc0000;
-  --color-primary-light: #ff3333;
-  --color-primary-soft: rgba(255, 0, 0, 0.1);
-  --color-primary-border: rgba(255, 0, 0, 0.3);
+  --color-primary-dark: #a30000;
+  --color-primary-light: #ff4d4d;
+  --color-primary-soft: rgba(255, 0, 0, 0.12);
+  --color-primary-border: rgba(255, 0, 0, 0.45);
   --color-text: #ffffff;
-  --color-text-muted: #cccccc;
-  --color-text-subtle: #888888;
+  --color-text-muted: #d6d6d6;
+  --color-text-subtle: #8f8f8f;
   --color-success: #00cc00;
   --color-gold: #ffd700;
   --color-silver: #c0c0c0;
@@ -32,28 +46,60 @@
   --color-neon: #39ff14;
   --color-neon-glow: rgba(57, 255, 20, 0.6);
   --color-neon-dark: #0b5d00;
-
-  /* ---- Degradados reutilizados en paneles y cabecera ---- */
-  --gradient-surface: linear-gradient(
-    135deg,
-    var(--color-surface) 0%,
-    var(--color-surface-raised) 100%
-  );
-  --gradient-primary: linear-gradient(
-    135deg,
-    var(--color-primary) 0%,
-    var(--color-primary-dark) 100%
-  );
+  /* Sombra dura de los "sprites" de la interfaz: negra, sin difuminar */
+  --color-shadow: #000000;
 
   /* ---- Medidas ---- */
-  --radius-sm: 5px;
-  --radius-md: 10px;
-  --radius-lg: 15px;
-  --radius-pill: 50px;
+  /* El píxel gordo: grosor de marcos y sombras, y paso de los desplazamientos */
+  --pixel: 4px;
+  /* Sin esquinas redondeadas. Se conservan los nombres para que cualquier
+     componente que los use se vuelva cuadrado sin tocarlo */
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-pill: 0;
   --content-max-width: 1200px;
-  --transition: 0.3s ease;
+  /* A saltos, como un sprite que cambia de frame (y no un fundido suave) */
+  --transition: 0.15s steps(3, end);
+  /* Sombra dura: el elemento parece "levantado" del fondo. Con "spread" de un
+     píxel gordo, para que también quede detrás del marco (que va por fuera) */
+  --shadow-pixel: calc(var(--pixel) * 3) calc(var(--pixel) * 3) 0 var(--pixel) var(--color-shadow);
 
-  --font-sans: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  /*
+   * MARCO PIXEL con las esquinas mordidas (como los de NES): cuatro sombras
+   * sin difuminar, desplazadas un píxel gordo hacia arriba, abajo, izquierda y
+   * derecha. Ninguna llega a la diagonal, así que en cada esquina queda un
+   * hueco cuadrado. Un border normal no puede hacerlo: sus esquinas son macizas.
+   * El marco va POR FUERA de la caja (no ocupa sitio): quien lo use necesita
+   * un margen de al menos un píxel gordo. Uso: box-shadow: var(--frame-primary);
+   */
+  --frame-primary:
+    0 calc(var(--pixel) * -1) 0 0 var(--color-primary), 0 var(--pixel) 0 0 var(--color-primary),
+    calc(var(--pixel) * -1) 0 0 0 var(--color-primary), var(--pixel) 0 0 0 var(--color-primary);
+  --frame-muted:
+    0 calc(var(--pixel) * -1) 0 0 var(--color-primary-dark),
+    0 var(--pixel) 0 0 var(--color-primary-dark),
+    calc(var(--pixel) * -1) 0 0 0 var(--color-primary-dark),
+    var(--pixel) 0 0 0 var(--color-primary-dark);
+  --frame-dark:
+    0 calc(var(--pixel) * -1) 0 0 var(--color-shadow), 0 var(--pixel) 0 0 var(--color-shadow),
+    calc(var(--pixel) * -1) 0 0 0 var(--color-shadow), var(--pixel) 0 0 0 var(--color-shadow);
+  --frame-neon:
+    0 calc(var(--pixel) * -1) 0 0 var(--color-neon), 0 var(--pixel) 0 0 var(--color-neon),
+    calc(var(--pixel) * -1) 0 0 0 var(--color-neon), var(--pixel) 0 0 0 var(--color-neon);
+
+  /* Relieve de los botones (como las teclas de una recreativa): luz arriba a
+     la izquierda y sombra abajo a la derecha, por dentro */
+  --bevel-primary:
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 var(--color-primary-dark),
+    inset var(--pixel) var(--pixel) 0 0 var(--color-primary-light);
+  --bevel-pressed:
+    inset var(--pixel) var(--pixel) 0 0 var(--color-primary-dark),
+    inset calc(var(--pixel) * -1) calc(var(--pixel) * -1) 0 0 var(--color-primary-light);
+
+  /* ---- Fuentes (instaladas en el proyecto: ver main.tsx) ---- */
+  --font-pixel: 'Press Start 2P', monospace;
+  --font-body: 'VT323', monospace;
 
   color-scheme: dark;
 }
@@ -71,41 +117,134 @@ html {
   -webkit-text-size-adjust: 100%;
 }
 
+/*
+ * El fondo: una rejilla de puntos rojos muy oscuros, como la de una pantalla
+ * vieja vista de cerca. Son dos radial-gradient diminutos repetidos: CSS puro,
+ * sin imagen que descargar.
+ */
 body {
-  font-family: var(--font-sans);
+  font-family: var(--font-body);
+  /* VT323 es estrecha y bajita: necesita más tamaño que una fuente normal */
+  font-size: 1.3rem;
+  line-height: 1.35;
   background-color: var(--color-bg);
+  background-image: radial-gradient(rgba(255, 0, 0, 0.09) 1px, transparent 1px);
+  background-size: calc(var(--pixel) * 2) calc(var(--pixel) * 2);
   color: var(--color-text);
-  line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
+  /* Las fuentes pixel solo tienen un grosor. Sin esto, donde se pida negrita
+     o cursiva el navegador se las inventa engordando o torciendo el dibujo,
+     y los píxeles se emborronan */
+  font-synthesis: none;
 }
 
+/*
+ * Líneas de barrido de un monitor CRT, por encima de toda la página. Muy
+ * suaves (solo oscurecen una fila de cada tres un 12 %) para no cansar la
+ * vista, y pointer-events: none para que no tapen los clics.
+ */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 2px,
+    rgba(0, 0, 0, 0.12) 2px,
+    rgba(0, 0, 0, 0.12) 3px
+  );
+}
+
+/* Títulos: letra pixel, con su sombra dura (como los rótulos de las recreativas) */
+h1,
+h2,
+h3 {
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  line-height: 1.4;
+  text-shadow: calc(var(--pixel) / 2) calc(var(--pixel) / 2) 0 var(--color-primary-dark);
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+}
+
+h3 {
+  font-size: 0.9rem;
+}
+
+/*
+ * Imágenes y canvas, sin suavizar al escalarlas: cada píxel se ve como un
+ * bloque nítido. Sin esto, el navegador las difumina al agrandarlas y el
+ * pixel art se ve borroso.
+ */
 img,
 canvas {
   display: block;
   max-width: 100%;
+  image-rendering: pixelated;
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
 }
 
 a {
-  color: var(--color-primary);
+  color: var(--color-primary-light);
+}
+
+::selection {
+  background: var(--color-primary);
+  color: var(--color-text);
+}
+
+/* Barra de desplazamiento cuadrada, a juego (Chrome, Edge y Safari) */
+::-webkit-scrollbar {
+  width: calc(var(--pixel) * 3);
+  height: calc(var(--pixel) * 3);
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-primary-dark);
+  border: var(--pixel) solid var(--color-surface);
 }
 
 /* Contorno visible al navegar con teclado (Tab), pero no al hacer clic con el ratón */
 :focus-visible {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
+  outline: var(--pixel) dashed var(--color-primary-light);
+  outline-offset: var(--pixel);
 }
 
-/* Quien tenga activado "reducir movimiento" en su sistema no recibe animaciones bruscas */
+/* Quien tenga activado "reducir movimiento" en su sistema no recibe animaciones */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     transition-duration: 0.01ms !important;
+  }
+}
+
+@media (max-width: 768px) {
+  h1 {
+    font-size: 1.2rem;
+  }
+
+  h2 {
+    font-size: 0.95rem;
   }
 }

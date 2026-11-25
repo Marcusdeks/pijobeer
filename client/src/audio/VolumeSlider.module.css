@@ -3,40 +3,68 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.8rem;
-  font-weight: 700;
+  gap: calc(var(--pixel) * 3);
+  font-family: var(--font-pixel);
+  font-size: 0.65rem;
 }
 
 .speaker {
   font-size: 1.4rem;
   line-height: 1;
-  padding: 0.3rem 0.5rem;
+  padding: calc(var(--pixel) * 2);
+  margin: var(--pixel);
   background: transparent;
-  border: 1px solid var(--color-primary-border);
-  border-radius: var(--radius-sm);
+  border: none;
+  box-shadow: var(--frame-muted);
   cursor: pointer;
 }
 
 .speaker:hover {
-  border-color: var(--color-primary);
-  background: var(--color-primary-soft);
+  background: var(--color-primary-dark);
+  box-shadow: var(--frame-primary);
 }
 
+/*
+ * La barra de volumen, en pixel: se quita el aspecto del sistema
+ * (appearance: none) y se dibujan a mano el carril (una franja plana) y el
+ * tirador (un cuadrado con marco), en lugar de la bolita redonda del navegador.
+ * Cada navegador nombra distinto sus partes: -webkit- (Chrome, Edge, Safari) y
+ * -moz- (Firefox).
+ */
 .slider input {
-  accent-color: var(--color-primary);
+  appearance: none;
   width: min(50vw, 220px);
+  height: calc(var(--pixel) * 3);
+  background-color: var(--color-primary-dark);
+  cursor: pointer;
+}
+
+.slider input::-webkit-slider-thumb {
+  appearance: none;
+  width: calc(var(--pixel) * 4);
+  height: calc(var(--pixel) * 5);
+  background-color: var(--color-primary);
+  box-shadow: var(--frame-dark);
+}
+
+.slider input::-moz-range-thumb {
+  width: calc(var(--pixel) * 4);
+  height: calc(var(--pixel) * 5);
+  border: none;
+  border-radius: 0;
+  background-color: var(--color-primary);
+  box-shadow: var(--frame-dark);
 }
 
 .slider output {
   min-width: 3.5rem;
-  font-weight: 400;
 }
 
 @media (max-width: 600px) {
   .volume,
   .slider {
-    gap: 0.4rem;
-    font-size: 0.8rem;
+    gap: var(--pixel);
+    font-size: 0.55rem;
   }
 
   .speaker {

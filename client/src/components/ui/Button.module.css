@@ -1,100 +1,135 @@
+/*
+ * BOTONES PIXEL: como las teclas de una recreativa.
+ *
+ * Todos llevan letra pixel y cambian a saltos (--transition usa steps). Los
+ * rellenos tienen relieve (--bevel-*: luz arriba a la izquierda, sombra
+ * abajo a la derecha) y un marco negro con las esquinas mordidas (--frame-dark).
+ * Al pulsarlos, la tecla "se hunde": baja un píxel gordo y el relieve se
+ * invierte. Todo con box-shadow, que no ocupa sitio: el botón no cambia de
+ * tamaño ni empuja nada al animarse.
+ */
 .button {
   display: inline-block;
   border: none;
+  border-radius: 0;
   cursor: pointer;
-  font-weight: 700;
+  font-family: var(--font-pixel);
+  font-weight: 400;
+  line-height: 1.5;
   text-align: center;
   text-decoration: none;
-  transition: all var(--transition);
+  transition:
+    transform var(--transition),
+    background-color var(--transition),
+    color var(--transition);
 }
 
 .button:disabled {
   cursor: not-allowed;
 }
 
-/* ---- Principal: rojo y redondeado (el .btn-start del original) ---- */
+/* ---- Principal: rojo, con relieve ---- */
 .primary {
-  background: var(--gradient-primary);
+  background-color: var(--color-primary);
   color: var(--color-text);
-  padding: 1rem 2.5rem;
-  font-size: 1rem;
-  border-radius: var(--radius-pill);
-  letter-spacing: 1px;
+  padding: calc(var(--pixel) * 4) calc(var(--pixel) * 7);
+  /* Un margen de un píxel gordo: el marco va por fuera y no debe pisar a sus vecinos */
+  margin: var(--pixel);
+  font-size: 0.85rem;
   text-transform: uppercase;
+  text-shadow: calc(var(--pixel) / 2) calc(var(--pixel) / 2) 0 var(--color-primary-dark);
+  box-shadow: var(--bevel-primary), var(--frame-dark), var(--shadow-pixel);
 }
 
 .primary:hover:not(:disabled) {
-  background: linear-gradient(135deg, var(--color-primary-light) 0%, var(--color-primary) 100%);
-  transform: translateY(-3px);
+  background-color: var(--color-primary-light);
+  transform: translate(calc(var(--pixel) * -1 / 2), calc(var(--pixel) * -1 / 2));
 }
 
+/* Pulsado: se hunde hasta tocar su sombra, y el relieve se invierte */
 .primary:active:not(:disabled) {
-  transform: translateY(-1px);
+  transform: translate(var(--pixel), var(--pixel));
+  box-shadow:
+    var(--bevel-pressed),
+    var(--frame-dark),
+    var(--pixel) var(--pixel) 0 var(--pixel) var(--color-shadow);
 }
 
 .primary:disabled {
-  opacity: 0.7;
+  background-color: #4a1a1a;
+  color: var(--color-text-subtle);
+  text-shadow: none;
 }
 
-/* ---- Secundario: transparente con borde ---- */
+/* ---- Secundario: sin relleno, con marco rojo apagado ---- */
 .ghost {
-  background: transparent;
+  background-color: transparent;
   color: var(--color-text);
-  border: 1px solid var(--color-primary-border);
-  padding: 0.5rem 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  border-radius: var(--radius-sm);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
+  margin: var(--pixel);
+  font-size: 0.6rem;
+  box-shadow: var(--frame-muted);
 }
 
 .ghost:hover {
-  border-color: var(--color-primary);
-  color: var(--color-primary);
-  background-color: var(--color-primary-soft);
+  color: var(--color-text);
+  background-color: var(--color-primary-dark);
+  box-shadow: var(--frame-primary);
 }
 
-/* ---- Tarjeta de nivel del popup ---- */
+.ghost:active {
+  transform: translate(calc(var(--pixel) / 2), calc(var(--pixel) / 2));
+}
+
+/* ---- Tarjeta de nivel del popup: una tecla grande ---- */
 .level {
-  background: var(--gradient-primary);
+  background-color: var(--color-primary);
   color: var(--color-text);
-  padding: 1.5rem 2.5rem;
-  font-size: 1.1rem;
-  border-radius: var(--radius-lg);
+  padding: calc(var(--pixel) * 5) calc(var(--pixel) * 6);
+  margin: var(--pixel);
+  font-size: 0.8rem;
+  text-shadow: calc(var(--pixel) / 2) calc(var(--pixel) / 2) 0 var(--color-primary-dark);
+  box-shadow: var(--bevel-primary), var(--frame-dark), var(--shadow-pixel);
 }
 
 .level:hover:not(:disabled) {
-  transform: translateY(-3px);
+  background-color: var(--color-primary-light);
+  transform: translate(calc(var(--pixel) * -1 / 2), calc(var(--pixel) * -1 / 2));
 }
 
-/* Nivel bloqueado: gris y sin poder pulsarlo */
+.level:active:not(:disabled) {
+  transform: translate(var(--pixel), var(--pixel));
+  box-shadow: var(--bevel-pressed), var(--frame-dark);
+}
+
+/* Nivel bloqueado: gris, plano y sin poder pulsarlo */
 .level:disabled {
-  background: #333333;
+  background-color: #2b2b2b;
   color: var(--color-text-subtle);
+  text-shadow: none;
+  box-shadow: var(--frame-dark);
 }
 
-/* ---- Neón: menú de victoria (letras y borde verde brillante) ---- */
+/* ---- Neón: menú de victoria (letras y marco verde brillante) ---- */
 .neon {
-  background: rgba(0, 0, 0, 0.55);
+  background-color: rgba(0, 0, 0, 0.7);
   color: var(--color-neon);
-  border: 2px solid var(--color-neon);
-  padding: 0.9rem 2rem;
-  font-size: 1rem;
-  border-radius: var(--radius-pill);
-  letter-spacing: 1px;
+  padding: calc(var(--pixel) * 4) calc(var(--pixel) * 6);
+  margin: var(--pixel);
+  font-size: 0.85rem;
   text-transform: uppercase;
-  text-shadow: 0 0 8px var(--color-neon-glow);
+  text-shadow: calc(var(--pixel) / 2) calc(var(--pixel) / 2) 0 var(--color-neon-dark);
   box-shadow:
-    0 0 10px var(--color-neon-glow),
-    inset 0 0 10px rgba(57, 255, 20, 0.25);
+    var(--frame-neon),
+    0 0 calc(var(--pixel) * 4) var(--color-neon-glow);
 }
 
 .neon:hover,
 .neon:focus-visible {
-  background: var(--color-neon);
+  background-color: var(--color-neon);
   color: #000;
   text-shadow: none;
-  box-shadow: 0 0 24px var(--color-neon);
-  transform: translateY(-3px);
+  transform: translate(calc(var(--pixel) * -1 / 2), calc(var(--pixel) * -1 / 2));
 }
 
 /* El contorno de foco global es rojo; en el menú de victoria desentona, así que va en verde */
@@ -103,12 +138,13 @@
 }
 
 .fullWidth {
-  width: 100%;
+  /* Ocupa todo el ancho menos el margen del marco, que va por fuera */
+  width: calc(100% - var(--pixel) * 2);
 }
 
 @media (max-width: 768px) {
   .primary {
-    padding: 0.8rem 2rem;
-    font-size: 0.9rem;
+    padding: calc(var(--pixel) * 3) calc(var(--pixel) * 5);
+    font-size: 0.7rem;
   }
 }

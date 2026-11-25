@@ -8,18 +8,20 @@
   border-collapse: collapse;
 }
 
+/* Tabla de récords como la de una recreativa: filas separadas por puntos */
 .table th,
 .table td {
-  padding: 0.8rem 1rem;
+  padding: calc(var(--pixel) * 3) calc(var(--pixel) * 4);
   text-align: left;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: calc(var(--pixel) / 2) dotted rgba(255, 255, 255, 0.15);
 }
 
 .table th {
   color: var(--color-primary);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 1px;
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  font-weight: 400;
+  border-bottom: var(--pixel) solid var(--color-primary-dark);
 }
 
 .table tbody tr:hover {
@@ -29,17 +31,14 @@
 /* Las tres primeras posiciones: oro, plata y bronce */
 .podium1 {
   color: var(--color-gold);
-  font-weight: 900;
 }
 
 .podium2 {
   color: var(--color-silver);
-  font-weight: 900;
 }
 
 .podium3 {
   color: var(--color-bronze);
-  font-weight: 900;
 }
 
 /* Fila del jugador que está mirando la página */
@@ -50,33 +49,33 @@
 .summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 2rem;
-  margin-bottom: 1.5rem;
+  gap: calc(var(--pixel) * 8);
+  margin-bottom: calc(var(--pixel) * 6);
 }
 
+/* Cada dato, en su cajita con marco, como el marcador de un juego */
 .stat {
   background-color: rgba(255, 0, 0, 0.08);
-  border: 1px solid rgba(255, 0, 0, 0.25);
-  border-radius: var(--radius-md);
-  padding: 1rem 1.5rem;
+  margin: var(--pixel);
+  padding: calc(var(--pixel) * 4) calc(var(--pixel) * 6);
   min-width: 140px;
+  box-shadow: var(--frame-muted);
 }
 
 .statValue {
   display: block;
-  font-size: 1.8rem;
-  font-weight: 900;
+  font-family: var(--font-pixel);
+  font-size: 1.2rem;
+  margin-bottom: calc(var(--pixel) * 2);
 }
 
 .statLabel {
-  font-size: 0.8rem;
+  font-size: 1.1rem;
   color: var(--color-text-subtle);
   text-transform: uppercase;
-  letter-spacing: 1px;
 }
 
 .empty {
   color: var(--color-text-subtle);
-  font-style: italic;
-  padding: 1rem 0;
+  padding: calc(var(--pixel) * 4) 0;
 }

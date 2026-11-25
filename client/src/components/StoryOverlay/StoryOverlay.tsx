@@ -12,8 +12,6 @@
  *                 skipLabel="Saltar" onClose={...} />
  */
 import { useEffect, useRef } from 'react';
-// Misma fuente pixel art que el menú de victoria (ver GameOverlay)
-import '@fontsource/press-start-2p/400.css';
 import { Button } from '../ui/Button';
 import styles from './StoryOverlay.module.css';
 

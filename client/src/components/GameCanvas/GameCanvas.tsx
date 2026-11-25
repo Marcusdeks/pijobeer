@@ -19,9 +19,6 @@
  */
 import { getLevel, type DifficultyId, type GameModifiers } from '@pijobeer/shared';
 import { useEffect, useImperativeHandle, useRef, type ReactNode, type Ref } from 'react';
-/* Letra pixel de los bocadillos de cómic del nivel 6 (la misma que la de los
-   menús). El canvas no la descarga solo: ver el efecto que la pide al montar. */
-import '@fontsource/press-start-2p/400.css';
 import { useTranslation } from 'react-i18next';
 // Importar las imágenes hace que Vite las incluya en el build y nos dé su URL final (con hash)
 import alley1Url from '../../assets/sprites/alley-1.webp';

@@ -1,12 +1,15 @@
 .dialog {
   margin: auto;
-  padding: 3rem;
-  max-width: min(90vw, 600px);
-  background: var(--gradient-surface);
+  padding: calc(var(--pixel) * 12);
+  max-width: min(90vw, 620px);
+  background-color: var(--color-surface);
   color: var(--color-text);
-  border: 2px solid var(--color-primary);
-  border-radius: var(--radius-lg);
+  border: none;
+  /* Marco pixel y sombra dura (ver global.css). El navegador ya centra el <dialog>
+     y deja margen alrededor, así que el marco, que va por fuera, cabe sin más */
+  box-shadow: var(--frame-primary), var(--shadow-pixel);
   text-align: center;
+  overflow: visible;
 }
 
 /* El fondo oscuro que pone el navegador detrás del <dialog> */
@@ -15,11 +18,11 @@
 }
 
 .close {
-  margin-top: 2rem;
+  margin-top: calc(var(--pixel) * 8);
 }
 
 @media (max-width: 600px) {
   .dialog {
-    padding: 1.5rem;
+    padding: calc(var(--pixel) * 6);
   }
 }

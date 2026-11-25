@@ -908,6 +908,8 @@ export const COLORS = {
   enemy: '#aa00ff',
   enemyBullet: '#ff0000',
   hud: '#ffffff',
+  /** Sombra dura de los textos del canvas (marcador, nombre de los jefes, GAME OVER). */
+  textShadow: '#000000',
   overlay: 'rgba(0, 0, 0, 0.7)',
   /** Fundido a negro al entrar en el ayuntamiento (final del nivel 5). */
   fade: '#000000',

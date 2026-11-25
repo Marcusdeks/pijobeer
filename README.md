@@ -38,6 +38,9 @@ npm run dev
 
 Abre **http://localhost:5173**. La API escucha en http://localhost:3000 (Vite le reenvía todo lo que empieza por `/api`).
 
+Si el puerto 3000 lo usa otra aplicación, arranca los dos en otro sin tocar ningún archivo:
+`PORT=3001 API_PORT=3001 npm run dev` (`PORT` es el del servidor y `API_PORT`, a dónde reenvía Vite).
+
 > **Verificación de email en local:** todavía no hay un proveedor de correo conectado. Al registrarte,
 > el enlace de verificación aparece en pantalla (y en el log del servidor). Solo en desarrollo: en
 > producción el servidor nunca lo devuelve.
@@ -328,6 +331,25 @@ el menú los niveles bloqueados solo piden superar el anterior.
   (puntuación guardada, trucos activos) flotan encima y no mueven el juego.
 - Las **botellas** disparan con animación: salta la chapa (aviso) → la espuma sale en la explosión.
 - Los menús son HTML sobre el canvas (`components/GameOverlay`), así funcionan con teclado y lector de pantalla.
+
+### Estética pixel art
+
+La web imita a las recreativas, como el juego. Todo sale de los **design tokens** de
+`client/src/styles/global.css` (variables CSS); cada componente los usa desde su CSS Module:
+
+- **Dos fuentes pixel**, instaladas con `@fontsource` (sin depender de Google Fonts) y cargadas en
+  `main.tsx`: _Press Start 2P_ para títulos, botones y menús, y _VT323_ para los textos largos.
+  `font-synthesis: none` evita que el navegador se invente negritas que emborronan los píxeles.
+- **Nada redondo ni difuminado**: los radios valen 0, sin degradados, y las sombras son duras
+  (`--shadow-pixel`). Todo mide múltiplos de `--pixel` (4 px).
+- **Marcos con las esquinas mordidas** (`--frame-primary`, `--frame-muted`...): cuatro `box-shadow`
+  desplazadas un píxel gordo, que no llegan a las diagonales. Van por fuera de la caja.
+- **Botones como teclas de recreativa**: relieve (`--bevel-*`) que se invierte al pulsarlos, y se
+  hunden un píxel gordo. Las casillas de texto, al revés: hundidas.
+- **Animaciones a saltos** (`--transition` usa `steps()`), como un sprite que cambia de frame.
+- Fondo con una rejilla de puntos y **líneas de barrido de monitor CRT** suaves por encima de todo.
+- En el canvas, el marcador, el nombre de los jefes y el _GAME OVER_ usan la misma letra pixel, con
+  sombra dura para leerse sobre fondos claros.
 
 ### Idiomas
 

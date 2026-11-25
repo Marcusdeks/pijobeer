@@ -1,29 +1,43 @@
 .field {
-  margin-bottom: 1.2rem;
+  margin-bottom: calc(var(--pixel) * 5);
 }
 
+/* Etiquetas en letra pixel pequeña, como los rótulos de un menú de opciones */
 .label {
   display: block;
-  margin-bottom: 0.4rem;
-  font-size: 0.9rem;
-  font-weight: 600;
+  margin-bottom: calc(var(--pixel) * 3);
+  font-family: var(--font-pixel);
+  font-size: 0.6rem;
+  line-height: 1.6;
   color: var(--color-text-muted);
 }
 
+/*
+ * Casilla de texto: hundida en la pantalla. El borde es "inset" (más oscuro
+ * arriba a la izquierda), al revés que los botones, que sobresalen. Así se
+ * distingue de un vistazo lo que se pulsa de lo que se rellena.
+ */
 .input {
-  width: 100%;
-  padding: 0.8rem 1rem;
+  width: calc(100% - var(--pixel) * 2);
+  margin: 0 var(--pixel);
+  padding: calc(var(--pixel) * 2) calc(var(--pixel) * 3);
   background-color: var(--color-bg);
   color: var(--color-text);
-  border: 1px solid var(--color-primary-border);
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
-  transition: border-color var(--transition);
+  border: none;
+  border-radius: 0;
+  font-size: 1.4rem;
+  caret-color: var(--color-primary);
+  box-shadow:
+    inset var(--pixel) var(--pixel) 0 0 #2a0000,
+    var(--frame-muted);
+  transition: box-shadow var(--transition);
 }
 
 .input:focus {
   outline: none;
-  border-color: var(--color-primary);
+  box-shadow:
+    inset var(--pixel) var(--pixel) 0 0 #2a0000,
+    var(--frame-primary);
 }
 
 /* El email del perfil se enseña pero no se puede editar */
@@ -34,7 +48,7 @@
 
 .hint {
   display: block;
-  margin-top: 0.3rem;
-  font-size: 0.8rem;
+  margin-top: calc(var(--pixel) * 2);
+  font-size: 1.05rem;
   color: var(--color-text-subtle);
 }
