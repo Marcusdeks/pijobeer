@@ -76,10 +76,11 @@ export const PLAYER = {
   speed: 5,
   maxHealth: 100,
   /**
-   * Pasos entre disparo y disparo en dificultad normal (20 = 3 disparos por
-   * segundo). La dificultad lo multiplica (fireRate en difficulty.ts).
+   * Pasos entre disparo y disparo en dificultad normal (27 = 2,2 disparos por
+   * segundo). La dificultad lo multiplica (fireRate en difficulty.ts) y, desde
+   * el nivel 5, también su subida de nivel (HERO_LEVEL_UPS en levels.ts: 21 pasos).
    */
-  shootCooldown: 20,
+  shootCooldown: 27,
   /** Distancia entre la parte de arriba del jugador y el borde inferior al empezar (deja 16 px bajo los pies). */
   spawnBottomOffset: 80,
 } as const;
@@ -357,10 +358,10 @@ export const THROWN = {
  *   enrages                si tiene fase de furia (los del despacho del nivel 6, no)
  *
  * Y si otros jefes le protegen:
- *   guardedBy              mientras quede vivo alguno de estos, no se le puede
- *                          bajar de 1 de vida (y ellos le lanzan cerveza que le
- *                          cura: ver CITY_HALL.office.heal). Hay que acabar
- *                          antes con ellos.
+ *   guardedBy              mientras quede vivo alguno de estos, es invulnerable:
+ *                          hay que acabar antes con ellos. Si se le dispara,
+ *                          le lanzan una cerveza (ver CITY_HALL.office.heal).
+ *                          Sirve para cualquier jefe con guardaespaldas.
  */
 interface BossStats {
   attack: 'foam' | keyof typeof THROWN;
@@ -538,7 +539,8 @@ export const BOSS = {
     /** Caja de colisión: el cuerpo entero, sin los brazos (el dibujo mide 65x86). */
     width: 52,
     height: 82,
-    speed: 0.8,
+    /** De un lado a otro delante de su mesa, deprisa para un grandullón: cuesta más acertarle. */
+    speed: 1.6,
     burstSize: 3,
     burstGap: 12,
     burstPause: 150,
@@ -631,37 +633,16 @@ export interface HallDancer {
   viaDoor?: boolean;
 }
 
-/**
- * Puesto fijo de un jefe que ya está en la sala: por dónde se mueve y a qué
- * altura tiene los pies. Si empieza en otro sitio (`from`, sus pies), antes de
- * pelear va andando hasta su puesto pasando por `via` (y mientras, como al
- * entrar desde arriba, ni ataca ni se le puede dañar).
- */
+/** Puesto fijo de un jefe que ya está en la sala: por dónde se mueve y a qué altura tiene los pies. */
 export interface BossPost {
   field: Playfield;
   feetY: number;
-  from?: Point;
-  via?: readonly Point[];
 }
-
-/**
- * La mesa del alcalde, en el despacho: `back` es su borde de atrás (lo que
- * queda detrás, de ahí para abajo, lo tapa la mesa) y `front`, su borde de delante.
- */
-const DESK = { left: 330, right: 470, back: 192, front: 255 };
 
 /** Los jefes del despacho del alcalde, cada uno en su puesto (ver CITY_HALL). */
 const OFFICE_POSTS: Partial<Record<BossId, BossPost>> = {
-  // Detrás de la mesa; sale por la derecha, la rodea y se pone delante
-  mayor: {
-    field: { left: 300, right: 500 },
-    feetY: 290,
-    from: { x: 400, y: DESK.back },
-    via: [
-      { x: 505, y: DESK.back },
-      { x: 505, y: 290 },
-    ],
-  },
+  // Delante de su mesa
+  mayor: { field: { left: 290, right: 510 }, feetY: 290 },
   blonde: { field: { left: 140, right: 310 }, feetY: 240 },
   redhead: { field: { left: 490, right: 650 }, feetY: 240 },
 };
@@ -676,33 +657,37 @@ const OFFICE_POSTS: Partial<Record<BossId, BossPost>> = {
  * sala (el 1 y el 3 en los laterales: sus brazos señalan hacia el centro),
  * tres chicas bailan en medio y del techo cuelgan bolas de discoteca. Al
  * primer disparo del protagonista (o a los alarmSteps pasos, si no dispara)
- * salta la ALARMA: las chicas se asustan y huyen, y los seguratas empiezan a
- * disparar; mientras huyen gritan (`shout`, un bocadillo de cómic) y la 3
- * sale por una puerta del lateral (`exitDoor`), que se abre y se cierra. Los
- * seguratas están en la mitad de arriba, donde el protagonista no llega
- * (PLAYER.minY): se les gana a disparos, no a empujones. Toda la sala tiene
- * luces de discoteca (`strobe`). Al eliminarlos a los cuatro, el
- * protagonista sube solo por la escalera del centro hasta la puerta de
- * arriba (`door`), como al entrar en el ayuntamiento en el nivel 5, y
+ * salta la ALARMA: se apagan las luces de discoteca (`strobe`: con ellas no
+ * se verían los disparos), las chicas se asustan y huyen gritando (un
+ * bocadillo de cómic; la 3 sale por una puerta del lateral, `exitDoor`, que
+ * se abre y se cierra) y los seguratas empiezan a disparar y a lanzar cosas
+ * (`throws`: los de arriba, botellas; los de los laterales, barriles). Están
+ * en la mitad de arriba, donde el protagonista no llega (PLAYER.minY): se les
+ * gana a disparos, no a empujones. Al eliminarlos a los cuatro, de uno en
+ * uno, el protagonista sube solo por la escalera del centro hasta la puerta
+ * de arriba (`door`), como al entrar en el ayuntamiento en el nivel 5, y
  * aparece en el despacho.
  *
- * DESPACHO (office): esperan los jefes (`posts`): una chica a cada lado y
- * el alcalde, que sale de detrás de su mesa (`desk`: mientras está detrás,
- * la mesa le tapa de cintura para abajo) y se pone delante. Las chicas le
- * curan lanzándole cerveza (`heal`) cada vez que le falta vida.
+ * DESPACHO (office): esperan los jefes (`posts`): una chica a cada lado y el
+ * alcalde delante de su mesa, invulnerable mientras ellas vivan (guardedBy en
+ * BOSS). Si se le dispara, una le lanza una cerveza (`heal`) gritándole que
+ * se cure.
  *
- * Al derrotarlos, la pantalla funde a negro y el protagonista aparece otra
- * vez en la planta baja, ya vacía, para su último texto.
+ * Al derrotarlos, el protagonista baja solo por la alfombra hasta salir por
+ * abajo (`exit`), la pantalla funde a negro y aparece en lo alto de la
+ * escalera de la planta baja, ya vacía. Tras su último texto, baja la
+ * escalera hasta salir, otro fundido y la victoria.
  */
 export const CITY_HALL = {
   hall: {
     field: { left: 90, right: 710 },
     /** `look`: qué segurata es (guard-N en art/people/). */
     guards: [
-      { look: 1, x: 150, y: 240 },
-      { look: 2, x: 210, y: 185 },
-      { look: 4, x: 595, y: 185 },
-      { look: 3, x: 650, y: 240 },
+      // Los de los laterales (más abajo) lanzan barriles, cada uno de los suyos
+      { look: 1, x: 150, y: 240, throws: ['woodBarrel'] },
+      { look: 2, x: 210, y: 185, throws: ['normal', 'fast', 'heavy'] },
+      { look: 4, x: 595, y: 185, throws: ['normal', 'fast', 'heavy'] },
+      { look: 3, x: 650, y: 240, throws: ['ironBarrel'] },
     ],
     /** Dónde baila cada chica y hacia dónde huye (al llegar, desaparece). */
     dancers: [
@@ -713,8 +698,17 @@ export const CITY_HALL = {
       // Su dibujo de huir es de espaldas: sube corriendo por la escalera
       { girl: 7, x: 400, y: 345, exit: { x: 400, y: 62 } },
     ],
-    /** Centro de cada bola de discoteca (cuelgan del techo: del borde de arriba). */
-    discoBalls: [210, 400, 590],
+    /**
+     * Cada bola de discoteca: su centro (cuelga del techo, el borde de arriba)
+     * y cuánto más abajo que en el dibujo van sus brillos, para que caigan en
+     * el suelo. Las de los lados tienen el suelo lejos; la del centro, encima
+     * de la escalera, casi debajo.
+     */
+    discoBalls: [
+      { x: 210, sparklesDrop: 105 },
+      { x: 400, sparklesDrop: 30 },
+      { x: 590, sparklesDrop: 105 },
+    ],
     /** 3 s de fiesta: si no dispara antes, la alarma salta sola. */
     alarmSteps: 180,
     /** Lo alto de la escalera: por ahí sube al despacho. */
@@ -753,13 +747,14 @@ export const CITY_HALL = {
   office: {
     field: { left: 70, right: 730 },
     posts: OFFICE_POSTS,
-    desk: DESK,
     /**
-     * Cerveza que las chicas lanzan al alcalde cuando le falta vida: cada
-     * `gap` pasos, una de ellas (por turnos) le lanza una que le cura
-     * `amount`. Va recta hacia él a `speed` y se puede romper de un abrechapas.
+     * Cerveza que las chicas lanzan al alcalde cuando se le dispara (como mucho
+     * una cada `cooldown` pasos, por turnos). Va recta y despacio hacia él, a
+     * `speed`, y se puede romper de un abrechapas.
      */
-    heal: { gap: 150, amount: 40, speed: 3 },
+    heal: { cooldown: 120, speed: 2 },
+    /** Por dónde sale al vencer: bajando por la alfombra hasta salir de la pantalla. */
+    exit: { x: 400, y: 580 },
   },
   /** Pasos por pose al bailar (seguratas, chicas y jefas) y al girar las bolas. */
   danceFrameSteps: 12,
@@ -769,9 +764,9 @@ export const CITY_HALL = {
 } as const satisfies {
   hall: {
     field: Playfield;
-    guards: readonly { look: number; x: number; y: number }[];
+    guards: readonly { look: number; x: number; y: number; throws: readonly EnemyTypeId[] }[];
     dancers: readonly HallDancer[];
-    discoBalls: readonly number[];
+    discoBalls: readonly { x: number; sparklesDrop: number }[];
     alarmSteps: number;
     door: Point;
     exitDoor: { outline: readonly Point[]; swingSteps: number };
@@ -785,8 +780,8 @@ export const CITY_HALL = {
   office: {
     field: Playfield;
     posts: Partial<Record<BossId, BossPost>>;
-    desk: { left: number; right: number; back: number; front: number };
-    heal: { gap: number; amount: number; speed: number };
+    heal: { cooldown: number; speed: number };
+    exit: Point;
   };
   danceFrameSteps: number;
   discoFrameSteps: number;

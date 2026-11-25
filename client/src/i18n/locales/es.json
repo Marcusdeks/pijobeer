@@ -92,7 +92,8 @@
       "girl3": "¡Socorro, un heavy!",
       "girl5": "¡Seguro que no se ha duchado!",
       "girl7": "¡Qué asco! ¡Lleva un chaleco Thrasher!"
-    }
+    },
+    "healShout": "¡Tome, alcalde, cúrese con esta cerveza!"
   },
   "options": {
     "title": "Opciones",

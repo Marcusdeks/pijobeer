@@ -18,14 +18,16 @@
  *
  * Dentro del ayuntamiento (nivel 6) no hay callejón sino SALAS fijas (room,
  * ver CITY_HALL en config.ts). En la planta baja hay fiesta: los seguratas ya
- * están colocados y no cae nada. Al primer disparo salta la alarma (las chicas
- * huyen y los seguratas disparan). Eliminados los seguratas, el protagonista
+ * están colocados y no cae nada. Al primer disparo salta la alarma (se apagan
+ * las luces, las chicas huyen y los seguratas disparan y lanzan cosas).
+ * Eliminados los seguratas, uno a uno, el protagonista
  * sube solo por la escalera, como al entrar en el ayuntamiento, pero al fundir
  * a negro aparece en el despacho (la pantalla vuelve a verse poco a poco) y
- * allí esperan los jefes: las chicas y el alcalde, que no puede morir mientras
- * ellas vivan y al que curan lanzándole cerveza (heals). Al derrotarlos, la
- * pantalla funde a negro y el protagonista aparece en la planta baja, ya sin
- * fiesta, para su último texto (epilogue); después, la victoria.
+ * allí esperan los jefes: las chicas y el alcalde, invulnerable mientras ellas
+ * vivan (si se le dispara, le lanzan cerveza: heals). Al derrotarlos, el
+ * protagonista baja solo por la alfombra hasta salir, funde a negro y aparece
+ * en lo alto de la escalera de la planta baja, ya sin fiesta. Tras su último
+ * texto (epilogue) baja la escalera, otro fundido y la victoria.
  *
  * Latas: cada cierto tiempo (según la dificultad) cae una lata. La verde
  * cura y la de leopardo acelera al jugador durante unos segundos.
@@ -56,7 +58,6 @@ import {
   ENEMY,
   FINALE,
   PICKUP,
-  PLAYER_BULLET,
   type HallDancer,
   type PickupTypeId,
 } from './config';
@@ -183,12 +184,16 @@ export class GameSession {
   private insideSteps = 0;
   /** Al llegar a una sala: pasos que le quedan a la pantalla para dejar de estar en negro. */
   private fadeInSteps = 0;
-  /** Al acabar con los jefes del despacho: pasos que le quedan a la pantalla para quedarse en negro. */
-  private fadeOutSteps = 0;
-  /** De vuelta en la planta baja tras vencer: solo queda el último texto y la victoria. */
+  /** Fundido a negro en curso: pasos que le quedan y qué pasa al acabar (ya en negro). */
+  private fadeOut: { steps: number; then: () => void } | null = null;
+  /** La pantalla se queda en negro tras un fundido, hasta que algo la vuelve a enseñar. */
+  private blackedOut = false;
+  /** Paseo solo del protagonista hasta `target` (no se le maneja) y qué pasa al llegar. */
+  private walkOut: { target: Point; then: () => void } | null = null;
+  /** De vuelta en la planta baja tras vencer: queda el último texto y bajar la escalera. */
   private ending = false;
-  /** Despacho: pasos hasta la próxima cerveza para el alcalde, y a qué chica le toca lanzarla. */
-  private healCooldown: number = CITY_HALL.office.heal.gap;
+  /** Despacho: pasos hasta poder lanzarle otra cerveza al alcalde, y a qué chica le toca. */
+  private healCooldown = 0;
   private healTurn = 0;
   /** Puntos de los enemigos eliminados y de los jefes derrotados, sin multiplicar. */
   private earnedPoints = 0;
@@ -235,8 +240,14 @@ export class GameSession {
     return { level: this.level.id, kills: this.kills, points: this.points };
   }
 
-  /** true cuando ya se han eliminado las botellas Y recorrido el callejón que piden las reglas. */
+  /**
+   * true cuando ya se han eliminado las botellas Y recorrido el callejón que
+   * piden las reglas. Dentro del ayuntamiento, cuando no queda ni un segurata:
+   * se cuentan los que quedan, no las kills, así que mueren de uno en uno
+   * aunque un admin haya fijado otra cifra de enemigos.
+   */
   get waveCompleted(): boolean {
+    if (this.level.interior) return !this.enemies.some((enemy) => enemy.placed);
     const { killsToComplete, distanceToComplete } = this.rules;
     return this.kills >= killsToComplete && this.backgroundDistance >= distanceToComplete;
   }
@@ -257,14 +268,20 @@ export class GameSession {
   }
 
   get screenFade(): number {
-    if (this.fadeOutSteps > 0) return 1 - this.fadeOutSteps / FINALE.fadeSteps;
+    if (this.fadeOut) return 1 - this.fadeOut.steps / FINALE.fadeSteps;
     if (this.fadeInSteps > 0) return this.fadeInSteps / FINALE.fadeSteps;
+    if (this.blackedOut) return 1;
     return clamp((this.insideSteps - VANISH_STEPS) / FINALE.fadeSteps, 0, 1);
   }
 
-  /** Planta baja del ayuntamiento: la fiesta se acaba cuando sube al despacho (y no vuelve). */
-  get partyOver(): boolean {
-    return this.bossesSpawned;
+  /**
+   * Luces de discoteca de la planta baja: hasta que salta la alarma (con el
+   * combate se apagan, porque con ellas no se verían los disparos) y nunca
+   * más una vez que ha subido al despacho, aunque acabe con los seguratas
+   * antes de que salte: al volver, la fiesta se ha acabado.
+   */
+  get partyLights(): boolean {
+    return this.room === 'hall' && !this.alarmed && !this.bossesSpawned;
   }
 
   /** Si ahora se puede usar la chupa: según el nivel, siempre o solo contra los jefes. */
@@ -295,18 +312,17 @@ export class GameSession {
   step(input: InputState): void {
     if (this.currentStatus !== 'running') return;
     if (this.openDialog('opening')) return;
-    if (this.fadeOutSteps > 0) return this.fadeOut();
+    if (this.fadeOut) return this.stepFadeOut();
     if (this.fadeInSteps > 0) return this.fadeIn();
-    // Ya de vuelta en la planta baja: el último texto (si lo hay) y la victoria
-    if (this.ending) return this.openDialog('epilogue') ? undefined : this.win();
-    // También cuenta mientras pasa por una puerta: las bolas de discoteca siguen girando
+    if (this.ending) return this.leaveTheBuilding();
+    // También cuenta en las escenas sin combate: las bolas de discoteca siguen girando
     this.steps++;
     if (this.doorway) return this.walkThroughDoor();
+    if (this.walkOut) return this.stepWalkOut();
 
     this.moveEverything(input);
     this.spawn();
     this.spawnPickup();
-    this.throwHeals();
     this.resolveCollisions();
 
     // Limpieza: sin ella las listas crecerían sin parar y el juego iría cada vez más lento
@@ -336,17 +352,25 @@ export class GameSession {
 
   /**
    * Planta baja del ayuntamiento: los seguratas en su sitio (sin disparar
-   * hasta la alarma) y las chicas bailando. Cada uno empieza su baile en un
-   * momento distinto, para que no vayan todos a la vez.
+   * ni lanzar nada hasta la alarma) y las chicas bailando. Cada uno empieza
+   * su baile en un momento distinto, para que no vayan todos a la vez.
    */
   private setUpParty(): void {
     const { guards } = CITY_HALL.hall;
+    const { throwGap } = this.level.interior!;
     // Con el tipo general: en la config, con "as const", cada chica tiene el suyo
     // exacto, y solo la que sale por la puerta trae viaDoor
     const dancers: readonly HallDancer[] = CITY_HALL.hall.dancers;
     const offset = (index: number) => index * 5;
-    this.enemies = guards.map(({ look, x, y }, index) =>
-      Enemy.placed('guard', { x, y }, look, this.random, offset(index)),
+    this.enemies = guards.map(({ look, x, y, throws }, index) =>
+      Enemy.placed(
+        'guard',
+        { x, y },
+        look,
+        this.random,
+        { types: throws, gap: throwGap },
+        offset(index),
+      ),
     );
     this.dancers = dancers.map(
       ({ girl, x, y, exit, viaDoor }, index) =>
@@ -354,7 +378,10 @@ export class GameSession {
     );
   }
 
-  /** Salta la alarma (una vez): las chicas huyen y los seguratas empiezan a disparar. */
+  /**
+   * Salta la alarma (una vez): se apagan las luces (partyLights), las chicas
+   * huyen y los seguratas empiezan a disparar y a lanzar cosas.
+   */
   private raiseAlarm(): void {
     if (this.alarmed) return;
     this.alarmed = true;
@@ -387,6 +414,11 @@ export class GameSession {
     // Barriles, jefes y botellas lanzadas apuntan al centro del jugador
     const target = { x: player.x + player.width / 2, y: player.y + player.height / 2 };
     for (const enemy of this.enemies) this.enemyBullets.push(...enemy.update(target));
+    // Lo que lanzan los seguratas (se recoge aparte: no se añade a la lista mientras se recorre)
+    const thrown = this.enemies.map((enemy) =>
+      enemy.throwAt(target, this.random, rules.enemySpeed),
+    );
+    for (const thing of thrown) if (thing) this.enemies.push(thing);
     this.bosses.forEach((boss, index) => {
       const { bullets, bottles } = boss.update(target);
       this.enemyBullets.push(...bullets);
@@ -494,11 +526,12 @@ export class GameSession {
         }
       }
       // Contra los jefes: la bala se rompe aunque aún estén entrando (y sean
-      // invulnerables). Al que protegen otros no se le puede bajar de 1 de vida
+      // invulnerables). Al que protegen otros no le hace nada (ver guardedHit)
       for (const boss of this.bosses) {
         if (bullet.alive && intersects(bullet, boss)) {
           bullet.alive = false;
-          boss.hit(PLAYER_BULLET.damage, this.isGuarded(boss) ? 1 : 0);
+          if (this.isGuarded(boss)) this.guardedHit(boss);
+          else boss.hit();
         }
       }
       // La cerveza que va hacia el alcalde se puede romper antes de que le llegue
@@ -510,13 +543,10 @@ export class GameSession {
       }
     }
 
-    // La que llega al alcalde le cura (a quien la lanzan: el jefe protegido)
+    // La que le llega al alcalde, se la bebe
+    const drinker = this.bosses.find((boss) => this.isGuarded(boss));
     for (const heal of this.heals) {
-      const target = this.bosses.find((boss) => this.isGuarded(boss));
-      if (heal.alive && target && intersects(heal, target)) {
-        heal.alive = false;
-        target.heal(CITY_HALL.office.heal.amount);
-      }
+      if (heal.alive && drinker && intersects(heal, drinker)) heal.alive = false;
     }
 
     // La espuma la para la chupa (hasta que se empapa); si no, hace daño
@@ -565,21 +595,23 @@ export class GameSession {
   }
 
   /**
-   * Despacho: mientras al alcalde le falte vida y quede alguna chica, cada
-   * CITY_HALL.office.heal.gap pasos una de ellas (por turnos) le lanza una
-   * cerveza que le cura. Por eso hay que acabar antes con ellas.
+   * Han disparado a un jefe protegido (el alcalde): no le hace nada, y uno de
+   * sus protectores (por turnos) le lanza una cerveza "para curarle" mientras
+   * se lo grita (el renderer le pone el bocadillo). Como mucho una cada
+   * CITY_HALL.office.heal.cooldown pasos, para no llenar la sala de botellas.
    */
-  private throwHeals(): void {
-    const target = this.bosses.find((boss) => this.isGuarded(boss));
-    if (!target || target.isEntering || target.health >= target.maxHealth) return;
-    if (--this.healCooldown > 0) return;
-    const guardians = guardiansOf(target.id);
-    const helpers = this.bosses.filter((boss) => guardians.includes(boss.id) && !boss.isEntering);
+  private guardedHit(boss: Boss): void {
+    if (boss.isEntering || this.steps < this.healCooldown) return;
+    const guardians = guardiansOf(boss.id);
+    const helpers = this.bosses.filter(
+      (other) => guardians.includes(other.id) && !other.isEntering,
+    );
     const helper = helpers[this.healTurn++ % helpers.length];
     if (!helper) return;
-    this.healCooldown = CITY_HALL.office.heal.gap;
-    const center = (boss: Boss) => ({ x: boss.x + boss.width / 2, y: boss.y + boss.height / 2 });
-    this.heals.push(new HealingBeer(center(helper), center(target), CITY_HALL.office.heal.speed));
+    this.healCooldown = this.steps + CITY_HALL.office.heal.cooldown;
+    const center = (who: Boss) => ({ x: who.x + who.width / 2, y: who.y + who.height / 2 });
+    const { speed } = CITY_HALL.office.heal;
+    this.heals.push(new HealingBeer(center(helper), center(boss), speed, helper.id));
   }
 
   private countKill(enemy: Enemy): void {
@@ -607,9 +639,14 @@ export class GameSession {
     const won = this.level.bosses.length > 0 ? this.bossesDefeated : this.waveCompleted;
     if (won && this.openDialog('afterBosses')) return;
     const { exit } = this.rules;
-    // En el despacho: pantalla negra y de vuelta a la planta baja (ver goDownstairs)
-    if (won && this.room === 'office') this.startFadeOut();
-    else if (won && exit) this.startDoorway({ ...exit, next: 'victory' });
+    // En el despacho: baja solo por la alfombra hasta salir, negro y a la planta baja
+    if (won && this.room === 'office') {
+      this.clearScreen();
+      this.walkOut = {
+        target: CITY_HALL.office.exit,
+        then: () => this.startFadeOut(() => this.goDownstairs()),
+      };
+    } else if (won && exit) this.startDoorway({ ...exit, next: 'victory' });
     else if (won) this.win();
     else if (this.player.isDead) {
       this.setStatus('over');
@@ -635,29 +672,56 @@ export class GameSession {
     this.heals = [];
   }
 
-  /** La pantalla empieza a fundirse a negro (al vencer en el despacho). */
-  private startFadeOut(): void {
-    this.clearScreen();
-    this.fadeOutSteps = FINALE.fadeSteps;
+  /** Empieza un fundido a negro; ya en negro, pasa `then`. Mientras, nada se mueve. */
+  private startFadeOut(then: () => void): void {
+    this.fadeOut = { steps: FINALE.fadeSteps, then };
   }
 
-  /** Fundido a negro, paso a paso; ya en negro, a la planta baja. */
-  private fadeOut(): void {
-    this.fadeOutSteps--;
-    if (this.fadeOutSteps === 0) this.goDownstairs();
+  private stepFadeOut(): void {
+    const fade = this.fadeOut!;
+    if (--fade.steps > 0) return;
+    this.fadeOut = null;
+    this.blackedOut = true;
+    fade.then();
+  }
+
+  /** Paseo solo (escenas sin combate): anda hasta su destino y, al llegar, lo que toque. */
+  private stepWalkOut(): void {
+    const walk = this.walkOut!;
+    if (!this.player.walkTo(walk.target, FINALE.exitSpeed)) return;
+    this.walkOut = null;
+    walk.then();
   }
 
   /**
    * Vuelta a la planta baja tras vencer al alcalde: ya no hay nadie ni fiesta.
-   * Aparece abajo, la pantalla vuelve a verse y queda el último texto (ending).
+   * Aparece en lo alto de la escalera, por donde subió, y la pantalla vuelve a
+   * verse; después, su último texto y bajar la escalera (leaveTheBuilding).
    */
   private goDownstairs(): void {
     this.room = 'hall';
     this.field = CITY_HALL.hall.field;
     this.dancers = [];
-    this.placePlayerAtStart();
+    const { door } = CITY_HALL.hall;
+    this.player.x = door.x - this.player.width / 2;
+    this.player.y = door.y - this.player.height;
+    this.player.facing = 'abajo';
     this.ending = true;
+    this.blackedOut = false;
     this.fadeInSteps = FINALE.fadeSteps;
+  }
+
+  /**
+   * El final: el último texto (si lo hay) y, al cerrarlo, baja solo la
+   * escalera y la alfombra hasta salir por abajo; otro fundido y la victoria.
+   */
+  private leaveTheBuilding(): void {
+    if (this.openDialog('epilogue')) return;
+    this.ending = false;
+    this.walkOut = {
+      target: { x: CITY_HALL.hall.door.x, y: ARENA.height + this.player.height },
+      then: () => this.startFadeOut(() => this.win()),
+    };
   }
 
   /** Pone al protagonista abajo en el centro, mirando hacia delante, como al empezar. */

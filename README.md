@@ -176,7 +176,8 @@ por un punto fijo (el "ancla") y, si hace falta, los gira. Las herramientas comu
   esa pose mida lo mismo en el juego: el mismo personaje no cambia de tamaño al bailar, asustarse o huir.
   Las chicas del despacho, que son jefas, salen de las mismas tiras que las de la fiesta, pero más grandes.
 - Las **bolas de discoteca** y sus brillos son dos imágenes del mismo tamaño pensadas para ir una encima
-  de otra: se cortan en una rejilla de 4 columnas por la misma caja, para que sigan encajando.
+  de otra: se cortan en una rejilla de 4 columnas por la misma caja, para que sigan encajando. En el juego,
+  los brillos se dibujan más abajo, en el suelo (`sparklesDrop` en `CITY_HALL`).
 - Las cajas de colisión (`game/config.ts`) son más pequeñas que los dibujos: el cuerpo del jugador,
   la botella sin la espuma, el aro del abrechapas y la cabeza del chorro.
 
@@ -212,8 +213,9 @@ el menú los niveles bloqueados solo piden superar el anterior.
   sin perseguirle, y nunca a más de 55° de la vertical, salvo los barriles del **nivel 5** (de madera y de
   hierro, también los que lanza el primo), que disparan en **360°**: también de lado o hacia arriba si ya
   les ha pasado (`aimAround` en `ENEMY_TYPES`). Cada abrechapas quita **5 de vida** a un jefe (`PLAYER_BULLET.damage`).
-  Desde el **nivel 5** el protagonista dispara un **30 % más** (`playerFireRate` en `levels.ts`, que se
-  multiplica con el de la dificultad): de tanta cerveza de verdad se le pone el brazo fuerte.
+  Desde el **nivel 5** el protagonista **sube de nivel** y dispara un **30 % más** para el resto del juego
+  (`HERO_LEVEL_UPS` en `levels.ts`, que se multiplica con la dificultad): de tanta cerveza de verdad se le
+  pone el brazo fuerte. Una subida nueva es una línea más en esa lista.
 - **La chupa** (tecla **B**; `JACKET` en `game/config.ts`): en el nivel 3 solo contra el jefe y del 4 al 6
   durante todo el nivel (`jacket` en `levels.ts`). Manteniéndola, el jugador se tapa y la espuma no le hace daño, pero
   no puede moverse ni disparar. Si para **3 chorros seguidos** (sin pasar 1 s entre uno y otro) se empapa y
@@ -248,25 +250,30 @@ el menú los niveles bloqueados solo piden superar el anterior.
   salas fijas** (`interior` en `levels.ts`; `GameSession.room`):
   - **Planta baja**: hay fiesta. **Luces de discoteca** que cambian de color tiñen toda la sala (un
     velo de color en modo _overlay_, medio segundo por color: más deprisa podría provocar crisis a
-    personas con epilepsia fotosensible). Del techo cuelgan bolas de discoteca girando, con sus brillos
-    debajo, que se dibujan **encima de todo** (nada que pase por el suelo, ni la espuma, puede verse por
-    delante). Cuatro **seguratas** bailan repartidos por la sala (el 1 y el 3 en los laterales) y tres
-    chicas en medio. Al primer disparo (o a los 3 s) salta la **alarma**: las chicas se asustan y huyen
-    gritando en un **bocadillo de cómic** pixel (la 3 de lado hasta una **puerta** del lateral, que se abre
-    —se oscurece— mientras llega y se cierra cuando ha entrado; la 7 de espaldas escalera arriba y la 5,
-    que no tiene dibujo de huir, con sus poses de susto hacia un arco) y los seguratas disparan 3 chorros
-    en abanico cada 1,7 s. Aguantan 12 abrechapas y dan 100 puntos. Están en la mitad de arriba, donde el
-    jugador no llega: no caen ni se les puede empujar. No cae nada más.
+    personas con epilepsia fotosensible). Del techo cuelgan bolas de discoteca girando, que se dibujan
+    **encima de todo** (nada que pase por el suelo, ni la espuma, puede verse por delante); sus brillos
+    caen en el suelo, debajo de todo. Cuatro **seguratas** bailan repartidos por la sala (el 1 y el 3 en
+    los laterales) y tres chicas en medio. Al primer disparo (o a los 3 s) salta la **alarma**: se
+    **apagan las luces** (con ellas no se verían los disparos), las chicas se asustan y huyen gritando en un
+    **bocadillo de cómic** pixel (la 3 de lado hasta una **puerta** del lateral, que se abre —se oscurece—
+    mientras llega y se cierra cuando ha entrado; la 7 de espaldas escalera arriba y la 5, que no tiene
+    dibujo de huir, con sus poses de susto hacia un arco) y los seguratas disparan 3 chorros en abanico
+    cada 1,7 s y **lanzan algo** cada 2,5 s (`throwGap` en `levels.ts`): los de arriba, botellas; los de
+    los laterales, uno barriles de madera y el otro de hierro. Aguantan 12 abrechapas y dan 100 puntos.
+    Están en la mitad de arriba, donde el jugador no llega: no caen ni se les puede empujar. No cae nada
+    más. Se sube cuando no queda **ninguno**, de uno en uno, aunque un admin fije otra cifra de enemigos.
   - Sin seguratas, el protagonista **sube solo** por la escalera del centro (la misma escena de puerta que
     al entrar en el ayuntamiento en el nivel 5), la pantalla funde a negro y aparece en el **despacho**,
     que se ve poco a poco. Allí esperan una **chica** a cada lado (la rubia y la pelirroja), que bailan y
-    lanzan una botella cada 2,2 s, y el **alcalde**, que sale de detrás de su mesa (la rodea por la
-    derecha: mientras está detrás, la mesa le tapa de cintura para abajo) y se pone delante, en
-    calzoncillos, con ráfagas de 3 botellas. Los tres se turnan. Las chicas le **protegen**
-    (`guardedBy`): mientras vivan, no baja de 1 de vida y, si le falta, le lanzan **cerveza que le cura**
-    (`CITY_HALL.office.heal`; se puede romper de un abrechapas). Ninguno de los tres tiene furia.
-  - Al derrotarlos, la pantalla funde a negro y el protagonista aparece en la planta baja, ya vacía y sin
-    luces, para su último texto; después, la victoria.
+    lanzan una botella cada 2,2 s, y el **alcalde** delante de su mesa, en calzoncillos, que se mueve
+    deprisa de un lado a otro y lanza ráfagas de 3 botellas. Los tres se turnan y lo que lanzan va más
+    despacio que en la calle. Las chicas le **protegen** (`guardedBy` en `BOSS`, que vale para cualquier
+    jefe futuro): mientras vivan es **invulnerable** y, si se le dispara, una de ellas le lanza una
+    cerveza gritándole «¡Tome, alcalde, cúrese con esta cerveza!» (`CITY_HALL.office.heal`; se puede
+    romper de un abrechapas). Ninguno de los tres tiene furia.
+  - Al derrotarlos, el protagonista **baja solo por la alfombra** hasta salir por abajo, la pantalla funde
+    a negro y aparece en lo alto de la escalera de la planta baja, ya vacía y sin luces. Tras su último
+    texto **baja la escalera** hasta salir, otro fundido a negro y la victoria.
 
 - **Jefes**: al cumplir el objetivo entran los jefes del nivel (en el 4, dos a la vez) y **dejan de caer
   botellas** (en el 4 sigue llegando un barril pequeño cada 9 s en Normal: `bossFightEnemy` en `levels.ts`). Se quedan arriba moviéndose de pared a pared y atacan en ráfagas que apuntan al jugador: los
@@ -301,7 +308,7 @@ el menú los niveles bloqueados solo piden superar el anterior.
 
 - **Dificultad** (en _Opciones_; se recuerda en el navegador): _Fácil_, _Normal_ (el juego tal cual) y
   _Difícil_. Multiplica velocidad y ritmo de botellas, vida de los jefes, daño recibido, puntos
-  (×0,5 / ×1 / ×2), latas y **disparos del jugador** (~3,5 / 3 / 2,4 por segundo).
+  (×0,5 / ×1 / ×2), latas y **disparos del jugador** (~2,6 / 2,2 / 1,8 por segundo hasta el nivel 4).
   Valores: `packages/shared/src/difficulty.ts`.
 - Las reglas finales de una partida (nivel + dificultad + trucos de admin) se calculan en un único sitio:
   `game/rules.ts`.
@@ -342,8 +349,8 @@ La web imita a las recreativas, como el juego. Todo sale de los **design tokens*
   `font-synthesis: none` evita que el navegador se invente negritas que emborronan los píxeles.
 - **Nada redondo ni difuminado**: los radios valen 0, sin degradados, y las sombras son duras
   (`--shadow-pixel`). Todo mide múltiplos de `--pixel` (4 px).
-- **Marcos con las esquinas mordidas** (`--frame-primary`, `--frame-muted`...): cuatro `box-shadow`
-  desplazadas un píxel gordo, que no llegan a las diagonales. Van por fuera de la caja.
+- **Marcos pixel** (`--frame-primary`, `--frame-muted`...): un `box-shadow` sin difuminar con
+  _spread_ de un píxel gordo. Van por fuera de la caja, así que no la cambian de tamaño.
 - **Botones como teclas de recreativa**: relieve (`--bevel-*`) que se invierte al pulsarlos, y se
   hunden un píxel gordo. Las casillas de texto, al revés: hundidas.
 - **Animaciones a saltos** (`--transition` usa `steps()`), como un sprite que cambia de frame.

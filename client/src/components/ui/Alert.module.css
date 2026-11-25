@@ -16,14 +16,9 @@
 }
 
 .success {
-  --color-ok: var(--color-success);
   background-color: rgba(0, 200, 0, 0.12);
   color: #7aff7a;
-  box-shadow:
-    0 calc(var(--pixel) * -1) 0 0 var(--color-ok),
-    0 var(--pixel) 0 0 var(--color-ok),
-    calc(var(--pixel) * -1) 0 0 0 var(--color-ok),
-    var(--pixel) 0 0 0 var(--color-ok);
+  box-shadow: var(--frame-success);
 }
 
 .alert a {

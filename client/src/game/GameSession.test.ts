@@ -8,11 +8,13 @@ import {
   DIFFICULTIES,
   ENEMY_POINTS,
   getLevel,
+  heroFireRate,
   POINTS_PER_KILL,
   type GameModifiers,
 } from '@pijobeer/shared';
 import { describe, expect, it, vi } from 'vitest';
 import {
+  ARENA,
   BOSS,
   BOSS_COMMON,
   CAMERA,
@@ -27,12 +29,12 @@ import {
   PLAYER,
   PLAYER_BULLET,
 } from './config';
-import type { Boss } from './entities/Boss';
 import { Bullet } from './entities/Bullet';
 import { Enemy } from './entities/Enemy';
 import { Pickup } from './entities/Pickup';
 import { Player } from './entities/Player';
 import { GameSession, type GameSessionOptions } from './GameSession';
+import { intersects } from './geometry';
 import { IDLE_FRAME } from './sprites/playerSprite';
 import { fakeInput, fixedRandom, run } from './testing';
 
@@ -220,13 +222,13 @@ describe('aparición de botellas y progresión', () => {
     expect(session(3, { modifiers: withModifiers({ killsToComplete: 5 }) }).rules.killGoal).toBe(5);
   });
 
-  it('se dispara menos cuanto más difícil (~3,5 / 3 / 2,4 disparos por segundo)', () => {
+  it('se dispara menos cuanto más difícil (~2,6 / 2,2 / 1,8 disparos por segundo)', () => {
     const shotsPerSecond = (difficulty: 'easy' | 'normal' | 'hard') =>
       60 / session(1, { difficulty }).rules.shootCooldown;
-    // En fácil la espera se redondea a pasos enteros (17), así que no es exactamente 3,6
-    expect(shotsPerSecond('easy')).toBeCloseTo(3.5, 1);
-    expect(shotsPerSecond('normal')).toBe(3);
-    expect(shotsPerSecond('hard')).toBe(2.4);
+    // La espera se redondea a pasos enteros (23 / 27 / 34), así que las cifras son aproximadas
+    expect(shotsPerSecond('easy')).toBeCloseTo(2.6, 1);
+    expect(shotsPerSecond('normal')).toBeCloseTo(2.2, 1);
+    expect(shotsPerSecond('hard')).toBeCloseTo(1.8, 1);
   });
 });
 
@@ -836,27 +838,21 @@ describe('nivel 4', () => {
 describe('nivel 6', () => {
   const hall = CITY_HALL.hall;
   const { office } = CITY_HALL;
+  const guardsLeft = (game: GameSession) => game.enemies.filter((enemy) => enemy.placed);
 
-  /** Un abrechapas encima de cada segurata en cada paso, hasta acabar con los cuatro. */
+  /** Un abrechapas encima de cada segurata en cada paso, hasta acabar con todos. */
   function clearHall(game: GameSession) {
-    for (let i = 0; i < 200 && game.kills < hall.guards.length; i++) {
-      for (const enemy of game.enemies) {
-        const x = enemy.x + enemy.width / 2 - PLAYER_BULLET.width / 2;
-        game.playerBullets.push(new Bullet(x, enemy.y + enemy.height / 2, 0, PLAYER_BULLET));
-      }
+    for (let i = 0; i < 300 && guardsLeft(game).length > 0; i++) {
+      for (const guard of guardsLeft(game)) shoot(game, guard);
       game.step(fakeInput());
     }
   }
 
-  /** Nivel 6 ya en el despacho, con la sala a la vista y el alcalde ya delante de su mesa. */
+  /** Nivel 6 ya en el despacho, con la sala a la vista (y su texto cerrado, si lo hay). */
   function inOffice(options: Partial<GameSessionOptions> = {}) {
     const game = session(6, { modifiers: withModifiers({ invincible: true }), ...options });
     clearHall(game);
-    const ready = () =>
-      game.room === 'office' &&
-      game.screenFade === 0 &&
-      game.bosses.every((boss) => !boss.isEntering);
-    for (let i = 0; i < 3000 && !ready(); i++) {
+    for (let i = 0; i < 3000 && (game.room !== 'office' || game.screenFade > 0); i++) {
       game.step(fakeInput());
       if (game.status === 'dialog') game.closeDialog();
     }
@@ -865,22 +861,27 @@ describe('nivel 6', () => {
 
   const byId = (game: GameSession, id: string) => game.bosses.find((boss) => boss.id === id)!;
 
-  /** Un abrechapas que da de lleno a un jefe en el siguiente paso. */
-  function shoot(game: GameSession, boss: Boss) {
-    const x = boss.x + boss.width / 2 - PLAYER_BULLET.width / 2;
-    game.playerBullets.push(new Bullet(x, boss.y + boss.height / 2, 0, PLAYER_BULLET));
+  /** Un abrechapas que da de lleno a algo (un segurata, un jefe, una cerveza) en el siguiente paso. */
+  function shoot(
+    game: GameSession,
+    target: { x: number; y: number; width: number; height: number },
+  ) {
+    const x = target.x + target.width / 2 - PLAYER_BULLET.width / 2;
+    game.playerBullets.push(new Bullet(x, target.y + target.height / 2, 0, PLAYER_BULLET));
   }
 
-  it('empieza en la planta baja: cuatro seguratas quietos en su sitio, nada que caiga y tres chicas bailando', () => {
+  it('empieza en la planta baja: cuatro seguratas quietos en su sitio, nada que caiga, luces y tres chicas bailando', () => {
     const game = session(6);
     expect(game.room).toBe('hall');
     expect(game.field).toEqual(hall.field);
+    expect(game.partyLights).toBe(true);
+    expect(game.rules.killGoal).toBeNull();
     expect(game.enemies.map((enemy) => enemy.type)).toEqual(hall.guards.map(() => 'guard'));
     expect(game.dancers.map((dancer) => dancer.action)).toEqual(['dance', 'dance', 'dance']);
     const where = () => game.enemies.map((enemy) => [enemy.x, enemy.y]);
     const before = where();
 
-    // Antes de la alarma: ni cae nada, ni disparan, ni se avanza aunque se pulse W
+    // Antes de la alarma: ni cae nada, ni disparan ni lanzan, ni se avanza aunque se pulse W
     run(game, hall.alarmSteps - 1, fakeInput('up'));
     expect(where()).toEqual(before);
     expect(game.enemies).toHaveLength(hall.guards.length);
@@ -890,9 +891,10 @@ describe('nivel 6', () => {
     expect(game.dancers.some((dancer) => dancer.isShouting)).toBe(false);
   });
 
-  it('al primer disparo salta la alarma: las chicas gritan y huyen, y los seguratas disparan', () => {
+  it('al primer disparo salta la alarma: se apagan las luces, las chicas gritan y huyen, y los seguratas disparan', () => {
     const game = session(6, { modifiers: withModifiers({ invincible: true }) });
     game.step(fakeInput('shoot'));
+    expect(game.partyLights).toBe(false);
     expect(game.dancers.every((dancer) => dancer.action === 'scared')).toBe(true);
     expect(game.dancers.every((dancer) => dancer.isShouting)).toBe(true);
 
@@ -906,6 +908,25 @@ describe('nivel 6', () => {
     // Llegan a su salida, desaparecen y se retiran
     expect(game.dancers).toHaveLength(0);
     expect(shots).toBeGreaterThan(0);
+  });
+
+  it('los seguratas lanzan cosas: los de arriba, botellas; los de los laterales, cada uno su barril', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
+    // Sin alarma no lanzan nada
+    run(game, hall.alarmSteps - 1);
+    expect(game.enemies.some((enemy) => enemy.thrown)).toBe(false);
+
+    game.step(fakeInput('shoot'));
+    const thrown = new Set<string>();
+    for (let i = 0; i < getLevel(6).interior!.throwGap * 2; i++) {
+      game.step(fakeInput());
+      for (const enemy of game.enemies) if (enemy.thrown) thrown.add(enemy.type);
+      // Se retiran para que no le den: aquí solo se mira qué lanzan
+      game.enemies = game.enemies.filter((enemy) => !enemy.thrown);
+    }
+    expect(thrown).toContain('woodBarrel');
+    expect(thrown).toContain('ironBarrel');
+    expect([...thrown].some((type) => ['normal', 'fast', 'heavy'].includes(type))).toBe(true);
   });
 
   it('la chica 3 sale por la puerta del lateral: se abre al llegar ella y se cierra después', () => {
@@ -923,7 +944,6 @@ describe('nivel 6', () => {
     expect(opening[0]).toBe(0);
     expect(Math.max(...opening)).toBe(1);
     expect(opening.at(-1)).toBeLessThan(0.1);
-    // Las demás no tienen puerta
     expect(game.dancers.every((dancer) => dancer.doorOpen === 0)).toBe(true);
   });
 
@@ -945,16 +965,27 @@ describe('nivel 6', () => {
     expect(game.kills).toBe(0);
   });
 
-  it('sin seguratas, sube solo por la escalera y aparece en el despacho, con los jefes esperando', () => {
+  it('mueren de uno en uno: aunque un admin fije 1 enemigo, no se sube hasta acabar con los cuatro', () => {
+    const game = session(6, { modifiers: withModifiers({ invincible: true, killsToComplete: 1 }) });
+    const [first] = game.enemies;
+    for (let i = 0; i < 200 && first!.alive; i++) {
+      shoot(game, first!);
+      game.step(fakeInput());
+    }
+    run(game, 10);
+    expect(game.room).toBe('hall');
+    expect(guardsLeft(game)).toHaveLength(hall.guards.length - 1);
+  });
+
+  it('sin seguratas, sube solo por la escalera y aparece en el despacho, con los jefes ya en su puesto', () => {
     const game = session(6, { modifiers: withModifiers({ invincible: true }) });
     clearHall(game);
-    expect(game.points).toBe(hall.guards.length * ENEMY_POINTS.guard);
+    expect(game.points).toBeGreaterThanOrEqual(hall.guards.length * ENEMY_POINTS.guard);
 
     // Sube solo hasta lo alto de la escalera (lo que se pulse no cuenta) y desaparece
     let steps = 0;
     while (game.room === 'hall' && steps++ < 2000) game.step(fakeInput('down', 'shoot'));
     expect(game.room).toBe('office');
-    expect(game.partyOver).toBe(true);
     expect(game.playerBullets).toHaveLength(0);
     // Llega con la pantalla en negro, abajo, en la entrada
     expect(game.screenFade).toBe(1);
@@ -962,49 +993,19 @@ describe('nivel 6', () => {
     const start = Player.spawn();
     expect([game.player.x, game.player.y]).toEqual([start.x, start.y]);
 
-    // Las chicas, ya en su puesto; el alcalde, detrás de su mesa
+    // Todos ya en su puesto (el alcalde, delante de su mesa): nadie entra ni se mueve mientras se ve la sala
     expect(game.bosses.map((boss) => boss.id)).toEqual(['mayor', 'blonde', 'redhead']);
-    for (const id of ['blonde', 'redhead'] as const) {
-      const boss = byId(game, id);
+    for (const boss of game.bosses) {
       expect(boss.isEntering).toBe(false);
-      expect(boss.feet.y).toBe(office.posts[id]!.feetY);
+      expect(boss.feet.y).toBe(office.posts[boss.id]!.feetY);
     }
-    const mayor = byId(game, 'mayor');
-    expect(mayor.isEntering).toBe(true);
-    expect(mayor.feet).toEqual(office.posts.mayor!.from);
-
-    // La sala se ve poco a poco y, mientras, nada se mueve
+    const where = () => game.bosses.map((boss) => boss.x);
+    const before = where();
     run(game, FINALE.fadeSteps - 1);
     expect(game.screenFade).toBeGreaterThan(0);
-    expect(mayor.feet).toEqual(office.posts.mayor!.from);
+    expect(where()).toEqual(before);
     run(game, 1);
     expect(game.screenFade).toBe(0);
-  });
-
-  it('el alcalde sale de detrás de la mesa y se pone delante; mientras, no se le puede dañar', () => {
-    const game = session(6, { modifiers: withModifiers({ invincible: true }) });
-    clearHall(game);
-    for (let i = 0; i < 2000 && (game.room !== 'office' || game.screenFade > 0); i++) {
-      game.step(fakeInput());
-    }
-    const mayor = byId(game, 'mayor');
-    const { desk } = office;
-    let leftDesk = false;
-    for (let i = 0; i < 1000 && mayor.isEntering; i++) {
-      shoot(game, mayor);
-      game.step(fakeInput());
-      // Por detrás de la mesa solo pasa mientras está a su altura: sale por un lado, no la atraviesa
-      if (mayor.feet.y > desk.back) leftDesk ||= mayor.x >= desk.right;
-      if (mayor.feet.y > desk.back && mayor.feet.y < desk.front) {
-        expect(mayor.x >= desk.right || mayor.x + mayor.width <= desk.left).toBe(true);
-      }
-    }
-    expect(leftDesk).toBe(true);
-    expect(mayor.isEntering).toBe(false);
-    expect(mayor.feet.y).toBe(office.posts.mayor!.feetY);
-    expect(mayor.feet.y).toBeGreaterThan(desk.front);
-    // Como mucho, el abrechapas que le llega justo en el paso en que acaba de colocarse
-    expect(mayor.health).toBeGreaterThanOrEqual(mayor.maxHealth - PLAYER_BULLET.damage);
   });
 
   it('con texto antes de los jefes, sale al acabar de verse el despacho (y no al subir)', () => {
@@ -1022,43 +1023,39 @@ describe('nivel 6', () => {
     expect(game.screenFade).toBe(0);
   });
 
-  it('mientras vivan sus chicas, al alcalde no se le puede bajar de 1 de vida y ellas le curan', () => {
+  it('mientras vivan sus chicas el alcalde es invulnerable; si se le dispara, una le lanza una cerveza', () => {
     const game = inOffice();
     const mayor = byId(game, 'mayor');
-    for (let i = 0; i < 200; i++) {
+    let heals = 0;
+    for (let i = 0; i < 300; i++) {
       shoot(game, mayor);
       game.step(fakeInput());
+      heals = Math.max(heals, game.heals.length);
     }
-    expect(mayor.health).toBeGreaterThanOrEqual(1);
-    expect(game.bosses).toContain(mayor);
-
-    // Sin dispararle, las chicas le lanzan cerveza y le curan
-    const hurt = mayor.health;
-    let thrown = 0;
-    for (let i = 0; i < office.heal.gap * 3; i++) {
-      game.step(fakeInput());
-      thrown = Math.max(thrown, game.heals.length);
-    }
-    expect(thrown).toBeGreaterThan(0);
-    expect(mayor.health).toBeGreaterThan(hurt);
+    expect(mayor.health).toBe(mayor.maxHealth);
+    expect(heals).toBeGreaterThan(0);
+    // La lanza una de sus chicas (y así el renderer sabe a quién ponerle el bocadillo)
+    const thrower = game.heals[0]?.thrower ?? 'blonde';
+    expect(['blonde', 'redhead']).toContain(thrower);
   });
 
-  it('la cerveza que le cura se puede romper de un abrechapas', () => {
+  it('la cerveza para el alcalde se puede romper de un abrechapas', () => {
     const game = inOffice();
     const mayor = byId(game, 'mayor');
-    mayor.hit(PLAYER_BULLET.damage * 10, 1);
-    const hurt = mayor.health;
-    for (let i = 0; i < office.heal.gap * 3; i++) {
-      for (const heal of game.heals) {
-        const x = heal.x + heal.width / 2 - PLAYER_BULLET.width / 2;
-        game.playerBullets.push(new Bullet(x, heal.y + heal.height / 2, 0, PLAYER_BULLET));
-      }
+    shoot(game, mayor);
+    game.step(fakeInput());
+    expect(game.heals).toHaveLength(1);
+    // Nace encima de la chica que la lanza: hasta que no se separa de ella, la bala le daría a ella
+    const heal = game.heals[0]!;
+    for (let i = 0; i < 100 && game.bosses.some((boss) => intersects(heal, boss)); i++) {
       game.step(fakeInput());
     }
-    expect(mayor.health).toBe(hurt);
+    shoot(game, heal);
+    game.step(fakeInput());
+    expect(game.heals).toHaveLength(0);
   });
 
-  it('sin sus chicas, el alcalde ya puede caer; ni ellas ni él se enfurecen', () => {
+  it('sin sus chicas, el alcalde ya cae; ni ellas ni él se enfurecen', () => {
     const game = inOffice();
     for (const id of ['blonde', 'redhead'] as const) {
       const girl = byId(game, id);
@@ -1069,6 +1066,9 @@ describe('nivel 6', () => {
     }
     expect(game.bosses.map((boss) => boss.id)).toEqual(['mayor']);
     const mayor = byId(game, 'mayor');
+    shoot(game, mayor);
+    game.step(fakeInput());
+    expect(mayor.health).toBe(mayor.maxHealth - PLAYER_BULLET.damage);
     while (mayor.health > PLAYER_BULLET.damage) mayor.hit();
     expect(mayor.isEnraged).toBe(false);
     shoot(game, mayor);
@@ -1096,7 +1096,7 @@ describe('nivel 6', () => {
     expect([...throwers].sort()).toEqual(['blonde', 'mayor', 'redhead']);
   });
 
-  it('al derrotarlos: su texto, pantalla negra, de vuelta en la planta baja, el último texto y la victoria', () => {
+  it('al vencer: su texto, baja solo por la alfombra, negro, aparece arriba de la escalera, el último texto, baja y la victoria', () => {
     const onVictory = vi.fn();
     const onDialog = vi.fn();
     const game = inOffice({
@@ -1109,39 +1109,54 @@ describe('nivel 6', () => {
     expect(onDialog).toHaveBeenLastCalledWith('afterBosses');
     game.closeDialog();
 
-    // Funde a negro en el despacho (empieza en el paso siguiente a cerrar el texto)...
-    run(game, FINALE.fadeSteps);
+    // Baja solo (lo que se pulse no cuenta) por el centro hasta salir por abajo
+    const feet = () => ({
+      x: game.player.x + game.player.width / 2,
+      y: game.player.y + game.player.height,
+    });
+    let steps = 0;
+    while (game.screenFade === 0 && steps++ < 1000) game.step(fakeInput('up', 'shoot'));
     expect(game.room).toBe('office');
-    expect(game.screenFade).toBeGreaterThan(0.9);
-    // ...y aparece abajo, en la planta baja vacía y sin fiesta, mientras vuelve a verse
-    run(game, 1);
-    expect(game.room).toBe('hall');
+    expect(feet()).toEqual(office.exit);
+    expect(game.playerBullets).toHaveLength(0);
+
+    // Negro y, ya en negro, a la planta baja: en lo alto de la escalera, sin nadie y sin luces
+    while (game.room === 'office' && steps++ < 1000) game.step(fakeInput());
     expect(game.screenFade).toBe(1);
-    expect(game.partyOver).toBe(true);
+    expect(feet()).toEqual(hall.door);
+    expect(game.partyLights).toBe(false);
     expect([game.enemies, game.dancers, game.bosses]).toEqual([[], [], []]);
     run(game, FINALE.fadeSteps);
     expect(game.screenFade).toBe(0);
 
-    // El último texto y, al cerrarlo, la victoria
+    // El último texto; al cerrarlo, baja la escalera hasta salir, otro fundido y la victoria
     game.step(fakeInput());
     expect(onDialog).toHaveBeenLastCalledWith('epilogue');
-    expect(onVictory).not.toHaveBeenCalled();
     game.closeDialog();
-    game.step(fakeInput());
+    while (game.status === 'running' && steps++ < 2000) game.step(fakeInput('up'));
     expect(game.status).toBe('victory');
     expect(onVictory).toHaveBeenCalledTimes(1);
+    expect(feet().y).toBeGreaterThan(ARENA.height);
+    // Y la pantalla se queda en negro detrás del menú de victoria
+    expect(game.screenFade).toBe(1);
     const bosses = BOSS_POINTS.mayor + BOSS_POINTS.blonde + BOSS_POINTS.redhead;
-    expect(game.points).toBe(hall.guards.length * ENEMY_POINTS.guard + bosses);
+    expect(game.points).toBeGreaterThanOrEqual(hall.guards.length * ENEMY_POINTS.guard + bosses);
   });
 });
 
 describe('ritmo de disparo del jugador', () => {
-  it('desde el nivel 5 dispara más que antes (en cualquier dificultad)', () => {
+  it('dispara cada PLAYER.shootCooldown pasos en Normal hasta el nivel 4', () => {
+    expect(session(1).rules.shootCooldown).toBe(PLAYER.shootCooldown);
+    expect(session(4).rules.shootCooldown).toBe(PLAYER.shootCooldown);
+  });
+
+  it('desde el nivel 5 sube de nivel y dispara más (en cualquier dificultad), y se le queda', () => {
+    expect(heroFireRate(4)).toBe(1);
+    expect(heroFireRate(5)).toBeGreaterThan(1);
     for (const difficulty of ['easy', 'normal', 'hard'] as const) {
       const cooldown = (levelId: number) => session(levelId, { difficulty }).rules.shootCooldown;
       expect(cooldown(5)).toBeLessThan(cooldown(4));
       expect(cooldown(6)).toBe(cooldown(5));
-      expect(cooldown(4)).toBe(cooldown(1));
     }
   });
 });

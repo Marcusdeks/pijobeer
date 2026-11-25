@@ -13,6 +13,7 @@ import {
   DEFAULT_GAME_MODIFIERS,
   DIFFICULTIES,
   getLevel,
+  heroFireRate,
   type DifficultyId,
   type EnemyTypeId,
   type GameModifiers,
@@ -89,13 +90,19 @@ export function resolveRules(
     field,
     bossField: exit ? { ...field, right: FINALE.truck.x - FINALE.truckGap } : field,
     killsToComplete: modifiers.killsToComplete ?? level.killsToComplete,
-    killGoal: modifiers.killsToComplete ?? (level.id === 1 ? level.killsToComplete : null),
+    // Dentro del ayuntamiento no se enseña: lo que cuenta son los seguratas que quedan
+    killGoal: level.interior
+      ? null
+      : (modifiers.killsToComplete ?? (level.id === 1 ? level.killsToComplete : null)),
     // Si un admin fija las botellas, ese es el objetivo entero: así puede probar el jefe sin esperar
     distanceToComplete: modifiers.killsToComplete === null ? level.distanceToComplete : 0,
     // La calle mide lo mismo con o sin trucos: es el dibujo
     cameraEnd: exit && level.distanceToComplete,
     exit,
-    shootCooldown: Math.round(PLAYER.shootCooldown / (difficulty.fireRate * level.playerFireRate)),
+    // La dificultad y las subidas de nivel del protagonista (HERO_LEVEL_UPS) se multiplican
+    shootCooldown: Math.round(
+      PLAYER.shootCooldown / (difficulty.fireRate * heroFireRate(level.id)),
+    ),
     spawnInterval: level.spawnInterval === null ? null : intervalFor(level.spawnInterval),
     bossFightEnemy: level.bossFightEnemy && {
       type: level.bossFightEnemy.type,

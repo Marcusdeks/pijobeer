@@ -92,7 +92,8 @@
       "girl3": "Help, a metalhead!",
       "girl5": "I bet he hasn't showered!",
       "girl7": "Gross! He wears a Thrasher vest!"
-    }
+    },
+    "healShout": "Here, Mr. Mayor, this beer will patch you up!"
   },
   "options": {
     "title": "Options",

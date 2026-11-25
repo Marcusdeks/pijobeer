@@ -1,14 +1,17 @@
 /**
- * CERVEZA QUE CURA: la que lanzan las chicas del despacho (nivel 6) a su
- * alcalde cuando le falta vida (ver CITY_HALL.office.heal).
+ * CERVEZA "QUE CURA": la que una chica del despacho (nivel 6) le lanza a su
+ * alcalde cuando se le dispara, gritándole que se cure (ver
+ * CITY_HALL.office.heal). Mientras ellas vivan él es invulnerable, así que la
+ * cerveza es el aviso de que hay que ir antes a por ellas.
  *
  * Va recta hacia donde estaba él al lanzarla, sin cambiar de rumbo (como todo
- * lo que se lanza en el juego). Si le llega, le cura; si el jugador la rompe
- * antes de un abrechapas, no. Al jugador no le hace nada: no es para él.
+ * lo que se lanza en el juego). Si le llega, se la bebe; el jugador la puede
+ * romper antes de un abrechapas. Al jugador no le hace nada: no es para él.
  *
  * No es un Enemy: ni dispara, ni da puntos, ni hace daño. Mezclarla con los
  * enemigos obligaría a llenar Enemy de excepciones; así cada clase hace una cosa.
  */
+import type { BossId } from '@pijobeer/shared';
 import { ARENA, ENEMY } from '../config';
 import { directionDegrees, velocityAt, type Point, type Rect } from '../geometry';
 
@@ -28,8 +31,14 @@ export class HealingBeer implements Rect {
    * @param from - de dónde sale (las manos de la chica)
    * @param target - a dónde va (el centro del alcalde)
    * @param speed - píxeles por paso
+   * @param thrower - quién la lanza (el renderer le pone encima el bocadillo)
    */
-  constructor(from: Point, target: Point, speed: number) {
+  constructor(
+    from: Point,
+    target: Point,
+    speed: number,
+    readonly thrower: BossId,
+  ) {
     this.x = from.x - this.width / 2;
     this.y = from.y - this.height / 2;
     // En cualquier dirección: el alcalde puede estar a un lado, más abajo o más arriba

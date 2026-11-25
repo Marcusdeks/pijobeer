@@ -3,7 +3,7 @@
  *
  * Todos llevan letra pixel y cambian a saltos (--transition usa steps). Los
  * rellenos tienen relieve (--bevel-*: luz arriba a la izquierda, sombra
- * abajo a la derecha) y un marco negro con las esquinas mordidas (--frame-dark).
+ * abajo a la derecha) y un marco negro (--frame-dark).
  * Al pulsarlos, la tecla "se hunde": baja un píxel gordo y el relieve se
  * invierte. Todo con box-shadow, que no ocupa sitio: el botón no cambia de
  * tamaño ni empuja nada al animarse.

@@ -1,6 +1,6 @@
 /*
  * PANEL: una "ventana" de juego retro. Fondo plano, marco pixel por fuera
- * (--frame-*: esquinas mordidas) y sombra dura, como un sprite levantado.
+ * (--frame-*) y sombra dura, como un sprite levantado.
  */
 .panel {
   background-color: var(--color-surface);

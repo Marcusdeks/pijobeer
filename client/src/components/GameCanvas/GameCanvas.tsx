@@ -153,6 +153,7 @@ export function GameCanvas({
       gameOver: t('play.gameOver'),
       bossName: (id, count) => t(`play.bosses.${id}`, { count }),
       shout: (girl) => t(`play.shouts.girl${girl}`),
+      healShout: t('play.healShout'),
     };
   }, [t]);
 

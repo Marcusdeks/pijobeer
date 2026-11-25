@@ -4,9 +4,9 @@
  *
  *   1. ENTRADA: baja desde fuera de la pantalla hasta BOSS_COMMON.holdY. Mientras
  *      entra ni ataca ni se le puede dañar (aún no ha empezado el combate).
- *      Los que tienen puesto fijo (post: los del despacho) ya están en él o,
- *      como el alcalde, van andando hasta él (de detrás de su mesa a delante).
- *      Las dos cosas son lo mismo: una RUTA de puntos que recorre antes de pelear.
+ *      La entrada es una RUTA de puntos que recorre antes de pelear (bajar es
+ *      una ruta de un punto). Los que tienen puesto fijo (post: los del
+ *      despacho) ya están en él: su ruta está vacía.
  *   2. COMBATE: se queda a esa altura (no avanza hacia el jugador), va de pared
  *      a pared (o de un lado a otro de su puesto) y ataca en RÁFAGAS (ver BOSS en config.ts). Mientras ataca se
  *      para (ver isAttacking):
@@ -141,12 +141,10 @@ export class Boss implements Rect {
     this.bottleSpeedScale = bottleSpeedScale;
     this.nextThrow = this.pickThrow();
     if (post) {
-      // Su sitio, en el centro de su puesto. Si empieza en otro lado (from),
-      // va hasta él pasando por `via`; si no, ya está ahí
+      // Ya en el centro de su puesto: no hay entrada
       this.field = post.field;
-      const home = { x: (post.field.left + post.field.right) / 2, y: post.feetY };
-      this.placeFeet(post.from ?? home);
-      this.route = post.from ? [...(post.via ?? []), home] : [];
+      this.placeFeet({ x: (post.field.left + post.field.right) / 2, y: post.feetY });
+      this.route = [];
     } else {
       // Repartidos a lo ancho (uno solo, centrado) y por encima del borde superior: entran bajando
       this.field = field;
@@ -281,12 +279,11 @@ export class Boss implements Rect {
   /**
    * Recibe un abrechapas. Mientras entra es invulnerable.
    * @param damage - vida que quita (por defecto, la de un abrechapas)
-   * @param minHealth - de aquí no baja (1 = no puede morir: el alcalde mientras le protegen sus chicas)
    * @returns true si el impacto ha contado
    */
-  hit(damage: number = PLAYER_BULLET.damage, minHealth = 0): boolean {
+  hit(damage: number = PLAYER_BULLET.damage): boolean {
     if (this.isEntering || this.isDead) return false;
-    this.health = Math.max(Math.min(minHealth, this.health), this.health - damage);
+    this.health = Math.max(0, this.health - damage);
     this.flashSteps = HIT_FLASH_STEPS;
     return true;
   }
@@ -299,14 +296,6 @@ export class Boss implements Rect {
     if (this.contactCooldown > 0 || this.isEntering) return false;
     this.contactCooldown = BOSS_COMMON.contactCooldown;
     return true;
-  }
-
-  /**
-   * Cura (la cerveza que le lanzan sus chicas al alcalde), sin pasar de su
-   * vida máxima. Muerto, ya no hay nada que curar.
-   */
-  heal(amount: number): void {
-    if (!this.isDead) this.health = Math.min(this.maxHealth, this.health + amount);
   }
 
   /** Pone sus pies en `point` (el centro de la base de su caja). */

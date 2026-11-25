@@ -113,8 +113,12 @@ export function maxPointsFor(levelId: number, seconds: number): number {
     const bestEnemy = Math.max(...mix.map((type) => ENEMY_POINTS[type]));
     points += times(spawnEvery(level.spawnInterval)) * bestEnemy;
   }
-  // Los seguratas del ayuntamiento: los que hay, ni uno más
-  if (level.interior) points += level.interior.guards * ENEMY_POINTS.guard;
+  // Los seguratas del ayuntamiento: los que hay, ni uno más, y lo que lanzan
+  // (como mucho, cada uno algo del valor de un barril de hierro cada throwGap pasos)
+  if (level.interior) {
+    const { guards, throwGap } = level.interior;
+    points += guards * (ENEMY_POINTS.guard + times(throwGap) * ENEMY_POINTS.ironBarrel);
+  }
 
   if (level.bossFightEnemy) {
     const { type, spawnInterval } = level.bossFightEnemy;

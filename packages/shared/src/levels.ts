@@ -45,10 +45,12 @@ export interface LevelDefinition {
   /**
    * Niveles dentro del ayuntamiento (el 6), en salas fijas que no avanzan.
    * Se empieza en la planta baja con `guards` seguratas ya colocados: hay que
-   * eliminarlos a todos (son las kills del nivel) para subir al despacho del
-   * alcalde, donde esperan los jefes. null = nivel de calle.
+   * eliminarlos a todos, de uno en uno, para subir al despacho del alcalde,
+   * donde esperan los jefes. Cada segurata, además de disparar, lanza algo
+   * cada `throwGap` pasos (botellas o barriles: ver CITY_HALL en el cliente).
+   * null = nivel de calle.
    */
-  readonly interior: { readonly guards: number } | null;
+  readonly interior: { readonly guards: number; readonly throwGap: number } | null;
   /**
    * Botellas que hay que eliminar. Sin jefe, al conseguirlo se gana el nivel.
    * Con jefe, al conseguirlo dejan de salir botellas y aparece el jefe.
@@ -73,13 +75,6 @@ export interface LevelDefinition {
   readonly bossFightEnemy: { readonly type: EnemyTypeId; readonly spawnInterval: number } | null;
   /** Desde cuándo puede protegerse el jugador con la chupa (tecla B) en este nivel. */
   readonly jacket: JacketAvailability;
-  /**
-   * Multiplicador de los disparos del jugador en este nivel (1 = el ritmo de
-   * siempre; 1,3 = un 30 % más). Desde el nivel 5 el protagonista dispara
-   * más: se le está poniendo el brazo fuerte de tanta cerveza de verdad.
-   * Se multiplica con el de la dificultad (fireRate en difficulty.ts).
-   */
-  readonly playerFireRate: number;
   /**
    * Pasos entre la aparición de una botella y la siguiente (60 pasos = 1 s).
    * null = no cae nada (dentro del ayuntamiento, los enemigos ya están en la sala).
@@ -109,7 +104,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     bosses: [],
     bossFightEnemy: null,
     jacket: 'never',
-    playerFireRate: 1,
     spawnInterval: 90,
     enemySpeed: 1,
     enemyMix: { normal: 1 },
@@ -124,7 +118,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     bosses: ['wood'],
     bossFightEnemy: null,
     jacket: 'never',
-    playerFireRate: 1,
     spawnInterval: 70,
     enemySpeed: 1.15,
     enemyMix: { normal: 5, fast: 3, heavy: 2 },
@@ -140,7 +133,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     bossFightEnemy: null,
     // La chupa se estrena contra el jefe (el aviso de cómo usarla sale justo antes, la primera vez)
     jacket: 'bosses',
-    playerFireRate: 1,
     spawnInterval: 55,
     enemySpeed: 1.3,
     enemyMix: { normal: 3, fast: 4, heavy: 3 },
@@ -158,7 +150,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     // (11,25 s en Fácil y 7,5 s en Difícil, por el spawnRate de la dificultad)
     bossFightEnemy: { type: 'barrel', spawnInterval: 540 },
     jacket: 'always',
-    playerFireRate: 1,
     spawnInterval: 48,
     enemySpeed: 1.4,
     // 1 de cada 25 es un barril pequeño (4 %): unos 3 por nivel
@@ -178,8 +169,6 @@ export const LEVELS: readonly LevelDefinition[] = [
     bosses: ['primo'],
     bossFightEnemy: null,
     jacket: 'always',
-    // Desde aquí el protagonista dispara un 30 % más (20 pasos entre disparos -> 15 en Normal)
-    playerFireRate: 1.3,
     // Uno cada 2 s: van lentos y pasan mucho rato en pantalla disparando
     spawnInterval: 120,
     enemySpeed: 1.4,
@@ -191,23 +180,47 @@ export const LEVELS: readonly LevelDefinition[] = [
     // Dentro del ayuntamiento: la planta baja (una fiesta con bolas de
     // discoteca) y, al acabar con sus seguratas, el despacho del alcalde
     alley: null,
-    interior: { guards: 4 },
-    // Las kills del nivel son los seguratas: hasta eliminarlos no se sube
+    // Cada segurata lanza algo cada 2,5 s desde que salta la alarma
+    interior: { guards: 4, throwGap: 150 },
+    // Las kills del nivel son los seguratas: hasta eliminarlos a todos no se sube
     killsToComplete: 4,
     distanceToComplete: 0,
-    // Una chica a cada lado y el alcalde, que sale de detrás de su mesa y al
-    // que ellas protegen: los tres lanzan botellas
+    // Una chica a cada lado y el alcalde, delante de su mesa, al que ellas
+    // protegen (es invulnerable mientras vivan): los tres lanzan botellas
     bosses: ['mayor', 'blonde', 'redhead'],
     bossFightEnemy: null,
     jacket: 'always',
-    playerFireRate: 1.3,
     // Bajo techo no cae nada
     spawnInterval: null,
-    // Lo que lanzan los jefes va tan rápido como lo del nivel 5
-    enemySpeed: 1.4,
+    // Lo que se lanza en la sala va algo despacio: en una sala cerrada no
+    // hay tanto sitio para esquivar como en la calle
+    enemySpeed: 0.8,
     enemyMix: {},
   },
 ];
+
+/**
+ * SUBIDAS DE NIVEL del protagonista: a partir de cierto nivel mejora, y la
+ * mejora se queda para todos los niveles siguientes (como subir de nivel en un
+ * juego de rol). Así no hay que repetir el dato en cada nivel: se añade una
+ * línea aquí y vale para todos los que vengan detrás.
+ *
+ *   fromLevel  desde qué nivel
+ *   fireRate   multiplicador de sus disparos (1,3 = un 30 % más)
+ */
+export const HERO_LEVEL_UPS: readonly { readonly fromLevel: number; readonly fireRate: number }[] =
+  [
+    // Nivel 5: se le está poniendo el brazo fuerte de tanta cerveza de verdad
+    { fromLevel: 5, fireRate: 1.3 },
+  ];
+
+/** Multiplicador de los disparos del protagonista en un nivel: el de todas sus subidas hasta ahí. */
+export function heroFireRate(levelId: number): number {
+  return HERO_LEVEL_UPS.filter((up) => up.fromLevel <= levelId).reduce(
+    (rate, up) => rate * up.fireRate,
+    1,
+  );
+}
 
 /** Nivel más alto que existe. Se deriva de LEVELS para no tener que mantenerlo a mano. */
 export const MAX_LEVEL = LEVELS.length;

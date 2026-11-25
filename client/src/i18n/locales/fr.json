@@ -92,7 +92,8 @@
       "girl3": "Au secours, un métalleux !",
       "girl5": "Il ne s'est sûrement pas douché !",
       "girl7": "Beurk ! Il porte un gilet Thrasher !"
-    }
+    },
+    "healShout": "Tenez, monsieur le maire, soignez-vous avec cette bière !"
   },
   "options": {
     "title": "Options",

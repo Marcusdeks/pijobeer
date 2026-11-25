@@ -141,6 +141,8 @@ export interface RenderLabels {
   bossName: (id: BossId, count: number) => string;
   /** Lo que grita cada chica de la fiesta al huir (su bocadillo). */
   shout: (girl: DancerGirl) => string;
+  /** Lo que le grita al alcalde la chica que le lanza una cerveza. */
+  healShout: string;
 }
 
 export function renderGame(
@@ -160,6 +162,8 @@ export function renderGame(
     const room = session.room === 'hall' ? assets.hallRoom : assets.officeRoom;
     // Las salas no se mueven: se dibujan desde arriba y lo que sobra queda fuera, por abajo
     if (room) ctx.drawImage(room, 0, 0);
+    // Los brillos de las bolas de discoteca caen en el suelo: van con él, debajo de todo
+    if (session.room === 'hall') drawDiscoSparkles(ctx, assets.discoSheet, session.steps);
   } else {
     drawAlley(ctx, assets.alley, session);
     drawTruck(ctx, assets.truckSheet, session);
@@ -186,15 +190,24 @@ export function renderGame(
   }
   for (const bullet of session.playerBullets) drawOpener(ctx, bullet, assets.openerSheet);
 
-  // 3. Planta baja: las luces de discoteca tiñen toda la sala (mientras dura
-  // la fiesta), encima cuelgan del techo las bolas (nada de lo que pasa por
-  // el suelo puede verse por delante de ellas) y, como en un cómic, los
-  // gritos de las chicas que huyen
-  if (session.room === 'hall') {
-    if (!session.partyOver) drawStrobe(ctx, session.steps);
-    drawDiscoBalls(ctx, assets.discoSheet, session.steps);
-    for (const dancer of session.dancers) {
-      if (dancer.isShouting) drawShout(ctx, labels.shout(dancer.girl), dancer);
+  // 3. Planta baja: las luces de discoteca tiñen toda la sala (solo hasta la
+  // alarma: con el combate no se verían los disparos) y encima cuelgan del
+  // techo las bolas (nada de lo que pasa por el suelo puede verse por delante
+  // de ellas). Y, como en un cómic, los gritos: las chicas que huyen y, en el
+  // despacho, la que le lanza al alcalde su cerveza
+  if (session.partyLights) drawStrobe(ctx, session.steps);
+  if (session.room === 'hall') drawDiscoBalls(ctx, assets.discoSheet, session.steps);
+  for (const dancer of session.dancers) {
+    if (dancer.isShouting) {
+      const head = { x: dancer.x, y: dancer.y - DANCER_HEIGHT };
+      drawShout(ctx, labels.shout(dancer.girl), head, dancer.opacity);
+    }
+  }
+  for (const heal of session.heals) {
+    const thrower = session.bosses.find((boss) => boss.id === heal.thrower);
+    if (thrower) {
+      const head = { x: thrower.x + thrower.width / 2, y: thrower.y };
+      drawShout(ctx, labels.healShout, head, 1);
     }
   }
 
@@ -318,23 +331,43 @@ function drawTruck(
   drawFrame(ctx, sheet, TRUCK_FRAME, { x: 0, y: 0 }, FINALE.truck.x, y);
 }
 
+/** Lo que mide de alto una chica (de los pies a la cabeza), para ponerle encima su bocadillo. */
+const DANCER_HEIGHT = 62;
+
 /**
- * Bolas de discoteca colgadas del techo (el borde de arriba), girando, con
- * sus brillos debajo: primero los brillos y encima las bolas, que los tapan
- * donde se juntan. Cada bola va en un punto distinto del giro.
+ * Cada bola de discoteca con el frame de su giro (cada una va en un punto
+ * distinto) y sus brillos, que son del mismo momento del giro: encajan.
  */
+const discoBallsAt = (steps: number) =>
+  CITY_HALL.hall.discoBalls.map((ball, index) => ({
+    ...ball,
+    ...discoFrames(steps + index * CITY_HALL.discoFrameSteps),
+  }));
+
+/**
+ * Los brillos de las bolas, en el suelo: más abajo que en el dibujo
+ * (sparklesDrop), donde llega la luz. Se dibujan con el suelo, antes que
+ * nadie: quien pasa por encima los pisa.
+ */
+function drawDiscoSparkles(
+  ctx: CanvasRenderingContext2D,
+  sheet: HTMLImageElement | null,
+  steps: number,
+): void {
+  if (!sheet) return;
+  for (const { x, sparklesDrop, sparkles } of discoBallsAt(steps)) {
+    drawFrame(ctx, sheet, sparkles, DISCO_ANCHOR, x, sparklesDrop);
+  }
+}
+
+/** Las bolas, colgadas del techo (el borde de arriba), girando, por encima de todo. */
 function drawDiscoBalls(
   ctx: CanvasRenderingContext2D,
   sheet: HTMLImageElement | null,
   steps: number,
 ): void {
   if (!sheet) return;
-  const balls = CITY_HALL.hall.discoBalls.map((x, index) => ({
-    x,
-    ...discoFrames(steps + index * CITY_HALL.discoFrameSteps),
-  }));
-  for (const { x, sparkles } of balls) drawFrame(ctx, sheet, sparkles, DISCO_ANCHOR, x, 0);
-  for (const { x, ball } of balls) drawFrame(ctx, sheet, ball, DISCO_ANCHOR, x, 0);
+  for (const { x, ball } of discoBallsAt(steps)) drawFrame(ctx, sheet, ball, DISCO_ANCHOR, x, 0);
 }
 
 /**
@@ -378,47 +411,47 @@ function drawOpenDoor(ctx: CanvasRenderingContext2D, open: number): void {
 const BUBBLE = { font: 8, line: 11, padding: 5, border: 2, maxWidth: 150, tail: 6, gap: 4 };
 
 /**
- * Bocadillo de cómic sobre la cabeza de una chica: blanco, con borde negro y
- * un piquito hacia ella, y el texto en letra pixel (Press Start 2P). Todo con
- * rectángulos enteros, sin curvas ni suavizado: así parece pixel art. No se
- * sale de la pantalla aunque ella esté pegada a un borde.
+ * Bocadillo de cómic sobre la cabeza de alguien (`top`: lo alto de su cabeza):
+ * blanco, con borde negro y un piquito hacia él, y el texto en letra pixel.
+ * Todo con rectángulos enteros, sin curvas ni suavizado: así parece pixel
+ * art. No se sale de la pantalla aunque esté pegado a un borde.
  */
-function drawShout(ctx: CanvasRenderingContext2D, text: string, dancer: Dancer): void {
+function drawShout(ctx: CanvasRenderingContext2D, text: string, top: Point, opacity: number): void {
   ctx.save();
-  ctx.globalAlpha = dancer.opacity;
+  ctx.globalAlpha = opacity;
   ctx.font = `${BUBBLE.font}px ${PIXEL_FONT}`;
   const lines = wrapText(ctx, text, BUBBLE.maxWidth);
   const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
   const width = Math.ceil(textWidth) + BUBBLE.padding * 2;
   const height = lines.length * BUBBLE.line + BUBBLE.padding * 2 - (BUBBLE.line - BUBBLE.font);
-  // Encima de la cabeza (las chicas miden 62), con el piquito apuntándole
-  const head: Point = { x: Math.round(dancer.x), y: Math.round(dancer.y - 62 - BUBBLE.gap) };
+  // Encima de la cabeza, con el piquito apuntándole
+  const head: Point = { x: Math.round(top.x), y: Math.round(top.y - BUBBLE.gap) };
   const left = Math.round(
     Math.min(Math.max(head.x - width / 2, BUBBLE.border), ARENA.width - width - BUBBLE.border),
   );
-  const top = head.y - BUBBLE.tail - height;
+  const bubbleTop = head.y - BUBBLE.tail - height;
 
   // Borde (un rectángulo negro algo más grande) y fondo blanco
   const { border } = BUBBLE;
   ctx.fillStyle = COLORS.bubbleBorder;
-  ctx.fillRect(left - border, top - border, width + border * 2, height + border * 2);
+  ctx.fillRect(left - border, bubbleTop - border, width + border * 2, height + border * 2);
   ctx.fillStyle = COLORS.bubble;
-  ctx.fillRect(left, top, width, height);
+  ctx.fillRect(left, bubbleTop, width, height);
   // Piquito escalonado: cada fila, un píxel más estrecha, hacia la cabeza
   const tailX = Math.min(Math.max(head.x, left + BUBBLE.tail), left + width - BUBBLE.tail);
   for (let row = 0; row < BUBBLE.tail; row++) {
     const half = BUBBLE.tail - row;
     ctx.fillStyle = COLORS.bubbleBorder;
-    ctx.fillRect(tailX - half - 1, top + height + row, half * 2 + 2, 1);
+    ctx.fillRect(tailX - half - 1, bubbleTop + height + row, half * 2 + 2, 1);
     ctx.fillStyle = COLORS.bubble;
-    ctx.fillRect(tailX - half + 1, top + height + row - 1, half * 2 - 2, 1);
+    ctx.fillRect(tailX - half + 1, bubbleTop + height + row - 1, half * 2 - 2, 1);
   }
 
   ctx.fillStyle = COLORS.bubbleText;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
   lines.forEach((line, index) =>
-    ctx.fillText(line, left + BUBBLE.padding, top + BUBBLE.padding + index * BUBBLE.line),
+    ctx.fillText(line, left + BUBBLE.padding, bubbleTop + BUBBLE.padding + index * BUBBLE.line),
   );
   ctx.restore();
 }
@@ -494,19 +527,7 @@ function drawBoss(ctx: CanvasRenderingContext2D, boss: Boss, assets: RenderAsset
   if (isOfficeBoss(id)) {
     if (!assets.cityHallSheet) return fillRect(ctx, boss, COLORS.enemy);
     const frame = officeBossFrame(id, pose, isFlashing);
-    // Detrás de la mesa, solo se ve lo que asoma por encima: se recorta el
-    // dibujo por el borde de atrás de la mesa (la mesa es parte del fondo)
-    const { desk } = CITY_HALL.office;
-    const behindDesk = feetY < desk.front && boss.x < desk.right && boss.x + boss.width > desk.left;
-    ctx.save();
-    if (behindDesk) {
-      ctx.beginPath();
-      ctx.rect(0, 0, ARENA.width, desk.back);
-      ctx.clip();
-    }
-    drawFrame(ctx, assets.cityHallSheet, frame, CITY_HALL_ANCHOR, centerX, feetY);
-    ctx.restore();
-    return;
+    return drawFrame(ctx, assets.cityHallSheet, frame, CITY_HALL_ANCHOR, centerX, feetY);
   }
   if (id === 'pijo' || id === 'primo') {
     const sheet = id === 'pijo' ? assets.pijoSheet : assets.primoSheet;

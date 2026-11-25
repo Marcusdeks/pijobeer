@@ -66,27 +66,18 @@
   --shadow-pixel: calc(var(--pixel) * 3) calc(var(--pixel) * 3) 0 var(--pixel) var(--color-shadow);
 
   /*
-   * MARCO PIXEL con las esquinas mordidas (como los de NES): cuatro sombras
-   * sin difuminar, desplazadas un píxel gordo hacia arriba, abajo, izquierda y
-   * derecha. Ninguna llega a la diagonal, así que en cada esquina queda un
-   * hueco cuadrado. Un border normal no puede hacerlo: sus esquinas son macizas.
-   * El marco va POR FUERA de la caja (no ocupa sitio): quien lo use necesita
-   * un margen de al menos un píxel gordo. Uso: box-shadow: var(--frame-primary);
+   * MARCO PIXEL: una sombra sin desplazar ni difuminar, pero con "spread"
+   * (expansión) de un píxel gordo: una franja maciza alrededor de la caja,
+   * esquinas incluidas. Se hace con box-shadow y no con border porque no
+   * ocupa sitio: así el marco puede cambiar de color o desaparecer sin que la
+   * caja cambie de tamaño ni mueva nada. Va POR FUERA de la caja: quien lo use
+   * necesita un margen de al menos un píxel gordo. Uso: box-shadow: var(--frame-primary);
    */
-  --frame-primary:
-    0 calc(var(--pixel) * -1) 0 0 var(--color-primary), 0 var(--pixel) 0 0 var(--color-primary),
-    calc(var(--pixel) * -1) 0 0 0 var(--color-primary), var(--pixel) 0 0 0 var(--color-primary);
-  --frame-muted:
-    0 calc(var(--pixel) * -1) 0 0 var(--color-primary-dark),
-    0 var(--pixel) 0 0 var(--color-primary-dark),
-    calc(var(--pixel) * -1) 0 0 0 var(--color-primary-dark),
-    var(--pixel) 0 0 0 var(--color-primary-dark);
-  --frame-dark:
-    0 calc(var(--pixel) * -1) 0 0 var(--color-shadow), 0 var(--pixel) 0 0 var(--color-shadow),
-    calc(var(--pixel) * -1) 0 0 0 var(--color-shadow), var(--pixel) 0 0 0 var(--color-shadow);
-  --frame-neon:
-    0 calc(var(--pixel) * -1) 0 0 var(--color-neon), 0 var(--pixel) 0 0 var(--color-neon),
-    calc(var(--pixel) * -1) 0 0 0 var(--color-neon), var(--pixel) 0 0 0 var(--color-neon);
+  --frame-primary: 0 0 0 var(--pixel) var(--color-primary);
+  --frame-muted: 0 0 0 var(--pixel) var(--color-primary-dark);
+  --frame-dark: 0 0 0 var(--pixel) var(--color-shadow);
+  --frame-neon: 0 0 0 var(--pixel) var(--color-neon);
+  --frame-success: 0 0 0 var(--pixel) var(--color-success);
 
   /* Relieve de los botones (como las teclas de una recreativa): luz arriba a
      la izquierda y sombra abajo a la derecha, por dentro */

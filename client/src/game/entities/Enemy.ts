@@ -12,7 +12,9 @@
  *     al lanzarlo (THROWN), sin cambiar de rumbo. Las botellas disparan hacia
  *     donde van; los barriles, hacia el jugador, como siempre.
  *   - Colocado (placed, los seguratas): no se mueve. Dispara como un barril,
- *     pero solo desde que GameSession le avisa de que ha saltado la alarma (arm).
+ *     pero solo desde que GameSession le avisa de que ha saltado la alarma
+ *     (arm). Además lanza cosas cada cierto tiempo (throwAt): botellas o
+ *     barriles, como los jefes (ver THROWN).
  *
  * Cada disparo de una botella es una pequeña animación:
  *
@@ -36,6 +38,7 @@ import {
   ENEMY_BULLET,
   ENEMY_TYPES,
   HIT_FLASH_STEPS,
+  THROWN,
   type ThrowStats,
 } from '../config';
 import { aimDegrees, directionDegrees, velocityAt, type Point, type Rect } from '../geometry';
@@ -89,6 +92,11 @@ export class Enemy implements Rect {
   private readonly reload: number;
   /** false hasta que puede disparar (los colocados esperan a la alarma). */
   private armed = true;
+  /**
+   * Lo que lanza (los seguratas): de qué tipos (uno al azar cada vez), cada
+   * cuántos pasos y cuántos faltan para el siguiente. null = no lanza nada.
+   */
+  private throwing: { types: readonly EnemyTypeId[]; gap: number; cooldown: number } | null = null;
 
   /**
    * @param speedScale - multiplicador de velocidad del nivel (y de los trucos de admin)
@@ -154,17 +162,48 @@ export class Enemy implements Rect {
 
   /**
    * Un enemigo que ya está en la sala al empezar: con los pies en `feet`, sin
-   * moverse y sin disparar hasta que se le llame a arm(). `look`: qué dibujo
-   * lleva. `phase`: pasos de baile adelantados, para que no bailen todos a la vez.
+   * moverse, sin disparar ni lanzar nada hasta que se le llame a arm().
+   * @param look - qué dibujo lleva
+   * @param throwing - qué lanza y cada cuántos pasos (o null, nada)
+   * @param phase - pasos de baile adelantados, para que no bailen todos a la vez
    */
-  static placed(type: EnemyTypeId, feet: Point, look: number, random: RandomFn, phase = 0): Enemy {
+  static placed(
+    type: EnemyTypeId,
+    feet: Point,
+    look: number,
+    random: RandomFn,
+    throwing: { types: readonly EnemyTypeId[]; gap: number } | null = null,
+    phase = 0,
+  ): Enemy {
     const { width, height } = ENEMY_TYPES[type];
     const enemy = new Enemy(feet.x - width / 2, feet.y - height, type, random, 0);
     enemy.placed = true;
     enemy.armed = false;
     enemy.look = look;
     enemy.age = phase;
+    // El primero, entre media espera y una entera desde la alarma: así no lanzan todos a la vez
+    enemy.throwing = throwing && {
+      ...throwing,
+      cooldown: Math.round(throwing.gap * (0.5 + random() * 0.5)),
+    };
     return enemy;
+  }
+
+  /**
+   * Si le toca, lanza algo hacia `target` (el jugador): un tipo al azar de los
+   * suyos, que sale recto hacia donde estaba él, como lo que lanzan los jefes.
+   * Los barriles, lentos (THROWN.barrels); el resto, como las botellas de los
+   * pijos (THROWN.bottles). Solo tras la alarma (armed).
+   * @param speedScale - multiplicador de velocidad de lo lanzado (el del nivel)
+   * @returns lo lanzado, o null si aún no le toca
+   */
+  throwAt(target: Point, random: RandomFn, speedScale: number): Enemy | null {
+    if (!this.throwing || !this.armed || --this.throwing.cooldown > 0) return null;
+    this.throwing.cooldown = this.throwing.gap;
+    const { types } = this.throwing;
+    const type = types[Math.floor(random() * types.length)]!;
+    const how = ENEMY_TYPES[type].kind === 'barrel' ? THROWN.barrels : THROWN.bottles;
+    return Enemy.thrownAt(type, this.center, target, random, how, speedScale);
   }
 
   /** Puede empezar a disparar (ha saltado la alarma). */
